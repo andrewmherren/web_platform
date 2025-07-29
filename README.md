@@ -1,8 +1,6 @@
-# WiFi Manager for ESP8266
+# WiFi Manager for ESP8266/ESP32
 
-A comprehensive WiFi management library for ESP8266 microcontrollers that provides a configuration portal, persistent storage of credentials, and a web interface for managing WiFi connections.
-
-## Features
+A comprehensive WiFi management library for ESP8266/ESP32 microcontrollers that provides a configuration portal, persistent storage of credentials, mDNS hostname support, and a web interface for managing WiFi connections.## Features
 
 - **Easy WiFi Configuration**: Hosts an access point with a captive portal that allows users to configure their WiFi network details without hardcoding.
 - **Persistent Storage**: Stores WiFi credentials in EEPROM so they survive power cycles.
@@ -12,10 +10,9 @@ A comprehensive WiFi management library for ESP8266 microcontrollers that provid
 - **Connection Management**: Handles connection, reconnection, and status monitoring.
 - **Callback Support**: Provides callback when WiFi setup is complete for application initialization.
 - **Fallback Mode**: Easily reset WiFi settings and return to configuration mode.
+- **mDNS Hostname**: Provides easy device access via a human-readable hostname (e.g., http://mydevice.local).## Installation
 
-## Installation
-
-1. Create a new PlatformIO project for your ESP8266 device.
+1. Create a new PlatformIO project for your ESP8266 or ESP32 device.
 2. Add this library to your project:
    - Clone this repository into your project's `lib` folder: 
      ```
@@ -47,16 +44,16 @@ void onWiFiSetupComplete() {
   
   // Start the web server
   server.begin();
-}
-
-void setup() {
+}void setup() {
   Serial.begin(115200);
   
   // Set callback to be called when WiFi setup is complete
   wifiManager.onSetupComplete(onWiFiSetupComplete);
   
-  // Start WiFi manager with custom AP name
-  wifiManager.begin("MyDeviceSetup", true);
+  // Start WiFi manager with custom base name
+  // This will create an AP named "MyDeviceSetup" during configuration
+  // and set the mDNS hostname to "mydevice.local" when connected
+  wifiManager.begin("MyDevice", true);
 }
 
 void loop() {
@@ -100,13 +97,14 @@ void setup() {
 void loop() {
   wifiManager.handle();
 }
-```
-
-## Web Interface
+```## Web Interface
 
 The library provides a responsive web interface for managing WiFi connections:
 
 - **WiFi Setup Portal**: `http://[device-ip]/wifi` or `http://192.168.4.1` when in AP mode
+- **Connected Device Access**:
+  - Via IP Address: `http://[device-ip]/`
+  - Via mDNS hostname: `http://[baseName].local/` (e.g., `http://mydevice.local/`)
 - **API Endpoints**:
   - `GET /api/wifi/status` - Returns current WiFi status
   - `GET /api/wifi/scan` - Returns list of available WiFi networks
@@ -114,22 +112,43 @@ The library provides a responsive web interface for managing WiFi connections:
   - `POST /api/wifi/disconnect` - Disconnects from current network
   - `POST /api/wifi/reset` - Resets WiFi settings
 
-## Customization
+### mDNS Hostname Compatibility
 
-You can customize the AP name and whether to enable the web interface:
+The mDNS hostname feature allows access to the device using a human-readable name rather than an IP address:
+
+- **iOS/macOS**: Native support for .local hostnames
+- **Linux**: Most distributions work with Avahi installed
+- **Android**: Supported on most modern devices
+- **Windows**: Requires installation of Bonjour service (available with iTunes or as a standalone package)## Customization
+
+You can customize the base name and whether to enable the web interface:
 
 ```cpp
-// Custom AP name, enable web interface
+// Custom base name, enable web interface
+// This creates an AP named "MyCustomNameSetup" and hostname "mycustomname.local"
 wifiManager.begin("MyCustomName", true);
 
-// Default AP name, disable web interface (API only)
-wifiManager.begin("DeviceSetup", false);
+// Default base name, disable web interface (API only)
+// This creates an AP named "DeviceSetup" and hostname "device.local"
+wifiManager.begin("Device", false);
 ```
 
-## Dependencies
+### Getting Device Information
 
-- ESP8266WiFi library
-- ESP8266WebServer library
+```cpp
+// Get the base name used for the device
+const char* baseName = wifiManager.getBaseName();  // e.g., "MyDevice"
+
+// Get the full AP name used during setup
+const char* apName = wifiManager.getAPName();  // e.g., "MyDeviceSetup"
+
+// Get the full mDNS hostname
+String hostname = wifiManager.getHostname();  // e.g., "mydevice.local"
+```## Dependencies
+
+- WiFi libraries (ESP8266WiFi or WiFi.h for ESP32)
+- Web server libraries (ESP8266WebServer or WebServer for ESP32)
+- mDNS libraries (ESP8266mDNS or ESPmDNS for ESP32)
 - DNSServer library
 - EEPROM library
 - ArduinoJson library (for API responses)

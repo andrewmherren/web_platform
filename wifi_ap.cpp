@@ -6,13 +6,27 @@
 WiFiManager wifiManager;
 
 // WiFiManager implementation
-
 WiFiManager::WiFiManager()
-    : server(80), connectionState(WIFI_CONNECTING), apSSID("DeviceSetup"),
-      callbackCalled(false), webInterfaceEnabled(true) {}
-void WiFiManager::begin(const char *apName, bool enableWebInterface) {
-  // Set the AP name and web interface setting
-  apSSID = apName;
+    : server(80), connectionState(WIFI_CONNECTING), callbackCalled(false),
+      webInterfaceEnabled(true) {
+  baseName = "Device";
+  strcpy(apSSIDBuffer, "DeviceSetup");
+  Serial.println("WiFiManager constructor called");
+  Serial.print("Default AP SSID: ");
+  Serial.println(apSSIDBuffer);
+}
+void WiFiManager::begin(const char *name, bool enableWebInterface) {
+  // Set the base name and web interface setting
+  baseName = name;
+
+  // Create the AP SSID using the base name
+  snprintf(apSSIDBuffer, sizeof(apSSIDBuffer), "%sSetup", name);
+
+  Serial.print("Base name set to: ");
+  Serial.println(baseName);
+  Serial.print("AP SSID set to: ");
+  Serial.println(apSSIDBuffer);
+
   webInterfaceEnabled = enableWebInterface;
 
   // Initialize serial communication
@@ -45,13 +59,13 @@ void WiFiManager::begin(const char *apName, bool enableWebInterface) {
 void WiFiManager::onSetupComplete(WiFiSetupCompleteCallback callback) {
   setupCompleteCallback = callback;
 
-  // If we're already connected and haven't called the callback yet, call it now
+  // If we're already connected and haven't called the callback yet, call it
+  // now
   if (connectionState == WIFI_CONNECTED && !callbackCalled) {
     setupCompleteCallback();
     callbackCalled = true;
   }
 }
-
 void WiFiManager::handle() {
   // Process web server requests
   server.handleClient();
@@ -59,15 +73,38 @@ void WiFiManager::handle() {
   // If in config portal mode, handle DNS requests for captive portal
   if (connectionState == WIFI_CONFIG_PORTAL) {
     dnsServer.processNextRequest();
+  } // Handle mDNS if connected
+  if (connectionState == WIFI_CONNECTED) {
+#ifdef ESP8266
+    // Only ESP8266 needs explicit mDNS update calls
+    MDNS.update();
+#endif
+
+    // Check if WiFi is still connected but mDNS might need restarting
+    static unsigned long lastMdnsCheck = 0;
+    unsigned long currentMillis = millis();
+
+    // Check mDNS status every 30 seconds
+    if (currentMillis - lastMdnsCheck > 30000) {
+      lastMdnsCheck = currentMillis;
+
+      // Try to restart mDNS if it's not responding
+      if (!MDNS.begin(baseName)) {
+        Serial.println("Restarting mDNS responder...");
+        MDNS.end();
+        if (MDNS.begin(baseName)) {
+          Serial.println("mDNS responder restarted");
+          MDNS.addService("http", "tcp", 80);
+        }
+      }
+    }
   }
 
   // Check WiFi connection status and reconnect if needed
   if (connectionState == WIFI_CONNECTED && WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi connection lost, trying to reconnect...");
     connectionState = WIFI_CONNECTING;
-    callbackCalled = false; // Reset callback flag
-
-    // Try to reconnect
+    callbackCalled = false; // Reset callback flag// Try to reconnect
     if (connectToStoredWiFi()) {
       connectionState = WIFI_CONNECTED;
 
@@ -133,11 +170,23 @@ void WiFiManager::resetSettings() {
   EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
   EEPROM.commit();
 }
-
 void WiFiManager::setupConfigPortal() {
-  Serial.println("Setting up configuration portal..."); // Setup AP mode
+  Serial.println("Setting up configuration portal..."); // Debug the AP SSID
+  Serial.print("Starting AP with SSID: ");
+  Serial.println(apSSIDBuffer);
+
+  // Setup AP mode
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(apSSID, apPassword);
+
+  // Create AP network
+  bool apStarted = WiFi.softAP(apSSIDBuffer, apPassword);
+
+  if (apStarted) {
+    Serial.println("AP started successfully");
+  } else {
+    Serial.println("Failed to start AP!");
+  }
+
   IPAddress myIP;
   myIP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
@@ -198,11 +247,34 @@ bool WiFiManager::connectToStoredWiFi() {
     Serial.print(".");
     timeout--;
   }
-
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println();
     Serial.print("Connected to WiFi. IP address: ");
     Serial.println(WiFi.localIP());
+
+    // Initialize mDNS with the base name
+    Serial.print("Starting mDNS with hostname: ");
+    Serial.println(baseName);
+
+    // Stop any existing mDNS service
+    MDNS.end();
+
+    // Initialize mDNS with the base name
+    if (MDNS.begin(baseName)) {
+      Serial.print("mDNS responder started successfully: http://");
+      Serial.print(baseName);
+      Serial.println(".local");
+
+      // Add service to mDNS
+      MDNS.addService("http", "tcp", 80);
+
+      // Additional debug
+      Serial.println("HTTP service added to mDNS");
+    } else {
+      Serial.println("ERROR: Failed to start mDNS responder!");
+      Serial.println("Device will be accessible via IP address only");
+    }
+
     return true;
   } else {
     Serial.println();
@@ -278,10 +350,10 @@ void WiFiManager::handleWiFiStatus() {
                  : connectionState == WIFI_CONFIG_PORTAL ? "setup"
                                                          : "failed") +
           "\",";
-
   if (connectionState == WIFI_CONNECTED) {
     json += "\"ssid\":\"" + WiFi.SSID() + "\",";
     json += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
+    json += "\"hostname\":\"" + String(baseName) + ".local\",";
     json += "\"rssi\":" + String(WiFi.RSSI()) + ",";
     json += "\"mac\":\"" + WiFi.macAddress() + "\"";
   } else {
@@ -290,12 +362,10 @@ void WiFiManager::handleWiFiStatus() {
       json += "\"saved_ssid\":\"" + ssid + "\"";
     } else {
       json += "\"saved_ssid\":null";
-    }
-
-    // Add AP info when in config portal mode
+    } // Add AP info when in config portal mode
     if (connectionState == WIFI_CONFIG_PORTAL) {
       json += ",\"ap_ip\":\"" + WiFi.softAPIP().toString() + "\"";
-      json += ",\"ap_ssid\":\"" + String(apSSID) + "\"";
+      json += ",\"ap_ssid\":\"" + String(apSSIDBuffer) + "\"";
     }
   }
 

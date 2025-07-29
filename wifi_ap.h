@@ -6,12 +6,15 @@
 #include <functional>
 
 #if defined(ESP32)
+#include <ESPmDNS.h>
 #include <WebServer.h>
 #include <WiFi.h>
+
 typedef WebServer WebServerClass;
 #elif defined(ESP8266)
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
 typedef ESP8266WebServer WebServerClass;
 #endif
 
@@ -29,12 +32,12 @@ typedef std::function<void()> WiFiSetupCompleteCallback;
 // Class to manage WiFi connection and configuration
 class WiFiManager {
 public:
-  WiFiManager();
-
-  // Initialize WiFi functionality with optional custom AP name and web
-  // interface
-  void begin(const char *apName = "DeviceSetup",
-             bool enableWebInterface = true);
+  WiFiManager(); // Initialize WiFi functionality with optional custom base name
+                 // and web interface
+  // The base name is used for:
+  // - AP SSID (baseName + "Setup")
+  // - mDNS hostname (baseName.local)
+  void begin(const char *baseName = "Device", bool enableWebInterface = true);
 
   // Set callback to be called when WiFi connection is established
   void onSetupComplete(WiFiSetupCompleteCallback callback);
@@ -55,10 +58,14 @@ public:
   void startConfigPortal();
 
   // Reset stored WiFi credentials
-  void resetSettings();
+  void resetSettings(); // Get AP name (used during setup)
+  const char *getAPName() const { return apSSIDBuffer; }
 
-  // Get AP name
-  const char *getAPName() const { return apSSID; }
+  // Get device base name (used for hostname)
+  const char *getBaseName() const { return baseName; }
+
+  // Get full hostname (baseName.local)
+  String getHostname() const { return String(baseName) + ".local"; }
 
 private: // Web server for both config portal and normal operation
   WebServerClass server;
@@ -70,10 +77,10 @@ private: // Web server for both config portal and normal operation
   WiFiConnectionState connectionState;
 
   // Setup completion callback
-  WiFiSetupCompleteCallback setupCompleteCallback;
-
-  // Access Point settings
-  const char *apSSID;
+  WiFiSetupCompleteCallback
+      setupCompleteCallback;   // Device name and network settings
+  const char *baseName;        // Base name for device (used for hostname)
+  char apSSIDBuffer[64];       // Buffer to store the AP SSID
   const char *apPassword = ""; // No password for open AP
 
   // Flag to track if callback has been called
