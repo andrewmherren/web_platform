@@ -3,9 +3,17 @@
 
 #include <DNSServer.h>
 #include <EEPROM.h>
+#include <functional>
+
+#if defined(ESP32)
+#include <WebServer.h>
+#include <WiFi.h>
+typedef WebServer WebServerClass;
+#elif defined(ESP8266)
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
-#include <functional>
+typedef ESP8266WebServer WebServerClass;
+#endif
 
 // WiFi connection states
 enum WiFiConnectionState {
@@ -32,7 +40,7 @@ public:
   void onSetupComplete(WiFiSetupCompleteCallback callback);
 
   // Setup WiFi management web handlers (API endpoints)
-  void setupWebHandlers(ESP8266WebServer &server);
+  void setupWebHandlers(WebServerClass &server);
 
   // Handle WiFi operations (must be called in loop)
   void handle();
@@ -41,7 +49,9 @@ public:
   WiFiConnectionState getConnectionState() const;
 
   // Get a reference to the web server (for adding custom handlers)
-  ESP8266WebServer &getWebServer(); // Force start the configuration portal
+  WebServerClass &getWebServer();
+
+  // Force start the configuration portal
   void startConfigPortal();
 
   // Reset stored WiFi credentials
@@ -50,9 +60,8 @@ public:
   // Get AP name
   const char *getAPName() const { return apSSID; }
 
-private:
-  // Web server for both config portal and normal operation
-  ESP8266WebServer server;
+private: // Web server for both config portal and normal operation
+  WebServerClass server;
 
   // DNS server for captive portal
   DNSServer dnsServer;

@@ -87,9 +87,9 @@ WiFiConnectionState WiFiManager::getConnectionState() const {
   return connectionState;
 }
 
-ESP8266WebServer &WiFiManager::getWebServer() { return server; }
+WebServerClass &WiFiManager::getWebServer() { return server; }
 
-void WiFiManager::setupWebHandlers(ESP8266WebServer &server) {
+void WiFiManager::setupWebHandlers(WebServerClass &server) {
   Serial.println("Setting up WiFi management web handlers...");
 
   // API endpoints (always available)
@@ -133,17 +133,15 @@ void WiFiManager::resetSettings() {
   EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
   EEPROM.commit();
 }
-void WiFiManager::setupConfigPortal() {
-  Serial.println("Setting up configuration portal...");
 
-  // Setup AP mode
+void WiFiManager::setupConfigPortal() {
+  Serial.println("Setting up configuration portal..."); // Setup AP mode
   WiFi.mode(WIFI_AP);
   WiFi.softAP(apSSID, apPassword);
-  IPAddress myIP = WiFi.softAPIP();
+  IPAddress myIP;
+  myIP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
-  Serial.println(myIP);
-
-  // Setup captive portal DNS
+  Serial.println(myIP); // Setup captive portal DNS
   dnsServer.start(53, "*", myIP);
 
   // Stop the server to clear handlers
@@ -333,8 +331,15 @@ void WiFiManager::handleWiFiScan() {
     json += "{";
     json += "\"ssid\":\"" + WiFi.SSID(i) + "\",";
     json += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
+
+#if defined(ESP32)
+    // ESP32 uses different encryption type constants
+    json += "\"encrypted\":" +
+            String(WiFi.encryptionType(i) != WIFI_AUTH_OPEN ? "true" : "false");
+#elif defined(ESP8266)
     json += "\"encrypted\":" +
             String(WiFi.encryptionType(i) != ENC_TYPE_NONE ? "true" : "false");
+#endif
     json += "}";
   }
   json += "]}";
@@ -396,8 +401,7 @@ void WiFiManager::handleWiFiConnect() {
 
   // Delay to ensure response is sent
   delay(2000);
-
-  // Restart to apply new settings
+  // Restart to apply new settings (works on both ESP8266 and ESP32)
   ESP.restart();
 }
 
@@ -422,8 +426,7 @@ void WiFiManager::handleWiFiReset() {
 
   // Delay to ensure response is sent
   delay(1000);
-
-  // Restart to apply changes
+  // Restart to apply changes (works on both ESP8266 and ESP32)
   ESP.restart();
 }
 
@@ -458,8 +461,7 @@ void WiFiManager::handleSave() {
 
   // Delay to ensure the page is sent before restarting
   delay(2000);
-
-  // Restart the ESP to apply new settings
+  // Restart the ESP to apply new settings (works on both ESP8266 and ESP32)
   ESP.restart();
 }
 void WiFiManager::handleNotFound() {
