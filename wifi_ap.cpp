@@ -2,6 +2,10 @@
 #include "wifi_ap_web.h"
 #include <ArduinoJson.h>
 
+#include "../../src/ssl_cert.h"
+#include "wifi_ap_web.h"
+#include <ArduinoJson.h> // Include SSL certificate helper
+
 // Create global instance of WiFiManager
 WiFiManager wifiManager;
 
@@ -555,7 +559,7 @@ void WiFiManager::handleNotFound() {
     // In normal operation mode, return 404
     server.send(404, "text/plain", "Not found");
   }
-}
+} // HTTPS server implementation
 
 // These are the legacy C-style functions that call through to our class
 // instance They are kept for backward compatibility

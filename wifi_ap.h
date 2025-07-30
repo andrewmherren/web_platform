@@ -6,11 +6,14 @@
 #include <functional>
 
 #if defined(ESP32)
+#include <EEPROM.h>
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#include <functional>
 
 typedef WebServer WebServerClass;
+
 #elif defined(ESP8266)
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
@@ -52,13 +55,22 @@ public:
   WiFiConnectionState getConnectionState() const;
 
   // Get a reference to the web server (for adding custom handlers)
-  WebServerClass &getWebServer();
+  WebServerClass &getWebServer(); // Method to check if HTTPS is available
+  bool isHttpsSupported() const {
+#if defined(ESP32) && defined(CONFIG_IDF_TARGET_ESP32S3)
+    return true;
+#else
+    return false;
+#endif
+  }
 
   // Force start the configuration portal
   void startConfigPortal();
 
   // Reset stored WiFi credentials
-  void resetSettings(); // Get AP name (used during setup)
+  void resetSettings();
+
+  // Get AP name (used during setup)
   const char *getAPName() const { return apSSIDBuffer; }
 
   // Get device base name (used for hostname)
@@ -67,7 +79,8 @@ public:
   // Get full hostname (baseName.local)
   String getHostname() const { return String(baseName) + ".local"; }
 
-private: // Web server for both config portal and normal operation
+private:
+  // Web server for both config portal and normal operation
   WebServerClass server;
 
   // DNS server for captive portal
@@ -77,8 +90,9 @@ private: // Web server for both config portal and normal operation
   WiFiConnectionState connectionState;
 
   // Setup completion callback
-  WiFiSetupCompleteCallback
-      setupCompleteCallback;   // Device name and network settings
+  WiFiSetupCompleteCallback setupCompleteCallback;
+
+  // Device name and network settings
   const char *baseName;        // Base name for device (used for hostname)
   char apSSIDBuffer[64];       // Buffer to store the AP SSID
   const char *apPassword = ""; // No password for open AP
@@ -87,7 +101,8 @@ private: // Web server for both config portal and normal operation
   bool callbackCalled;
 
   // Web interface configuration
-  bool webInterfaceEnabled;
+  bool webInterfaceEnabled; // HTTPS flag
+  bool httpsEnabled = false;
 
   // EEPROM memory addresses
   static const int EEPROM_SIZE = 512;
