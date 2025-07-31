@@ -505,8 +505,13 @@ void WiFiManager::handleWiFiReset() {
 }
 
 // Web Interface Handler Methods (only used if web interface is enabled)
-
 void WiFiManager::handleRoot() {
+  // Add headers to prevent browser caching and HSTS issues when switching
+  // between HTTP/HTTPS
+  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  server.sendHeader("Pragma", "no-cache");
+  server.sendHeader("Expires", "0");
+
   // In AP mode, always show the config page regardless of the URL
   if (connectionState == WIFI_CONFIG_PORTAL) {
     Serial.println("Serving WiFi setup page in AP mode");
