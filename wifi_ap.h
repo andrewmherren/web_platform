@@ -4,6 +4,7 @@
 #include <DNSServer.h>
 #include <EEPROM.h>
 #include <functional>
+#include <web_router.h>
 
 #if defined(ESP32)
 #include <EEPROM.h>
@@ -30,10 +31,10 @@ enum WiFiConnectionState {
 };
 
 // Callback function type for when WiFi setup is complete
-typedef std::function<void()> WiFiSetupCompleteCallback;
-
-// Class to manage WiFi connection and configuration
-class WiFiManager {
+typedef std::function<void()>
+    WiFiSetupCompleteCallback; // Class to manage WiFi connection and
+                               // configuration
+class WiFiManager : public WebModule {
 public:
   WiFiManager(); // Initialize WiFi functionality with optional custom base name
                  // and web interface
@@ -45,8 +46,8 @@ public:
   // Set callback to be called when WiFi connection is established
   void onSetupComplete(WiFiSetupCompleteCallback callback);
 
-  // Setup WiFi management web handlers (API endpoints)
-  void setupWebHandlers(WebServerClass &server);
+  // WebModule interface implementation
+  void registerRoutes(WebRouter &router, const char *basePath) override;
 
   // Handle WiFi operations (must be called in loop)
   void handle();
@@ -54,8 +55,12 @@ public:
   // Get the current connection state
   WiFiConnectionState getConnectionState() const;
 
-  // Get a reference to the web server (for adding custom handlers)
-  WebServerClass &getWebServer(); // Method to check if HTTPS is available
+  // Get a reference to the web server (for adding custom handlers) - DEPRECATED
+  // This method is kept for backward compatibility but should not be used in
+  // new code
+  WebServerClass &getWebServer();
+
+  // Method to check if HTTPS is available
   bool isHttpsSupported() const {
 #if defined(ESP32) && defined(CONFIG_IDF_TARGET_ESP32S3)
     return true;
@@ -114,18 +119,19 @@ private:
   void setupConfigPortal();
   bool connectToStoredWiFi();
   void saveWiFiCredentials(const String &ssid, const String &password);
-  bool loadWiFiCredentials(String &ssid, String &password);
-
-  // API handler methods (always available)
-  void handleWiFiStatus();
-  void handleWiFiScan();
-  void handleWiFiConnect();
-  void handleWiFiDisconnect();
-  void handleWiFiReset();
+  bool
+  loadWiFiCredentials(String &ssid,
+                      String &password); // API handler methods (always
+                                         // available) - return String responses
+  String handleWiFiStatusAPI();
+  String handleWiFiScanAPI();
+  String handleWiFiConnectAPI(const String &postBody);
+  String handleWiFiDisconnectAPI();
+  String handleWiFiResetAPI();
 
   // Web handler methods
-  void handleRoot();
-  void handleSave();
+  String handleRootPage();
+  String handleSavePage(const String &postBody);
   void handleNotFound();
 };
 
