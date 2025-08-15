@@ -194,8 +194,15 @@ void WiFiManager::registerRoutes(WebRouter &router, const char *basePath) {
     router.addRoute(wifiPath.c_str(), HTTP_GET, [this, wifiPath](WebServerClass &server) {
       Serial.println("WiFi page route handler called for: " + wifiPath);
       String response = this->handleRootPage();
-      Serial.println("WiFi page response length: " + String(response.length()));
+      Serial.println("WiFi page content length: " + String(response.length()));
+      
+      // Add cache control headers
+      server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      server.sendHeader("Pragma", "no-cache");
+      server.sendHeader("Expires", "0");
+      
       server.send(200, "text/html", response);
+      Serial.println("WiFi page response length: " + String(response.length()));
     });
 
     router.addRoute(savePath.c_str(), HTTP_POST, [this](WebServerClass &server) {
