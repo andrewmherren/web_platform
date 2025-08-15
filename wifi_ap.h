@@ -113,22 +113,21 @@ private:
   static const int EEPROM_SIZE = 512;
   static const int WIFI_SSID_ADDR = 0;
   static const int WIFI_PASS_ADDR = 64;
-  static const int WIFI_CONFIG_FLAG_ADDR = 128;
-
-  // Internal methods
+  static const int WIFI_CONFIG_FLAG_ADDR = 128; // Internal methods
   void setupConfigPortal();
   bool connectToStoredWiFi();
   void saveWiFiCredentials(const String &ssid, const String &password);
-  bool
-  loadWiFiCredentials(String &ssid,
-                      String &password); // API handler methods (always
-                                         // available) - return String responses
+  bool loadWiFiCredentials(String &ssid, String &password);
+
+public:
+  // API handler methods (public for HTTPS adapter access)
   String handleWiFiStatusAPI();
   String handleWiFiScanAPI();
   String handleWiFiConnectAPI(const String &postBody);
   String handleWiFiDisconnectAPI();
   String handleWiFiResetAPI();
 
+private:
   // Web handler methods
   String handleRootPage();
   String handleSavePage(const String &postBody);

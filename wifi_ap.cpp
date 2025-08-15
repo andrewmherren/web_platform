@@ -2,6 +2,12 @@
 #include "wifi_ap_web_clean.h"
 #include <ArduinoJson.h>
 
+#if defined(ESP32)
+#include <esp_timer.h>
+#elif defined(ESP8266)
+#include <Ticker.h>
+#endif
+
 #include "../../src/ssl_cert.h"
 // Include SSL certificate helper
 
@@ -78,7 +84,7 @@ void WiFiManager::handle() {
   if (connectionState == WIFI_CONFIG_PORTAL) {
     dnsServer.processNextRequest();
   }
-  
+
   // Handle mDNS if connected
   if (connectionState == WIFI_CONNECTED) {
 #ifdef ESP8266
@@ -111,7 +117,7 @@ void WiFiManager::handle() {
     Serial.println("WiFi connection lost, trying to reconnect...");
     connectionState = WIFI_CONNECTING;
     callbackCalled = false; // Reset callback flag
-    
+
     // Try to reconnect
     if (connectToStoredWiFi()) {
       connectionState = WIFI_CONNECTED;
@@ -132,15 +138,13 @@ WiFiConnectionState WiFiManager::getConnectionState() const {
   return connectionState;
 }
 
-WebServerClass &WiFiManager::getWebServer() { 
-  return server; 
-}
+WebServerClass &WiFiManager::getWebServer() { return server; }
 
 void WiFiManager::registerRoutes(WebRouter &router, const char *basePath) {
   Serial.println("Registering WiFi management routes with Web Router...");
 
   String basePathStr = String(basePath);
-  
+
   // API endpoints (always available) - simplified paths
   String statusPath = basePathStr + "/api/status";
   String scanPath = basePathStr + "/api/scan";
@@ -158,30 +162,32 @@ void WiFiManager::registerRoutes(WebRouter &router, const char *basePath) {
     server.send(200, "application/json", response);
   });
 
-  router.addRoute(connectPath.c_str(), HTTP_POST, [this](WebServerClass &server) {
-    String postBody = server.arg("plain");
-    String response = this->handleWiFiConnectAPI(postBody);
-    if (response.startsWith("ERROR:")) {
-      server.send(400, "application/json", response.substring(6));
-    } else {
-      server.send(200, "application/json", response);
-    }
-  });
+  router.addRoute(
+      connectPath.c_str(), HTTP_POST, [this](WebServerClass &server) {
+        String postBody = server.arg("plain");
+        String response = this->handleWiFiConnectAPI(postBody);
+        if (response.startsWith("ERROR:")) {
+          server.send(400, "application/json", response.substring(6));
+        } else {
+          server.send(200, "application/json", response);
+        }
+      });
 
-  router.addRoute(disconnectPath.c_str(), HTTP_POST, [this](WebServerClass &server) {
-    String response = this->handleWiFiDisconnectAPI();
-    if (response.startsWith("ERROR:")) {
-      server.send(400, "application/json", response.substring(6));
-    } else {
-      server.send(200, "application/json", response);
-    }
-  });
+  router.addRoute(
+      disconnectPath.c_str(), HTTP_POST, [this](WebServerClass &server) {
+        String response = this->handleWiFiDisconnectAPI();
+        if (response.startsWith("ERROR:")) {
+          server.send(400, "application/json", response.substring(6));
+        } else {
+          server.send(200, "application/json", response);
+        }
+      });
 
   router.addRoute(resetPath.c_str(), HTTP_POST, [this](WebServerClass &server) {
     String response = this->handleWiFiResetAPI();
     server.send(200, "application/json", response);
   });
-  
+
   // Web interface endpoints (optional)
   if (webInterfaceEnabled) {
     // Register at the base path directly (so /wifi becomes the main WiFi page)
@@ -190,26 +196,31 @@ void WiFiManager::registerRoutes(WebRouter &router, const char *basePath) {
       wifiPath = "/wifi"; // Default to /wifi if base path is empty or root
     }
     String savePath = basePathStr + "/save";
-    
-    router.addRoute(wifiPath.c_str(), HTTP_GET, [this, wifiPath](WebServerClass &server) {
-      Serial.println("WiFi page route handler called for: " + wifiPath);
-      String response = this->handleRootPage();
-      Serial.println("WiFi page content length: " + String(response.length()));
-      
-      // Add cache control headers
-      server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      server.sendHeader("Pragma", "no-cache");
-      server.sendHeader("Expires", "0");
-      
-      server.send(200, "text/html", response);
-      Serial.println("WiFi page response length: " + String(response.length()));
-    });
 
-    router.addRoute(savePath.c_str(), HTTP_POST, [this](WebServerClass &server) {
-      String postBody = server.arg("plain");
-      String response = this->handleSavePage(postBody);
-      server.send(200, "text/html", response);
-    });
+    router.addRoute(
+        wifiPath.c_str(), HTTP_GET, [this, wifiPath](WebServerClass &server) {
+          Serial.println("WiFi page route handler called for: " + wifiPath);
+          String response = this->handleRootPage();
+          Serial.println("WiFi page content length: " +
+                         String(response.length()));
+
+          // Add cache control headers
+          server.sendHeader("Cache-Control",
+                            "no-cache, no-store, must-revalidate");
+          server.sendHeader("Pragma", "no-cache");
+          server.sendHeader("Expires", "0");
+
+          server.send(200, "text/html", response);
+          Serial.println("WiFi page response length: " +
+                         String(response.length()));
+        });
+
+    router.addRoute(savePath.c_str(), HTTP_POST,
+                    [this](WebServerClass &server) {
+                      String postBody = server.arg("plain");
+                      String response = this->handleSavePage(postBody);
+                      server.send(200, "text/html", response);
+                    });
   }
 }
 
@@ -239,7 +250,7 @@ void WiFiManager::resetSettings() {
 
 void WiFiManager::setupConfigPortal() {
   Serial.println("Setting up configuration portal...");
-  
+
   // Debug the AP SSID
   Serial.print("Starting AP with SSID: ");
   Serial.println(apSSIDBuffer);
@@ -260,7 +271,7 @@ void WiFiManager::setupConfigPortal() {
   myIP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
   Serial.println(myIP);
-  
+
   // Setup captive portal DNS
   dnsServer.start(53, "*", myIP);
 
@@ -277,15 +288,19 @@ void WiFiManager::setupConfigPortal() {
   server.onNotFound([this]() { this->handleNotFound(); });
 
   // Set up API endpoints in config portal mode (legacy fallback)
-  server.on("/api/wifi/status", HTTP_GET, [this]() {
+  // Note: These routes match the frontend's expected paths
+  server.on("/wifi/api/status", HTTP_GET, [this]() {
+    Serial.println("Config portal: Handling /wifi/api/status");
     String response = this->handleWiFiStatusAPI();
     server.send(200, "application/json", response);
   });
-  server.on("/api/wifi/scan", HTTP_GET, [this]() {
+  server.on("/wifi/api/scan", HTTP_GET, [this]() {
+    Serial.println("Config portal: Handling /wifi/api/scan");
     String response = this->handleWiFiScanAPI();
     server.send(200, "application/json", response);
   });
-  server.on("/api/wifi/connect", HTTP_POST, [this]() {
+  server.on("/wifi/api/connect", HTTP_POST, [this]() {
+    Serial.println("Config portal: Handling /wifi/api/connect");
     String postBody = server.arg("plain");
     String response = this->handleWiFiConnectAPI(postBody);
     if (response.startsWith("ERROR:")) {
@@ -294,7 +309,8 @@ void WiFiManager::setupConfigPortal() {
       server.send(200, "application/json", response);
     }
   });
-  server.on("/api/wifi/disconnect", HTTP_POST, [this]() {
+  server.on("/wifi/api/disconnect", HTTP_POST, [this]() {
+    Serial.println("Config portal: Handling /wifi/api/disconnect");
     String response = this->handleWiFiDisconnectAPI();
     if (response.startsWith("ERROR:")) {
       server.send(400, "application/json", response.substring(6));
@@ -302,7 +318,8 @@ void WiFiManager::setupConfigPortal() {
       server.send(200, "application/json", response);
     }
   });
-  server.on("/api/wifi/reset", HTTP_POST, [this]() {
+  server.on("/wifi/api/reset", HTTP_POST, [this]() {
+    Serial.println("Config portal: Handling /wifi/api/reset");
     String response = this->handleWiFiResetAPI();
     server.send(200, "application/json", response);
   });
@@ -331,7 +348,8 @@ void WiFiManager::setupConfigPortal() {
 
   // Start the web server
   server.begin();
-  Serial.println("HTTP server and captive portal started with API endpoints (legacy mode)");
+  Serial.println("HTTP server and captive portal started with API endpoints "
+                 "(legacy mode)");
 }
 
 bool WiFiManager::connectToStoredWiFi() {
@@ -357,7 +375,7 @@ bool WiFiManager::connectToStoredWiFi() {
     Serial.print(".");
     timeout--;
   }
-  
+
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println();
     Serial.print("Connected to WiFi. IP address: ");
@@ -394,7 +412,8 @@ bool WiFiManager::connectToStoredWiFi() {
   }
 }
 
-void WiFiManager::saveWiFiCredentials(const String &ssid, const String &password) {
+void WiFiManager::saveWiFiCredentials(const String &ssid,
+                                      const String &password) {
   // Clear the EEPROM area for the new data
   for (int i = 0; i < EEPROM_SIZE; i++) {
     EEPROM.write(i, 0);
@@ -429,7 +448,8 @@ bool WiFiManager::loadWiFiCredentials(String &ssid, String &password) {
   ssid = "";
   for (int i = 0; i < 64; i++) {
     char c = EEPROM.read(WIFI_SSID_ADDR + i);
-    if (c == 0) break;
+    if (c == 0)
+      break;
     ssid += c;
   }
 
@@ -437,7 +457,8 @@ bool WiFiManager::loadWiFiCredentials(String &ssid, String &password) {
   password = "";
   for (int i = 0; i < 64; i++) {
     char c = EEPROM.read(WIFI_PASS_ADDR + i);
-    if (c == 0) break;
+    if (c == 0)
+      break;
     password += c;
   }
 
@@ -449,12 +470,15 @@ String WiFiManager::handleWiFiStatusAPI() {
   Serial.println("WiFi status request received");
 
   String json = "{";
-  json += "\"connected\":" + String(connectionState == WIFI_CONNECTED ? "true" : "false") + ",";
-  json += "\"state\":\"" + String(connectionState == WIFI_CONNECTED ? "connected"
-                                : connectionState == WIFI_CONNECTING ? "connecting"
-                                : connectionState == WIFI_CONFIG_PORTAL ? "setup"
-                                : "failed") + "\",";
-                                
+  json += "\"connected\":" +
+          String(connectionState == WIFI_CONNECTED ? "true" : "false") + ",";
+  json += "\"state\":\"" +
+          String(connectionState == WIFI_CONNECTED       ? "connected"
+                 : connectionState == WIFI_CONNECTING    ? "connecting"
+                 : connectionState == WIFI_CONFIG_PORTAL ? "setup"
+                                                         : "failed") +
+          "\",";
+
   if (connectionState == WIFI_CONNECTED) {
     json += "\"ssid\":\"" + WiFi.SSID() + "\",";
     json += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
@@ -468,7 +492,7 @@ String WiFiManager::handleWiFiStatusAPI() {
     } else {
       json += "\"saved_ssid\":null";
     }
-    
+
     // Add AP info when in config portal mode
     if (connectionState == WIFI_CONFIG_PORTAL) {
       json += ",\"ap_ip\":\"" + WiFi.softAPIP().toString() + "\"";
@@ -503,16 +527,19 @@ String WiFiManager::handleWiFiScanAPI() {
 
   String json = "{\"networks\":[";
   for (int i = 0; i < n; ++i) {
-    if (i > 0) json += ",";
+    if (i > 0)
+      json += ",";
     json += "{";
     json += "\"ssid\":\"" + WiFi.SSID(i) + "\",";
     json += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
 
 #if defined(ESP32)
     // ESP32 uses different encryption type constants
-    json += "\"encrypted\":" + String(WiFi.encryptionType(i) != WIFI_AUTH_OPEN ? "true" : "false");
+    json += "\"encrypted\":" +
+            String(WiFi.encryptionType(i) != WIFI_AUTH_OPEN ? "true" : "false");
 #elif defined(ESP8266)
-    json += "\"encrypted\":" + String(WiFi.encryptionType(i) != ENC_TYPE_NONE ? "true" : "false");
+    json += "\"encrypted\":" +
+            String(WiFi.encryptionType(i) != ENC_TYPE_NONE ? "true" : "false");
 #endif
     json += "}";
   }
@@ -552,7 +579,8 @@ String WiFiManager::handleWiFiConnectAPI(const String &postBody) {
 
     if (ssidStart >= 0) {
       int ssidEnd = postBody.indexOf("&", ssidStart);
-      if (ssidEnd < 0) ssidEnd = postBody.length();
+      if (ssidEnd < 0)
+        ssidEnd = postBody.length();
       ssid = postBody.substring(ssidStart + 5, ssidEnd); // "ssid=" is 5 chars
       // URL decode basic characters
       ssid.replace("+", " ");
@@ -561,8 +589,10 @@ String WiFiManager::handleWiFiConnectAPI(const String &postBody) {
 
     if (passStart >= 0) {
       int passEnd = postBody.indexOf("&", passStart);
-      if (passEnd < 0) passEnd = postBody.length();
-      password = postBody.substring(passStart + 9, passEnd); // "password=" is 9 chars
+      if (passEnd < 0)
+        passEnd = postBody.length();
+      password =
+          postBody.substring(passStart + 9, passEnd); // "password=" is 9 chars
       // URL decode basic characters
       password.replace("+", " ");
       password.replace("%20", " ");
@@ -588,7 +618,8 @@ String WiFiManager::handleWiFiConnectAPI(const String &postBody) {
   delay(2000);
   ESP.restart();
 
-  return "{\"success\":true,\"message\":\"Credentials saved. Device will restart.\"}";
+  return "{\"success\":true,\"message\":\"Credentials saved. Device will "
+         "restart.\"}";
 }
 
 String WiFiManager::handleWiFiDisconnectAPI() {
@@ -600,16 +631,45 @@ String WiFiManager::handleWiFiDisconnectAPI() {
     return "ERROR:{\"success\":false,\"message\":\"Not connected to WiFi\"}";
   }
 }
-
 String WiFiManager::handleWiFiResetAPI() {
   Serial.println("WiFi reset requested via API");
+  Serial.println("Clearing WiFi credentials from EEPROM...");
+
+  // Clear the stored WiFi credentials immediately
   resetSettings();
 
-  // Schedule restart after response is sent
-  delay(1000);
-  ESP.restart();
+  Serial.println("WiFi settings cleared, scheduling restart...");
 
-  return "{\"success\":true,\"message\":\"WiFi settings cleared. Device will restart.\"}";
+  // Return success response immediately
+  String response = "{\"success\":true,\"message\":\"WiFi settings cleared. "
+                    "Device will restart.\"}";
+
+#if defined(ESP32)
+  // Schedule restart after a brief delay to allow HTTP response to be sent
+  // Use a simple task for ESP32
+  xTaskCreate(
+      [](void *parameter) {
+        Serial.println("Reset task: Waiting 2 seconds before restart...");
+        vTaskDelay(pdMS_TO_TICKS(2000)); // 2 second delay
+        Serial.println("Reset task: Executing restart...");
+        ESP.restart();
+      },
+      "wifi_reset_task", // Task name
+      2048,              // Stack size
+      nullptr,           // Parameters
+      1,                 // Priority
+      nullptr            // Task handle
+  );
+#elif defined(ESP8266)
+  // For ESP8266, use a static Ticker for the restart delay
+  static Ticker restartTicker;
+  restartTicker.once_ms(2000, []() {
+    Serial.println("Reset ticker: Executing restart...");
+    ESP.restart();
+  });
+#endif
+
+  return response;
 }
 
 // Web Interface Handler Methods (only used if web interface is enabled)
@@ -620,8 +680,9 @@ String WiFiManager::handleRootPage() {
   } else {
     Serial.println("Serving WiFi management page in connected mode");
   }
-  
-  Serial.println("WiFi page content length: " + String(strlen(WIFI_CONFIG_HTML)));
+
+  Serial.println("WiFi page content length: " +
+                 String(strlen(WIFI_CONFIG_HTML)));
   return String(WIFI_CONFIG_HTML);
 }
 
@@ -634,7 +695,8 @@ String WiFiManager::handleSavePage(const String &postBody) {
 
   if (ssidStart >= 0) {
     int ssidEnd = postBody.indexOf("&", ssidStart);
-    if (ssidEnd < 0) ssidEnd = postBody.length();
+    if (ssidEnd < 0)
+      ssidEnd = postBody.length();
     ssid = postBody.substring(ssidStart + 5, ssidEnd); // "ssid=" is 5 chars
     // URL decode basic characters
     ssid.replace("+", " ");
@@ -643,8 +705,10 @@ String WiFiManager::handleSavePage(const String &postBody) {
 
   if (passStart >= 0) {
     int passEnd = postBody.indexOf("&", passStart);
-    if (passEnd < 0) passEnd = postBody.length();
-    password = postBody.substring(passStart + 9, passEnd); // "password=" is 9 chars
+    if (passEnd < 0)
+      passEnd = postBody.length();
+    password =
+        postBody.substring(passStart + 9, passEnd); // "password=" is 9 chars
     // URL decode basic characters
     password.replace("+", " ");
     password.replace("%20", " ");
@@ -674,7 +738,8 @@ void WiFiManager::handleNotFound() {
     // For captive portal detection on various devices
     if (server.hostHeader() != WiFi.softAPIP().toString()) {
       Serial.println("Captive portal - redirecting to setup page");
-      server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/wifi", true);
+      server.sendHeader("Location",
+                        "http://" + WiFi.softAPIP().toString() + "/wifi", true);
       server.send(302, "text/plain", "");
     } else {
       // Direct access to any URL on the device IP - serve the setup page
@@ -687,12 +752,8 @@ void WiFiManager::handleNotFound() {
   }
 }
 
-// These are the legacy C-style functions that call through to our class instance
-// They are kept for backward compatibility
-void setupWiFiAP() { 
-  wifiManager.begin(); 
-}
+// These are the legacy C-style functions that call through to our class
+// instance They are kept for backward compatibility
+void setupWiFiAP() { wifiManager.begin(); }
 
-void loopWiFiAP() { 
-  wifiManager.handle(); 
-}
+void loopWiFiAP() { wifiManager.handle(); }
