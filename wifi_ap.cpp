@@ -1,5 +1,5 @@
 #include "wifi_ap.h"
-#include "wifi_ap_web_clean.h"
+#include "wifi_ap_web.h"
 #include <ArduinoJson.h>
 
 #if defined(ESP32)
@@ -148,14 +148,18 @@ std::vector<WebRoute> WiFiManager::getHttpRoutes() {
     routes.push_back({"/", WebModule::WM_GET,
                       [this](const String &requestBody,
                              const std::map<String, String> &params) -> String {
-                        return this->handleRootPage();
+                        // Use injectCSSLink to add CSS link to HTML
+                        return IWebModule::injectCSSLink(
+                            this->handleRootPage());
                       },
                       "text/html", "WiFi management page"});
 
     routes.push_back({"/save", WebModule::WM_POST,
                       [this](const String &requestBody,
                              const std::map<String, String> &params) -> String {
-                        return this->handleSavePage(requestBody);
+                        // Use injectCSSLink to add CSS link to HTML
+                        return IWebModule::injectCSSLink(
+                            this->handleSavePage(requestBody));
                       },
                       "text/html", "Save WiFi credentials"});
   }
@@ -270,10 +274,14 @@ void WiFiManager::setupConfigPortal() {
 
   // Stop the server to clear handlers
   server.stop();
-  server.close();
-
-  // Reset server handlers for config portal mode
+  server.close(); // Reset server handlers for config portal mode
   server.onNotFound([this]() { this->handleNotFound(); });
+
+  // Add CSS route for global styling (config portal mode)
+  server.on("/assets/style.css", HTTP_GET, [this]() {
+    String css = IWebModule::getGlobalCSS();
+    server.send(200, "text/css", css);
+  });
 
   // Set up API endpoints in config portal mode (legacy fallback)
   // Note: These routes match the frontend's expected paths
@@ -658,9 +666,7 @@ String WiFiManager::handleWiFiResetAPI() {
 #endif
 
   return response;
-}
-
-// Web Interface Handler Methods (only used if web interface is enabled)
+} // Web Interface Handler Methods (only used if web interface is enabled)
 String WiFiManager::handleRootPage() {
   // In AP mode or connected mode, show WiFi management interface
   if (connectionState == WIFI_CONFIG_PORTAL) {
@@ -671,9 +677,8 @@ String WiFiManager::handleRootPage() {
 
   Serial.println("WiFi page content length: " +
                  String(strlen(WIFI_CONFIG_HTML)));
-  return String(WIFI_CONFIG_HTML);
+  return IWebModule::injectCSSLink(String(WIFI_CONFIG_HTML));
 }
-
 String WiFiManager::handleSavePage(const String &postBody) {
   // Parse form data from post body
   String ssid, password;
@@ -714,7 +719,7 @@ String WiFiManager::handleSavePage(const String &postBody) {
   delay(2000);
   ESP.restart();
 
-  return String(WIFI_SUCCESS_HTML);
+  return IWebModule::injectCSSLink(String(WIFI_SUCCESS_HTML));
 }
 
 void WiFiManager::handleNotFound() {
