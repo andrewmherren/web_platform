@@ -1,10 +1,9 @@
 #ifndef WIFI_AP_H
-#define WIFI_AP_H
-
+#define WIFI_AP_H #include<DNSServer.h>
 #include <DNSServer.h>
 #include <EEPROM.h>
 #include <functional>
-#include <web_router.h>
+#include <web_module_interface.h>
 
 #if defined(ESP32)
 #include <EEPROM.h>
@@ -34,7 +33,7 @@ enum WiFiConnectionState {
 typedef std::function<void()>
     WiFiSetupCompleteCallback; // Class to manage WiFi connection and
                                // configuration
-class WiFiManager : public WebModule {
+class WiFiManager : public IWebModule {
 public:
   WiFiManager(); // Initialize WiFi functionality with optional custom base name
                  // and web interface
@@ -44,10 +43,12 @@ public:
   void begin(const char *baseName = "Device", bool enableWebInterface = true);
 
   // Set callback to be called when WiFi connection is established
-  void onSetupComplete(WiFiSetupCompleteCallback callback);
-
-  // WebModule interface implementation
-  void registerRoutes(WebRouter &router, const char *basePath) override;
+  void onSetupComplete(WiFiSetupCompleteCallback
+                           callback); // IWebModule interface implementation
+  std::vector<WebRoute> getHttpRoutes() override;
+  std::vector<WebRoute> getHttpsRoutes() override;
+  String getModuleName() const override { return "WiFiManager"; }
+  String getModuleVersion() const override { return "3.0.0"; }
 
   // Handle WiFi operations (must be called in loop)
   void handle();

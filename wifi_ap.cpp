@@ -140,88 +140,76 @@ WiFiConnectionState WiFiManager::getConnectionState() const {
 
 WebServerClass &WiFiManager::getWebServer() { return server; }
 
-void WiFiManager::registerRoutes(WebRouter &router, const char *basePath) {
-  Serial.println("Registering WiFi management routes with Web Router...");
+std::vector<WebRoute> WiFiManager::getHttpRoutes() {
+  std::vector<WebRoute> routes;
 
-  String basePathStr = String(basePath);
-
-  // API endpoints (always available) - simplified paths
-  String statusPath = basePathStr + "/api/status";
-  String scanPath = basePathStr + "/api/scan";
-  String connectPath = basePathStr + "/api/connect";
-  String disconnectPath = basePathStr + "/api/disconnect";
-  String resetPath = basePathStr + "/api/reset";
-
-  router.addRoute(statusPath.c_str(), HTTP_GET, [this](WebServerClass &server) {
-    String response = this->handleWiFiStatusAPI();
-    server.send(200, "application/json", response);
-  });
-
-  router.addRoute(scanPath.c_str(), HTTP_GET, [this](WebServerClass &server) {
-    String response = this->handleWiFiScanAPI();
-    server.send(200, "application/json", response);
-  });
-
-  router.addRoute(
-      connectPath.c_str(), HTTP_POST, [this](WebServerClass &server) {
-        String postBody = server.arg("plain");
-        String response = this->handleWiFiConnectAPI(postBody);
-        if (response.startsWith("ERROR:")) {
-          server.send(400, "application/json", response.substring(6));
-        } else {
-          server.send(200, "application/json", response);
-        }
-      });
-
-  router.addRoute(
-      disconnectPath.c_str(), HTTP_POST, [this](WebServerClass &server) {
-        String response = this->handleWiFiDisconnectAPI();
-        if (response.startsWith("ERROR:")) {
-          server.send(400, "application/json", response.substring(6));
-        } else {
-          server.send(200, "application/json", response);
-        }
-      });
-
-  router.addRoute(resetPath.c_str(), HTTP_POST, [this](WebServerClass &server) {
-    String response = this->handleWiFiResetAPI();
-    server.send(200, "application/json", response);
-  });
-
-  // Web interface endpoints (optional)
+  // Main WiFi management page (if web interface is enabled)
   if (webInterfaceEnabled) {
-    // Register at the base path directly (so /wifi becomes the main WiFi page)
-    String wifiPath = basePathStr; // Just use the base path
-    if (wifiPath.length() == 0 || wifiPath == "/") {
-      wifiPath = "/wifi"; // Default to /wifi if base path is empty or root
-    }
-    String savePath = basePathStr + "/save";
+    routes.push_back({"/", WebModule::WM_GET,
+                      [this](const String &requestBody,
+                             const std::map<String, String> &params) -> String {
+                        return this->handleRootPage();
+                      },
+                      "text/html", "WiFi management page"});
 
-    router.addRoute(
-        wifiPath.c_str(), HTTP_GET, [this, wifiPath](WebServerClass &server) {
-          Serial.println("WiFi page route handler called for: " + wifiPath);
-          String response = this->handleRootPage();
-          Serial.println("WiFi page content length: " +
-                         String(response.length()));
-
-          // Add cache control headers
-          server.sendHeader("Cache-Control",
-                            "no-cache, no-store, must-revalidate");
-          server.sendHeader("Pragma", "no-cache");
-          server.sendHeader("Expires", "0");
-
-          server.send(200, "text/html", response);
-          Serial.println("WiFi page response length: " +
-                         String(response.length()));
-        });
-
-    router.addRoute(savePath.c_str(), HTTP_POST,
-                    [this](WebServerClass &server) {
-                      String postBody = server.arg("plain");
-                      String response = this->handleSavePage(postBody);
-                      server.send(200, "text/html", response);
-                    });
+    routes.push_back({"/save", WebModule::WM_POST,
+                      [this](const String &requestBody,
+                             const std::map<String, String> &params) -> String {
+                        return this->handleSavePage(requestBody);
+                      },
+                      "text/html", "Save WiFi credentials"});
   }
+
+  // API endpoints
+  routes.push_back({"/api/status", WebModule::WM_GET,
+                    [this](const String &requestBody,
+                           const std::map<String, String> &params) -> String {
+                      return this->handleWiFiStatusAPI();
+                    },
+                    "application/json", "Get WiFi status"});
+
+  routes.push_back({"/api/scan", WebModule::WM_GET,
+                    [this](const String &requestBody,
+                           const std::map<String, String> &params) -> String {
+                      return this->handleWiFiScanAPI();
+                    },
+                    "application/json", "Scan for WiFi networks"});
+
+  routes.push_back({"/api/connect", WebModule::WM_POST,
+                    [this](const String &requestBody,
+                           const std::map<String, String> &params) -> String {
+                      String response = this->handleWiFiConnectAPI(requestBody);
+                      if (response.startsWith("ERROR:")) {
+                        return response.substring(6); // Remove "ERROR:" prefix
+                      }
+                      return response;
+                    },
+                    "application/json", "Connect to WiFi network"});
+
+  routes.push_back({"/api/disconnect", WebModule::WM_POST,
+                    [this](const String &requestBody,
+                           const std::map<String, String> &params) -> String {
+                      String response = this->handleWiFiDisconnectAPI();
+                      if (response.startsWith("ERROR:")) {
+                        return response.substring(6); // Remove "ERROR:" prefix
+                      }
+                      return response;
+                    },
+                    "application/json", "Disconnect from WiFi"});
+
+  routes.push_back({"/api/reset", WebModule::WM_POST,
+                    [this](const String &requestBody,
+                           const std::map<String, String> &params) -> String {
+                      return this->handleWiFiResetAPI();
+                    },
+                    "application/json", "Reset WiFi settings"});
+
+  return routes;
+}
+
+std::vector<WebRoute> WiFiManager::getHttpsRoutes() {
+  // For now, use same routes for HTTPS as HTTP
+  return getHttpRoutes();
 }
 
 void WiFiManager::startConfigPortal() {
