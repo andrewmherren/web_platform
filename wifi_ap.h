@@ -1,9 +1,9 @@
 #ifndef WIFI_AP_H
-#define WIFI_AP_H #include<DNSServer.h>
-#include "../../web_module_interface/include/web_module_interface.h"
+#define WIFI_AP_H
 #include <DNSServer.h>
 #include <EEPROM.h>
 #include <functional>
+#include <web_module_interface.h>
 
 
 #if defined(ESP32)

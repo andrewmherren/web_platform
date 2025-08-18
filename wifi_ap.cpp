@@ -148,9 +148,16 @@ std::vector<WebRoute> WiFiManager::getHttpRoutes() {
     routes.push_back({"/", WebModule::WM_GET,
                       [this](const String &requestBody,
                              const std::map<String, String> &params) -> String {
-                        // Use injectCSSLink to add CSS link to HTML
-                        return IWebModule::injectCSSLink(
-                            this->handleRootPage());
+                        // Set current path for navigation menu
+                        IWebModule::setCurrentPath("/wifi/");
+
+                        // Use CSS link and navigation menu injection
+                        String htmlContent = this->handleRootPage();
+                        htmlContent = IWebModule::injectCSSLink(htmlContent);
+                        htmlContent =
+                            IWebModule::injectNavigationMenu(htmlContent);
+
+                        return htmlContent;
                       },
                       "text/html", "WiFi management page"});
 

@@ -343,7 +343,7 @@ const char WIFI_CONFIG_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     <div class="loading-text" id="loadingText">Connecting to WiFi...</div>
     <div class="loading-subtext" id="loadingSubtext">The device will restart after saving credentials. Please wait...</div>
   </div>
-  
+    
   <div class="container">
     <h1>WiFi Management</h1>
     
@@ -352,7 +352,7 @@ const char WIFI_CONFIG_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       <div id="currentStatus">Loading...</div>
       <div id="statusMessage" class="status-message hidden"></div>
     </div>
-    
+      
     <div class="status-card">
       <h3>Available Networks</h3>
       <button id="scanBtn" class="btn btn-secondary btn-full">
@@ -393,10 +393,7 @@ const char WIFI_CONFIG_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       </div>
     </div>
 
-    <div class="nav-links" style="margin-top: 30px; text-align: center;">
-      <a href="/">Home</a>
-      <a href="/web_router">System Status</a>
-    </div>
+    <!-- Navigation menu will be auto-injected here -->
 
     <div style="text-align: center; margin-top: 20px; opacity: 0.7; font-size: 0.9em;">
       <p>Ticker WiFi Management</p>
