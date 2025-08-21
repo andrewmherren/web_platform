@@ -1,4 +1,6 @@
 #include "wifi_ap.h"
+#include "assets/wifi_config_html.h"
+#include "assets/wifi_success_html.h"
 #include "wifi_ap_web.h"
 #include <ArduinoJson.h>
 
@@ -145,28 +147,34 @@ std::vector<WebRoute> WiFiManager::getHttpRoutes() {
 
   // Main WiFi management page (if web interface is enabled)
   if (webInterfaceEnabled) {
-    routes.push_back({"/", WebModule::WM_GET,
-                      [this](const String &requestBody,
-                             const std::map<String, String> &params) -> String {
-                        // Set current path for navigation menu
-                        IWebModule::setCurrentPath("/wifi/");
+    routes.push_back(
+        {"/", WebModule::WM_GET,
+         [this](const String &requestBody,
+                const std::map<String, String> &params) -> String {
+           // Set current path for navigation menu
+           IWebModule::setCurrentPath("/wifi/");
 
-                        // Use CSS link and navigation menu injection
-                        String htmlContent = this->handleRootPage();
-                        htmlContent = IWebModule::injectCSSLink(htmlContent);
-                        htmlContent =
-                            IWebModule::injectNavigationMenu(htmlContent);
+           Serial.println("Serving WiFi management page");
 
-                        return htmlContent;
-                      },
-                      "text/html", "WiFi management page"});
+           // Use CSS link and navigation menu injection
+           String htmlContent = this->handleRootPage();
+           int headPos = htmlContent.indexOf("</head>");
+           if (headPos != -1) {
+             String cssLink =
+                 "  <link rel=\"stylesheet\" href=\"/assets/style.css\">\n";
+             htmlContent = htmlContent.substring(0, headPos) + cssLink +
+                           htmlContent.substring(headPos);
+           }
+           htmlContent = IWebModule::injectNavigationMenu(htmlContent);
+
+           return htmlContent;
+         },
+         "text/html", "WiFi management page"});
 
     routes.push_back({"/save", WebModule::WM_POST,
                       [this](const String &requestBody,
                              const std::map<String, String> &params) -> String {
-                        // Use injectCSSLink to add CSS link to HTML
-                        return IWebModule::injectCSSLink(
-                            this->handleSavePage(requestBody));
+                        return this->handleSavePage(requestBody);
                       },
                       "text/html", "Save WiFi credentials"});
   }
@@ -286,12 +294,52 @@ void WiFiManager::setupConfigPortal() {
 
   // Add CSS route for global styling (config portal mode)
   server.on("/assets/style.css", HTTP_GET, [this]() {
-    String css = IWebModule::getGlobalCSS();
+    // Get default theme CSS from static assets
+    StaticAsset cssAsset = IWebModule::getStaticAsset("/assets/style.css");
+    String css = cssAsset.content;
+    if (css.isEmpty()) {
+      css = String(FPSTR(WEB_UI_DEFAULT_CSS));
+    }
     server.send(200, "text/css", css);
+  }); // Set up API endpoints in config portal mode (legacy fallback)
+  // These routes match the frontend's expected paths - both with and without
+  // prefixes First set up direct API endpoints
+  server.on("/api/status", HTTP_GET, [this]() {
+    Serial.println("Config portal: Handling /api/status");
+    String response = this->handleWiFiStatusAPI();
+    server.send(200, "application/json", response);
+  });
+  server.on("/api/scan", HTTP_GET, [this]() {
+    Serial.println("Config portal: Handling /api/scan");
+    String response = this->handleWiFiScanAPI();
+    server.send(200, "application/json", response);
+  });
+  server.on("/api/connect", HTTP_POST, [this]() {
+    Serial.println("Config portal: Handling /api/connect");
+    String postBody = server.arg("plain");
+    String response = this->handleWiFiConnectAPI(postBody);
+    if (response.startsWith("ERROR:")) {
+      server.send(400, "application/json", response.substring(6));
+    } else {
+      server.send(200, "application/json", response);
+    }
+  });
+  server.on("/api/disconnect", HTTP_POST, [this]() {
+    Serial.println("Config portal: Handling /api/disconnect");
+    String response = this->handleWiFiDisconnectAPI();
+    if (response.startsWith("ERROR:")) {
+      server.send(400, "application/json", response.substring(6));
+    } else {
+      server.send(200, "application/json", response);
+    }
+  });
+  server.on("/api/reset", HTTP_POST, [this]() {
+    Serial.println("Config portal: Handling /api/reset");
+    String response = this->handleWiFiResetAPI();
+    server.send(200, "application/json", response);
   });
 
-  // Set up API endpoints in config portal mode (legacy fallback)
-  // Note: These routes match the frontend's expected paths
+  // For backward compatibility, also support /wifi/api/* endpoints
   server.on("/wifi/api/status", HTTP_GET, [this]() {
     Serial.println("Config portal: Handling /wifi/api/status");
     String response = this->handleWiFiStatusAPI();
@@ -684,7 +732,14 @@ String WiFiManager::handleRootPage() {
 
   Serial.println("WiFi page content length: " +
                  String(strlen(WIFI_CONFIG_HTML)));
-  return IWebModule::injectCSSLink(String(WIFI_CONFIG_HTML));
+  String htmlContent = String(WIFI_CONFIG_HTML);
+  int headPos = htmlContent.indexOf("</head>");
+  if (headPos != -1) {
+    String cssLink = "  <link rel=\"stylesheet\" href=\"/assets/style.css\">\n";
+    htmlContent = htmlContent.substring(0, headPos) + cssLink +
+                  htmlContent.substring(headPos);
+  }
+  return htmlContent;
 }
 String WiFiManager::handleSavePage(const String &postBody) {
   // Parse form data from post body
@@ -726,7 +781,14 @@ String WiFiManager::handleSavePage(const String &postBody) {
   delay(2000);
   ESP.restart();
 
-  return IWebModule::injectCSSLink(String(WIFI_SUCCESS_HTML));
+  String htmlContent = String(WIFI_SUCCESS_HTML);
+  int headPos = htmlContent.indexOf("</head>");
+  if (headPos != -1) {
+    String cssLink = "  <link rel=\"stylesheet\" href=\"/assets/style.css\">\n";
+    htmlContent = htmlContent.substring(0, headPos) + cssLink +
+                  htmlContent.substring(headPos);
+  }
+  return htmlContent;
 }
 
 void WiFiManager::handleNotFound() {
