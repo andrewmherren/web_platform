@@ -1,0 +1,373 @@
+#include "assets/connected_home_html.h"
+#include "assets/system_status_html.h"
+#include "assets/wifi_management_html.h"
+#include "web_platform.h"
+#include <web_module_interface.h>
+
+// WebPlatform connected mode implementation
+// This file contains functions specific to the connected mode
+
+String WebPlatform::handleConnectedRoot() {
+  String html = FPSTR(CONNECTED_HOME_HTML);
+
+  // Replace template variables with actual values
+  html.replace("{{DEVICE_NAME}}", deviceName);
+  html.replace("{{WIFI_SSID}}", WiFi.SSID());
+  html.replace("{{IP_ADDRESS}}", WiFi.localIP().toString());
+  html.replace("{{SIGNAL_STRENGTH}}", String(WiFi.RSSI()));
+  html.replace("{{UPTIME}}", String(millis() / 1000));
+  html.replace("{{SERVER_PROTOCOL}}",
+               String(httpsEnabled ? "HTTPS (Secure)" : "HTTP"));
+  html.replace("{{SERVER_PORT}}", String(serverPort));
+  html.replace("{{HOSTNAME}}", getHostname());
+  html.replace("{{FREE_MEMORY}}", String(ESP.getFreeHeap() / 1024));
+
+  // Build module list HTML
+  String moduleListHtml = "";
+  if (registeredModules.size() > 0) {
+    for (const auto &module : registeredModules) {
+      moduleListHtml += R"(
+            <div class="module-item">
+                <div>
+                    <strong>)" +
+                        module.module->getModuleName() + R"(</strong> 
+                    <small>v)" +
+                        module.module->getModuleVersion() + R"(</small>
+                </div>
+                <div>
+                    <a href=")" +
+                        module.basePath +
+                        R"(" class="btn btn-secondary">Open</a>
+                </div>
+            </div>)";
+    }
+  } else {
+    moduleListHtml = "<p>No modules registered.</p>";
+  }
+  html.replace("{{MODULE_LIST}}", moduleListHtml);
+
+  return IWebModule::injectNavigationMenu(html);
+}
+
+String WebPlatform::handleSystemStatus() {
+  String html = FPSTR(SYSTEM_STATUS_HTML);
+
+  // Replace template variables with actual values
+  html.replace("{{DEVICE_NAME}}", deviceName);
+  html.replace("{{UPTIME}}", String(millis() / 1000));
+  html.replace("{{FREE_HEAP}}", String(ESP.getFreeHeap()));
+  html.replace(
+      "{{PLATFORM_MODE}}",
+      String(currentMode == CONNECTED ? "Connected" : "Config Portal"));
+  html.replace("{{WIFI_SSID}}", WiFi.SSID());
+  html.replace("{{IP_ADDRESS}}", WiFi.localIP().toString());
+  html.replace("{{HOSTNAME}}", getHostname());
+  html.replace("{{MAC_ADDRESS}}", WiFi.macAddress());
+  html.replace("{{SIGNAL_STRENGTH}}", String(WiFi.RSSI()));
+  html.replace("{{SERVER_PORT}}", String(serverPort));
+  html.replace("{{HTTPS_STATUS}}",
+               String(httpsEnabled ? "Enabled" : "Disabled"));
+  html.replace("{{MODULE_COUNT}}", String(registeredModules.size()));
+  html.replace("{{ROUTE_COUNT}}", String(getRouteCount()));
+
+  // Build module table HTML
+  String moduleTableHtml = "";
+  for (const auto &module : registeredModules) {
+    moduleTableHtml += R"(
+                <tr>
+                    <td>)" +
+                       module.module->getModuleName() + R"(</td>
+                    <td>)" +
+                       module.module->getModuleVersion() + R"(</td>
+                    <td>)" +
+                       module.basePath + R"(</td>
+                </tr>)";
+  }
+  html.replace("{{MODULE_TABLE}}", moduleTableHtml);
+
+  return IWebModule::injectNavigationMenu(html);
+}
+
+String WebPlatform::handleWiFiManagement() {
+  String html = FPSTR(WIFI_MANAGEMENT_HTML);
+
+  // Replace template variables with actual values
+  html.replace("{{DEVICE_NAME}}", deviceName);
+  html.replace("{{CURRENT_SSID}}", WiFi.SSID());
+  html.replace("{{SIGNAL_STRENGTH}}", String(WiFi.RSSI()));
+  html.replace("{{IP_ADDRESS}}", WiFi.localIP().toString());
+  html.replace("{{MAC_ADDRESS}}", WiFi.macAddress());
+
+  return IWebModule::injectNavigationMenu(html);
+}
+
+void WebPlatform::setupConnectedMode() {
+  Serial.println("WebPlatform: Setting up connected mode routes");
+
+  registerConnectedModeRoutes();
+  registerModuleRoutes();
+}
+
+void WebPlatform::registerConnectedModeRoutes() {
+  if (!server) {
+    Serial.println(
+        "WebPlatform: No HTTP server to register routes on (HTTPS-only mode)");
+    return;
+  }
+
+  // Helper function to register routes with and without trailing slash
+  auto registerRoute = [this](const String &path, WebModule::Method method,
+                              std::function<void()> handler) {
+    HTTPMethod httpMethod =
+        (method == WebModule::WM_GET) ? HTTP_GET : HTTP_POST;
+
+    // Register the route without trailing slash
+    server->on(path.c_str(), httpMethod, handler);
+
+    // Also register with trailing slash if not already present
+    if (!path.endsWith("/") && path != "/") {
+      String pathWithSlash = path + "/";
+      server->on(pathWithSlash.c_str(), httpMethod, handler);
+      Serial.printf("WebPlatform: Registered both %s and %s\n", path.c_str(),
+                    pathWithSlash.c_str());
+    }
+  };
+
+  // Home page
+  registerRoute("/", WebModule::WM_GET, [this]() {
+    IWebModule::setCurrentPath("/");
+    String response = handleConnectedRoot();
+    server->send(200, "text/html", response);
+  });
+
+  // System status
+  registerRoute("/status", WebModule::WM_GET, [this]() {
+    IWebModule::setCurrentPath("/status");
+    String response = handleSystemStatus();
+    server->send(200, "text/html", response);
+  });
+
+  // WiFi management page
+  registerRoute("/wifi", WebModule::WM_GET, [this]() {
+    IWebModule::setCurrentPath("/wifi");
+    String response = handleWiFiManagement();
+    server->send(200, "text/html", response);
+  });
+
+  // WiFi API endpoints - support both /api/* and /wifi/api/* patterns for
+  // consistency Define a connect handler function to reuse
+  auto connectHandler = [this]() {
+    String ssid = server->arg("ssid");
+    String password = server->arg("password");
+
+    if (ssid.length() > 0) {
+      saveWiFiCredentials(ssid, password);
+
+      // Return success response before restarting
+      server->send(200, "application/json",
+                   "{\"status\": \"restarting\", \"message\": \"Connecting to "
+                   "new network...\"}");
+
+      // Schedule restart to apply new credentials
+      delay(1000);
+      ESP.restart();
+    } else {
+      server->send(
+          400, "application/json",
+          "{\"status\": \"error\", \"message\": \"Invalid SSID provided\"}");
+    }
+  };
+
+  // WiFi scan API
+  registerRoute("/wifi/api/scan", WebModule::WM_GET, [this]() {
+    String response = handleWiFiScanAPI();
+    server->send(200, "application/json", response);
+  });
+
+  registerRoute("/api/scan", WebModule::WM_GET, [this]() {
+    String response = handleWiFiScanAPI();
+    server->send(200, "application/json", response);
+  });
+
+  // WiFi status API
+  registerRoute("/wifi/api/status", WebModule::WM_GET, [this]() {
+    String response = handleWiFiStatusAPI();
+    server->send(200, "application/json", response);
+  });
+
+  registerRoute("/api/status", WebModule::WM_GET, [this]() {
+    String response = handleWiFiStatusAPI();
+    server->send(200, "application/json", response);
+  });
+
+  // WiFi connect API
+  registerRoute("/wifi/api/connect", WebModule::WM_POST, connectHandler);
+  registerRoute("/api/connect", WebModule::WM_POST, connectHandler);
+
+  // WiFi reset API
+  registerRoute("/wifi/api/reset", WebModule::WM_POST, [this]() {
+    String response = handleWiFiResetAPI();
+    server->send(200, "application/json", response);
+  });
+
+  registerRoute("/api/reset", WebModule::WM_POST, [this]() {
+    String response = handleWiFiResetAPI();
+    server->send(200, "application/json", response);
+  });
+}
+
+void WebPlatform::registerModuleRoutes() {
+  if (!server) {
+    Serial.println("WebPlatform: No HTTP server to register module routes on "
+                   "(HTTPS-only mode)");
+    return;
+  }
+
+  // Register routes for all registered modules
+  Serial.println("WebPlatform: Registering module routes...");
+
+  for (const auto &regModule : registeredModules) {
+    Serial.printf("WebPlatform: Processing module '%s' at path: %s\n",
+                  regModule.module->getModuleName().c_str(),
+                  regModule.basePath.c_str());
+
+    auto routes = regModule.module->getHttpRoutes();
+    Serial.printf("WebPlatform: Module has %d routes\n", routes.size());
+
+    for (const auto &route : routes) {
+      // Create both versions of the path - with and without trailing slash
+      String basePath = regModule.basePath;
+      String routePath = route.path;
+
+      // Handle base path and route path slash combinations
+      String fullPath;
+      if (basePath.endsWith("/") && routePath.startsWith("/")) {
+        fullPath = basePath + routePath.substring(1); // Remove duplicate slash
+      } else if (!basePath.endsWith("/") && !routePath.startsWith("/")) {
+        fullPath = basePath + "/" + routePath; // Add missing slash
+      } else {
+        fullPath = basePath + routePath; // Perfect match
+      }
+
+      // Also create a version with trailing slash for non-root paths
+      String fullPathWithTrailing = fullPath;
+      if (!fullPath.endsWith("/") && routePath != "/") {
+        fullPathWithTrailing += "/";
+      }
+
+      String methodStr = (route.method == WebModule::WM_GET) ? "GET" : "POST";
+      Serial.printf("WebPlatform: Registering %s %s\n", methodStr.c_str(),
+                    fullPath.c_str());
+
+      // Make a copy of the module and route for lambda capture
+      IWebModule *module = regModule.module;
+      WebRoute routeCopy = route;
+      String moduleBasePath = regModule.basePath;
+
+      auto handlerFunction = [this, module, routeCopy, moduleBasePath]() {
+        // Set current path for navigation highlighting
+        IWebModule::setCurrentPath(moduleBasePath);
+
+        // Extract URL parameters
+        std::map<String, String> params;
+        for (int i = 0; i < server->args(); i++) {
+          params[server->argName(i)] = server->arg(i);
+        }
+
+        // Call the module's handler with appropriate data
+        String response;
+        if (routeCopy.method == WebModule::WM_POST) {
+          response = routeCopy.handler(server->arg("plain"), params);
+        } else {
+          response = routeCopy.handler("", params);
+        }
+
+        server->send(200, routeCopy.contentType.c_str(), response);
+      };
+
+      // Register both versions of the path
+      if (route.method == WebModule::WM_GET) {
+        server->on(fullPath.c_str(), HTTP_GET, handlerFunction);
+
+        // Register trailing slash version if different
+        if (fullPath != fullPathWithTrailing) {
+          server->on(fullPathWithTrailing.c_str(), HTTP_GET, handlerFunction);
+          Serial.printf("WebPlatform: Also registered %s %s\n",
+                        methodStr.c_str(), fullPathWithTrailing.c_str());
+        }
+      } else if (route.method == WebModule::WM_POST) {
+        server->on(fullPath.c_str(), HTTP_POST, handlerFunction);
+
+        // Register trailing slash version if different
+        if (fullPath != fullPathWithTrailing) {
+          server->on(fullPathWithTrailing.c_str(), HTTP_POST, handlerFunction);
+          Serial.printf("WebPlatform: Also registered %s %s\n",
+                        methodStr.c_str(), fullPathWithTrailing.c_str());
+        }
+      }
+    }
+  }
+
+  Serial.println("WebPlatform: Module routes registered");
+}
+
+bool WebPlatform::registerModule(const char *basePath, IWebModule *module) {
+  if (currentMode != CONNECTED) {
+    Serial.println(
+        "WebPlatform: Cannot register modules in CONFIG_PORTAL mode");
+    return false;
+  }
+
+  if (!module) {
+    Serial.println("WebPlatform: Cannot register null module");
+    return false;
+  }
+
+  // Check if module already registered
+  for (const auto &regModule : registeredModules) {
+    if (regModule.basePath == basePath) {
+      Serial.printf("WebPlatform: Module already registered at path: %s\n",
+                    basePath);
+      return false;
+    }
+  }
+
+  registeredModules.push_back({basePath, module});
+  Serial.printf("WebPlatform: Registered module '%s' at path: %s\n",
+                module->getModuleName().c_str(), basePath);
+
+  // Debug: Show module routes
+  auto httpRoutes = module->getHttpRoutes();
+  auto httpsRoutes = module->getHttpsRoutes();
+  Serial.printf("  HTTP routes: %d, HTTPS routes: %d\n", httpRoutes.size(),
+                httpsRoutes.size());
+
+  for (const auto &route : httpsRoutes) {
+    Serial.printf("    HTTPS: %s %s\n",
+                  (route.method == WebModule::WM_GET ? "GET" : "POST"),
+                  route.path.c_str());
+  }
+
+  // Register HTTP routes if HTTP server exists
+  registerModuleRoutes();
+
+// Register HTTPS routes for this module
+#if defined(ESP32)
+  if (httpsServerHandle && httpsEnabled) {
+    Serial.printf("WebPlatform: Registering HTTPS routes for module: %s\n",
+                  module->getModuleName().c_str());
+    registerHttpsModuleRoutesForModule(basePath, module);
+  }
+#endif
+
+  return true;
+}
+
+size_t WebPlatform::getRouteCount() const {
+  // Basic route counting - will be enhanced in later phases
+  size_t count = 0;
+  for (const auto &regModule : registeredModules) {
+    count += regModule.module->getHttpRoutes().size();
+  }
+  return count;
+}

@@ -1,0 +1,30 @@
+{
+  "name": "web_platform",
+  "version": "1.1.0",
+  "description": "Unified web platform for ESP32/ESP8266 combining WiFi configuration and application serving with HTTPS support",
+  "keywords": "web, http, https, wifi, configuration, esp32, esp8266",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anderwmherren/web_platform.git"
+  },
+  "authors": [
+    {
+      "name": "Andrew Herren",
+      "email": "andrew.herren@gmail.com",
+      "url": "https://github.com/andrwemherren"
+    }
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/andrewmherren",
+  "frameworks": [
+    "arduino"
+  ],
+  "platforms": [
+    "espressif8266",
+    "espressif32"
+  ],
+  "dependencies": {
+    "bblanchon/ArduinoJson": "^6.20.0",
+    "andrewmherren/web_module_interface": "https://github.com/andrewmherren/web_module_interface.git#testing"
+  }
+}
