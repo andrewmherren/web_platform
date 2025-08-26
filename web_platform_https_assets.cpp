@@ -71,41 +71,6 @@ void WebPlatform::registerHttpsStaticAssets() {
     }
   }
 
-  // Check and register additional JavaScript files from modules
-  const char *jsFiles[] = {
-      "/assets/tickertape-utils.js",
-      "/assets/usb-pd-controller.js" // USB PD controller specific JS
-  };
-
-  for (const char *jsPath : jsFiles) {
-    // Check if it's already registered
-    bool alreadyRegistered = false;
-    for (const auto &route : assetRoutes) {
-      if (route.path == jsPath) {
-        alreadyRegistered = true;
-        break;
-      }
-    }
-
-    if (!alreadyRegistered) {
-      httpsRoutePaths.push_back(jsPath);
-      const char *pathPtr = httpsRoutePaths.back().c_str();
-
-      httpd_uri_t js_route = {.uri = pathPtr,
-                              .method = HTTP_GET,
-                              .handler = httpsGenericHandler,
-                              .user_ctx = nullptr};
-
-      esp_err_t ret = httpd_register_uri_handler(httpsServerHandle, &js_route);
-      if (ret != ESP_OK) {
-        Serial.printf("  Failed to register JS file %s: %d\n", jsPath, ret);
-      } else {
-        Serial.printf("  Registered JS file: %s\n", jsPath);
-        assetsRegistered++;
-      }
-    }
-  }
-
   Serial.printf("WebPlatform: Registered %d HTTPS static assets\n",
                 assetsRegistered);
 
