@@ -7,6 +7,7 @@
 #include <map>
 #include <vector>
 #include <web_module_interface.h>
+#include <web_ui_styles.h>
 
 #if defined(ESP32)
 #include <EEPROM.h>
@@ -194,11 +195,16 @@ private:                            // Core server components
 
   // Request handling methods (implemented in web_platform_https_handlers.cpp)
   static esp_err_t httpsGenericHandler(httpd_req_t *req);
-  static WebPlatform *httpsInstance; // For ESP-IDF callbacks (defined in core)
   esp_err_t handleHttpsConfigPortal(httpd_req_t *req);
   esp_err_t handleHttpsConnected(httpd_req_t *req);
 
   std::vector<String> httpsRoutePaths; // Permanent path storage
+#endif
+
+public:
+  // Make httpsInstance accessible to external handlers
+#if defined(ESP32)
+  static WebPlatform *httpsInstance; // For ESP-IDF callbacks (defined in core)
 #endif
 
   // HTTP request handling helpers

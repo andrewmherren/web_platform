@@ -1,4 +1,5 @@
 #include "web_platform.h"
+#include <web_ui_styles.h>
 
 // Core implementation of WebPlatform class
 // Basic initialization, setup, and handling functions
@@ -162,30 +163,10 @@ void WebPlatform::registerStaticAssetRoutes() {
     return;
   }
 
-  // Special case for theme CSS - make it available at both paths
-  server->on("/assets/tickertape-theme.css", HTTP_GET, [this]() {
-    StaticAsset cssAsset =
-        IWebModule::getStaticAsset("/assets/tickertape-theme.css");
-    if (cssAsset.path.length() > 0) {
-      String content = cssAsset.useProgmem ? FPSTR(cssAsset.content.c_str())
-                                           : cssAsset.content;
-      server->send(200, "text/css", content);
-    } else {
-      // Fall back to default CSS
-      server->send(200, "text/css", FPSTR(WEB_UI_DEFAULT_CSS));
-    }
-  });
-
   server->on("/assets/style.css", HTTP_GET, [this]() {
     // First check for the specific style.css asset
     StaticAsset cssAsset = IWebModule::getStaticAsset("/assets/style.css");
 
-    // If not found, fall back to tickertape-theme.css
-    if (cssAsset.path.length() == 0) {
-      cssAsset = IWebModule::getStaticAsset("/assets/tickertape-theme.css");
-    }
-
-    // If either was found, serve it
     if (cssAsset.path.length() > 0) {
       String content = cssAsset.useProgmem ? FPSTR(cssAsset.content.c_str())
                                            : cssAsset.content;

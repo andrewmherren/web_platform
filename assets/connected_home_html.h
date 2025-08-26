@@ -10,7 +10,7 @@ const char CONNECTED_HOME_HTML[] PROGMEM = R"HTML(
     <title>{{DEVICE_NAME}} - Home</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="/assets/tickertape-theme.css">
+    <link rel="stylesheet" href="/assets/style.css">
     <style>
         .device-info {
             display: grid;

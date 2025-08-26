@@ -1,4 +1,5 @@
 #include "web_platform.h"
+#include <web_ui_styles.h>
 
 // HTTPS request handling and processing
 // This file handles all HTTPS request processing and response generation
@@ -7,7 +8,6 @@
 
 // Static instance pointer for ESP-IDF callbacks
 WebPlatform *WebPlatform::httpsInstance = nullptr;
-
 esp_err_t WebPlatform::httpsGenericHandler(httpd_req_t *req) {
   if (!httpsInstance) {
     Serial.println("ERROR: httpsInstance is null!");
@@ -26,8 +26,6 @@ esp_err_t WebPlatform::httpsGenericHandler(httpd_req_t *req) {
   String uri = String(req->uri);
   String method = String(http_method_str((httpd_method_t)req->method));
 
-  Serial.printf("HTTPS Request: %s %s\n", method.c_str(), uri.c_str());
-
   // Handle CSS and JS first - make sure styling works
   if (uri.indexOf(".css") > 0 || uri.indexOf("/assets/") >= 0) {
     // Try to serve as static asset
@@ -43,14 +41,9 @@ esp_err_t WebPlatform::httpsGenericHandler(httpd_req_t *req) {
     }
 
     // Special case for theme CSS
-    if (uri == "/assets/tickertape-theme.css" || uri == "/assets/style.css") {
+    if (uri == "/assets/style.css") {
       // First check for the specific file
       StaticAsset cssAsset = IWebModule::getStaticAsset(uri);
-
-      // If style.css not found, try tickertape-theme.css
-      if (cssAsset.path.length() == 0 && uri == "/assets/style.css") {
-        cssAsset = IWebModule::getStaticAsset("/assets/tickertape-theme.css");
-      }
 
       if (cssAsset.path.length() > 0) {
         String content = cssAsset.useProgmem ? FPSTR(cssAsset.content.c_str())
@@ -165,9 +158,9 @@ esp_err_t WebPlatform::handleHttpsConnected(httpd_req_t *req) {
   Serial.printf("HTTPS Request: %s %s\n", method.c_str(), uri.c_str());
   Serial.printf("Registered modules: %d\n", registeredModules.size());
 
-  // Debug: List all registered modules
+  // Debug: List registered modules
   for (const auto &regModule : registeredModules) {
-    Serial.printf("  Module: %s at path: %s\n",
+    Serial.printf("Module: %s at path: %s\n",
                   regModule.module->getModuleName().c_str(),
                   regModule.basePath.c_str());
   }
@@ -197,10 +190,10 @@ esp_err_t WebPlatform::handleHttpsConnected(httpd_req_t *req) {
   }
 
   // Handle WiFi API endpoints - support both /api/* and /wifi/api/* patterns
-  if (uri.startsWith("/wifi/api/") || uri.startsWith("/api/")) {
+  if (uri.startsWith("/api/")) {
     Serial.printf("WiFi API endpoint detected: %s\n", uri.c_str());
 
-    if ((uri == "/wifi/api/scan" || uri == "/api/scan") && method == "GET") {
+    if (uri == "/api/scan" && method == "GET") {
       Serial.println("Handling WiFi scan request via HTTPS");
       String response = handleWiFiScanAPI();
       httpd_resp_set_type(req, "application/json");
@@ -208,16 +201,14 @@ esp_err_t WebPlatform::handleHttpsConnected(httpd_req_t *req) {
       return ESP_OK;
     }
 
-    if ((uri == "/wifi/api/status" || uri == "/api/status") &&
-        method == "GET") {
+    if (uri == "/api/status" && method == "GET") {
       String response = handleWiFiStatusAPI();
       httpd_resp_set_type(req, "application/json");
       httpd_resp_send(req, response.c_str(), response.length());
       return ESP_OK;
     }
 
-    if ((uri == "/wifi/api/connect" || uri == "/api/connect") &&
-        method == "POST") {
+    if (uri == "/api/connect" && method == "POST") {
       // Extract POST body
       char buf[512];
       int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
@@ -250,7 +241,7 @@ esp_err_t WebPlatform::handleHttpsConnected(httpd_req_t *req) {
       }
     }
 
-    if ((uri == "/wifi/api/reset" || uri == "/api/reset") && method == "POST") {
+    if (uri == "/api/reset" && method == "POST") {
       String response = handleWiFiResetAPI();
       httpd_resp_set_type(req, "application/json");
       httpd_resp_send(req, response.c_str(), response.length());
@@ -338,37 +329,11 @@ esp_err_t WebPlatform::handleHttpsConnected(httpd_req_t *req) {
     httpd_resp_send(req, "", 0);
     return ESP_OK;
   }
-
   Serial.printf("No route found for %s %s\n", method.c_str(), uri.c_str());
 
-  // Not found - use custom error page
-  String errorPage = IWebModule::getErrorPage(404);
-  if (errorPage.length() > 0) {
-    Serial.println("Using custom 404 error page");
-
-    // Make sure CSS is included in the error page
-    if (errorPage.indexOf("/assets/tickertape-theme.css") == -1 &&
-        errorPage.indexOf("/assets/style.css") == -1) {
-      int headEnd = errorPage.indexOf("</head>");
-      if (headEnd > 0) {
-        errorPage =
-            errorPage.substring(0, headEnd) +
-            "<link rel=\"stylesheet\" href=\"/assets/tickertape-theme.css\">" +
-            errorPage.substring(headEnd);
-      }
-    }
-
-    // Add navigation
-    errorPage = IWebModule::injectNavigationMenu(errorPage);
-
-    httpd_resp_set_status(req, "404 Not Found");
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, errorPage.c_str(), errorPage.length());
-  } else {
-    Serial.println("Using default 404 response");
-    httpd_resp_set_status(req, "404 Not Found");
-    httpd_resp_send(req, "Not Found", 9);
-  }
+  // Not found - let the 404 error handler handle it
+  httpd_resp_set_status(req, "404 Not Found");
+  httpd_resp_send(req, "Not Found", 9);
   return ESP_OK;
 }
 

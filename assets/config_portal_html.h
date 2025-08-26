@@ -9,7 +9,7 @@ const char CONFIG_PORTAL_HTML[] PROGMEM = R"HTML(
     <title>{{DEVICE_NAME}} - WiFi Setup</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="/assets/tickertape-theme.css">
+    <link rel="stylesheet" href="/assets/style.css">
     <style>
         .wifi-setup { max-width: 500px; margin: 20px auto; }
         .network-scanner { margin-bottom: 20px; }

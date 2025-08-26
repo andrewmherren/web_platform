@@ -135,35 +135,36 @@ void WebPlatform::registerHttpsRoutes() {
 
   // Register all static assets for HTTPS (implemented in
   // web_platform_https_assets.cpp)
-  registerHttpsStaticAssets();
+  registerHttpsStaticAssets(); // Verify error page is available
+  String testPage = IWebModule::getErrorPage(404);
+  Serial.printf("Custom error page (404) available: %d bytes\n",
+                testPage.length()); // Register 404 error handler for ESP-IDF
+  httpd_register_err_handler(
+      httpsServerHandle, HTTPD_404_NOT_FOUND,
+      [](httpd_req_t *req, httpd_err_code_t err) -> esp_err_t {
+        // Try to render custom 404 page
+        String errorPage = IWebModule::getErrorPage(404);
+        if (errorPage.length() > 0) {
+          // Set navigation context and inject menu
+          IWebModule::setCurrentPath("/404");
+          errorPage = IWebModule::injectNavigationMenu(errorPage);
 
-  // Register catch-all handler LAST (ESP-IDF matches in registration order)
-  httpd_uri_t catch_all = {.uri = "/*",
-                           .method = HTTP_GET,
-                           .handler = httpsGenericHandler,
-                           .user_ctx = nullptr};
-  ret = httpd_register_uri_handler(httpsServerHandle, &catch_all);
-  if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to register HTTPS GET catch-all: %d\n",
-                  ret);
-  } else {
-    Serial.println("WebPlatform: HTTPS GET catch-all registered");
-  }
-
-  httpd_uri_t catch_all_post = {.uri = "/*",
-                                .method = HTTP_POST,
-                                .handler = httpsGenericHandler,
-                                .user_ctx = nullptr};
-  ret = httpd_register_uri_handler(httpsServerHandle, &catch_all_post);
-  if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to register HTTPS POST catch-all: %d\n",
-                  ret);
-  } else {
-    Serial.println("WebPlatform: HTTPS POST catch-all registered");
-  }
+          httpd_resp_set_status(req, "404 Not Found");
+          httpd_resp_set_type(req, "text/html");
+          httpd_resp_send(req, errorPage.c_str(), errorPage.length());
+        } else {
+          // Use a simple default response
+          httpd_resp_set_status(req, "404 Not Found");
+          httpd_resp_send(req, "Page Not Found", 14);
+        }
+        return ESP_OK;
+      });
+  Serial.println("Registered 404 error handler");
 
   Serial.println("WebPlatform: HTTPS routes registered successfully");
 }
+
+// Removed - 404 handling now done through wildcard route in httpsGenericHandler
 
 // Function moved to web_platform_https_assets.cpp
 
@@ -303,7 +304,6 @@ void WebPlatform::registerHttpsStaticAssets() {
     }
   }
 
-  // Also register /assets/style.css as alias for tickertape-theme.css
   httpsRoutePaths.push_back("/assets/style.css");
   const char *stylePathPtr = httpsRoutePaths.back().c_str();
 

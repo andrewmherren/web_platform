@@ -10,7 +10,7 @@ const char WIFI_MANAGEMENT_HTML[] PROGMEM = R"HTML(
     <title>{{DEVICE_NAME}} - WiFi Settings</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="/assets/tickertape-theme.css">
+    <link rel="stylesheet" href="/assets/style.css">
     <style>
         .wifi-info {
             display: grid;
