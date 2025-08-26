@@ -217,9 +217,25 @@ void WebPlatform::registerConnectedModeRoutes() {
 }
 
 void WebPlatform::registerModuleRoutes() {
-  if (!server) {
+  // Skip if no server or if we're in HTTPS-only mode with a redirect server
+  // (port 80)
+  bool isRedirectServer =
+      (httpsEnabled && serverPort == 443 && server != nullptr);
+  // Check if we know this is the HTTP server running on port 80
+  bool isHttpRedirectServer = false;
+#if defined(ESP8266)
+  // For ESP8266, we can check the server port directly
+  isHttpRedirectServer = isRedirectServer && server->port() == 80;
+#elif defined(ESP32)
+  // For ESP32, we can determine this based on our setup logic
+  // If HTTPS is enabled and we have a server, it must be the redirect server on
+  // port 80
+  isHttpRedirectServer = isRedirectServer;
+#endif
+
+  if (!server || isHttpRedirectServer) {
     Serial.println("WebPlatform: No HTTP server to register module routes on "
-                   "(HTTPS-only mode)");
+                   "or running in HTTP redirect mode");
     return;
   }
 

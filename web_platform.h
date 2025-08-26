@@ -69,7 +69,7 @@ public:
   ~WebPlatform();
 
   // Primary initialization - auto-detects mode and capabilities
-  void begin(const char *deviceName = "Device");
+  void begin(const char *deviceName = "Device", bool forceHttpsOnly = false);
 
   // Module registration (only works in CONNECTED mode)
   bool registerModule(const char *basePath, IWebModule *module);

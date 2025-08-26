@@ -41,7 +41,7 @@ WebPlatform::~WebPlatform() {
 #endif
 }
 
-void WebPlatform::begin(const char *deviceName) {
+void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
   Serial.println("WebPlatform: Starting initialization...");
 
   this->deviceName = deviceName;
@@ -57,6 +57,12 @@ void WebPlatform::begin(const char *deviceName) {
 
   // Detect HTTPS capability
   httpsEnabled = detectHttpsCapability();
+
+  // Force HTTPS-only mode if requested
+  if (forceHttpsOnly && httpsEnabled) {
+    Serial.println(
+        "WebPlatform: Forcing HTTPS-only mode with HTTP→HTTPS redirection");
+  }
 
   // Start server with appropriate configuration
   startServer();
@@ -114,10 +120,62 @@ void WebPlatform::startServer() {
           "WebPlatform: HTTP server started on port %d (HTTPS fallback)\n",
           serverPort);
     } else {
-      // HTTPS is working - don't create Arduino WebServer
-      server = nullptr;
+      // HTTPS is working - also create HTTP server to handle redirects to HTTPS
+      serverPort = 443;
+
+      // Create a separate HTTP server on port 80 for redirects
+      if (server) {
+        server->stop();
+        delete server;
+        server = nullptr;
+      }
+
+      server = new WebServerClass(80); // Always use port 80 for HTTP redirects
+      if (!server) {
+        Serial.println(
+            "WebPlatform: ERROR - Failed to create HTTP redirect server!");
+        return;
+      }
+
+      // Clear any existing routes from the server
+      // and set up a single catch-all handler for HTTP→HTTPS redirection
+      server->onNotFound([this]() {
+        // Extract the hostname without port
+        String host = server->hostHeader();
+        int colonPos = host.indexOf(":");
+        if (colonPos >= 0) {
+          host = host.substring(0, colonPos);
+        }
+
+        // Build the HTTPS URL
+        String httpsUrl =
+            "https://" + host + ":" + String(serverPort) + server->uri();
+
+        // Add query parameters if present
+        if (server->args() > 0) {
+          httpsUrl += "?";
+          for (int i = 0; i < server->args(); i++) {
+            if (i > 0) {
+              httpsUrl += "&";
+            }
+            httpsUrl += server->argName(i) + "=" + server->arg(i);
+          }
+        }
+
+        Serial.printf("WebPlatform: Redirecting HTTP request to HTTPS: %s\n",
+                      httpsUrl.c_str());
+        server->sendHeader("Location", httpsUrl);
+        server->sendHeader("Connection", "close");
+        server->send(301, "text/plain", "Redirecting to secure connection...");
+      });
+
+      // Register no routes on the HTTP server - everything should redirect to
+      // HTTPS
+
+      server->begin();
       running = true;
-      Serial.printf("WebPlatform: HTTPS-only server running on port %d\n",
+      Serial.printf("WebPlatform: HTTPS server running on port %d with "
+                    "HTTP-to-HTTPS redirection on port 80\n",
                     serverPort);
     }
   } else {
@@ -147,8 +205,24 @@ void WebPlatform::setupRoutes() {
     setupConnectedMode();
   }
 
-  // Only register Arduino WebServer routes if we have an HTTP server
-  if (server) {
+  // For HTTPS-only mode with redirection server, we don't register normal
+  // routes on HTTP server We know we're in redirect mode if server exists and
+  // HTTPS is enabled with serverPort 443
+  bool isRedirectServer =
+      (httpsEnabled && serverPort == 443 && server != nullptr);
+  // Check if we know this is the HTTP server running on port 80
+  bool isHttpRedirectServer = false;
+#if defined(ESP8266)
+  // For ESP8266, we can check the server port directly
+  isHttpRedirectServer = isRedirectServer && server->port() == 80;
+#elif defined(ESP32)
+  // For ESP32, we can determine this based on our setup logic
+  // If HTTPS is enabled and we have a server, it must be the redirect server on
+  // port 80
+  isHttpRedirectServer = isRedirectServer;
+#endif
+
+  if (server && !isHttpRedirectServer) {
     // Register static assets in both modes
     registerStaticAssetRoutes();
 
@@ -157,9 +231,25 @@ void WebPlatform::setupRoutes() {
   }
 }
 void WebPlatform::registerStaticAssetRoutes() {
-  if (!server) {
-    Serial.println("WebPlatform: No HTTP server to register static asset "
-                   "routes on (HTTPS-only mode)");
+  // Skip if no server or if we're in HTTPS-only mode with a redirect server
+  // (port 80)
+  bool isRedirectServer =
+      (httpsEnabled && serverPort == 443 && server != nullptr);
+  // Check if we know this is the HTTP server running on port 80
+  bool isHttpRedirectServer = false;
+#if defined(ESP8266)
+  // For ESP8266, we can check the server port directly
+  isHttpRedirectServer = isRedirectServer && server->port() == 80;
+#elif defined(ESP32)
+  // For ESP32, we can determine this based on our setup logic
+  // If HTTPS is enabled and we have a server, it must be the redirect server on
+  // port 80
+  isHttpRedirectServer = isRedirectServer;
+#endif
+
+  if (!server || isHttpRedirectServer) {
+    Serial.println("WebPlatform: No HTTP server to register static assets on "
+                   "or running in redirect mode");
     return;
   }
 
