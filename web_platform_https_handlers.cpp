@@ -1,5 +1,12 @@
+#include "route_entry.h"
 #include "web_platform.h"
 #include <web_ui_styles.h>
+
+#if defined(ESP32)
+#include <WebServer.h>
+#elif defined(ESP8266)
+#include <ESP8266WebServer.h>
+#endif
 
 // HTTPS request handling and processing
 // This file handles all HTTPS request processing and response generation
@@ -24,55 +31,50 @@ esp_err_t WebPlatform::httpsGenericHandler(httpd_req_t *req) {
   }
 
   String uri = String(req->uri);
-  String method = String(http_method_str((httpd_method_t)req->method));
+  String methodStr = String(http_method_str((httpd_method_t)req->method));
 
-  // Handle CSS and JS first - make sure styling works
-  if (uri.indexOf(".css") > 0 || uri.indexOf("/assets/") >= 0) {
-    // Try to serve as static asset
-    StaticAsset asset = IWebModule::getStaticAsset(uri);
-    if (asset.path.length() > 0) {
-      Serial.printf("Serving static asset: %s (%s)\n", uri.c_str(),
-                    asset.mimeType.c_str());
-      String content =
-          asset.useProgmem ? FPSTR(asset.content.c_str()) : asset.content;
-      httpd_resp_set_type(req, asset.mimeType.c_str());
-      httpd_resp_send(req, content.c_str(), content.length());
-      return ESP_OK;
-    }
+  Serial.printf("HTTPS Request: %s %s\n", methodStr.c_str(), uri.c_str());
 
-    // Special case for theme CSS
-    if (uri == "/assets/style.css") {
-      // First check for the specific file
-      StaticAsset cssAsset = IWebModule::getStaticAsset(uri);
+  // Find matching route in the registry
+  WebModule::Method method = (req->method == HTTP_GET)    ? WebModule::WM_GET
+                             : (req->method == HTTP_POST) ? WebModule::WM_POST
+                             : (req->method == HTTP_PUT)  ? WebModule::WM_PUT
+                             : (req->method == HTTP_DELETE)
+                                 ? WebModule::WM_DELETE
+                                 : WebModule::WM_GET;
 
-      if (cssAsset.path.length() > 0) {
-        String content = cssAsset.useProgmem ? FPSTR(cssAsset.content.c_str())
-                                             : cssAsset.content;
-        httpd_resp_set_type(req, "text/css");
-        httpd_resp_send(req, content.c_str(), content.length());
-        return ESP_OK;
-      } else {
-        // No custom CSS found, serve default theme
-        httpd_resp_set_type(req, "text/css");
-        httpd_resp_send(req, WEB_UI_DEFAULT_CSS, strlen(WEB_UI_DEFAULT_CSS));
-        return ESP_OK;
-      }
+  // Look through routeRegistry for a matching route - honoring overrides
+  bool foundRoute = false;
+  WebModule::UnifiedRouteHandler matchingHandler = nullptr;
+
+  for (const auto &route : routeRegistry) {
+    // Check exact path match or path with trailing slash
+    bool pathMatches =
+        (route.path == uri || (route.path + "/" == uri &&
+                               !route.path.endsWith("/") && route.path != "/"));
+
+    if (pathMatches && route.method == method && !route.disabled) {
+      foundRoute = true;
+      matchingHandler = route.handler;
+      Serial.printf("HTTPS found matching route: %s (override: %s)\n",
+                    route.path.c_str(), route.isOverride ? "YES" : "no");
+      break;
     }
   }
 
-  // Handle other static assets
-  StaticAsset asset = IWebModule::getStaticAsset(uri);
-  if (asset.path.length() > 0) {
-    Serial.printf("Serving static asset: %s (%s)\n", uri.c_str(),
-                  asset.mimeType.c_str());
-    String content =
-        asset.useProgmem ? FPSTR(asset.content.c_str()) : asset.content;
-    httpd_resp_set_type(req, asset.mimeType.c_str());
-    httpd_resp_send(req, content.c_str(), content.length());
-    return ESP_OK;
+  if (foundRoute && matchingHandler) {
+    // Create request and response objects
+    WebRequest request(req);
+    WebResponse response;
+
+    // Call the handler
+    matchingHandler(request, response);
+
+    // Send the response
+    return response.sendTo(req);
   }
 
-  // Check for redirects before routing
+  // If no unified route was found, check redirects
   String redirectTarget = IWebModule::getRedirectTarget(uri);
   if (redirectTarget.length() > 0) {
     Serial.printf("Redirecting %s to %s\n", uri.c_str(),
@@ -83,7 +85,7 @@ esp_err_t WebPlatform::httpsGenericHandler(httpd_req_t *req) {
     return ESP_OK;
   }
 
-  // Handle dynamic routes based on current mode
+  // Fallback to legacy route handling based on current mode
   if (httpsInstance->currentMode == CONFIG_PORTAL) {
     return httpsInstance->handleHttpsConfigPortal(req);
   } else {

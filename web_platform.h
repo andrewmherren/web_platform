@@ -7,6 +7,8 @@
 #include <map>
 #include <vector>
 #include <web_module_interface.h>
+#include <web_request.h>
+#include <web_response.h>
 #include <web_ui_styles.h>
 
 #if defined(ESP32)
@@ -16,18 +18,20 @@
 #include <WiFi.h>
 #include <esp_https_server.h>
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-#include <WebServer.h>
 #include <WiFiClientSecure.h>
-typedef WebServer WebServerClass;
-#else
-typedef WebServer WebServerClass;
 #endif
 #elif defined(ESP8266)
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
-typedef ESP8266WebServer WebServerClass;
 #endif
+
+// WebServerClass is now defined in web_module_interface/webserver_typedefs.h
+// No need for a local definition
+
+// Include the mock static asset API for backward compatibility
+#include "mock_static_asset.h"
+#include "route_entry.h"
 
 // Platform operation modes
 enum PlatformMode {
@@ -74,6 +78,14 @@ public:
   // Module registration (only works in CONNECTED mode)
   bool registerModule(const char *basePath, IWebModule *module);
 
+  // Route registration - unified handler system
+  void registerRoute(const String &path, WebModule::UnifiedRouteHandler handler,
+                     WebModule::Method method = WebModule::WM_GET);
+  void overrideRoute(const String &path, WebModule::UnifiedRouteHandler handler,
+                     WebModule::Method method = WebModule::WM_GET);
+  void disableRoute(const String &path,
+                    WebModule::Method method = WebModule::WM_GET);
+
   // Handle all web requests and WiFi operations
   void handle();
 
@@ -106,6 +118,7 @@ public:
   // Debug and monitoring
   size_t getRouteCount() const;
   void printRoutes() const;
+  void printUnifiedRoutes() const;
 
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
@@ -175,6 +188,12 @@ private:                            // Core server components
   void registerConnectedModeRoutes();
   void registerStaticAssetRoutes();
   void registerModuleRoutes();
+  void registerUnifiedRoutes();
+  void convertModuleRoutesToUnified();
+
+#if defined(ESP32)
+  void registerUnifiedHttpsRoutes();
+#endif
 
   // Certificate detection and HTTPS setup
   bool areCertificatesAvailable();

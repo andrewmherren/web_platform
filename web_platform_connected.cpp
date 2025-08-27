@@ -4,6 +4,12 @@
 #include "web_platform.h"
 #include <web_module_interface.h>
 
+#if defined(ESP32)
+#include <WebServer.h>
+#elif defined(ESP8266)
+#include <ESP8266WebServer.h>
+#endif
+
 // WebPlatform connected mode implementation
 // This file contains functions specific to the connected mode
 
@@ -104,116 +110,135 @@ String WebPlatform::handleWiFiManagement() {
 void WebPlatform::setupConnectedMode() {
   Serial.println("WebPlatform: Setting up connected mode routes");
 
+  // Register core platform routes FIRST (before overrides are processed)
   registerConnectedModeRoutes();
-  registerModuleRoutes();
+
+  // Convert legacy module routes to unified system
+  convertModuleRoutesToUnified();
+
+  // Register all unified routes with servers (this processes overrides)
+  registerUnifiedRoutes();
+
+#if defined(ESP32)
+  if (httpsEnabled && httpsServerHandle) {
+    registerUnifiedHttpsRoutes();
+  }
+#endif
 }
 
 void WebPlatform::registerConnectedModeRoutes() {
-  if (!server) {
-    Serial.println(
-        "WebPlatform: No HTTP server to register routes on (HTTPS-only mode)");
-    return;
-  }
-
-  // Helper function to register routes with and without trailing slash
-  auto registerRoute = [this](const String &path, WebModule::Method method,
-                              std::function<void()> handler) {
-    HTTPMethod httpMethod =
-        (method == WebModule::WM_GET) ? HTTP_GET : HTTP_POST;
-
-    // Register the route without trailing slash
-    server->on(path.c_str(), httpMethod, handler);
-
-    // Also register with trailing slash if not already present
-    if (!path.endsWith("/") && path != "/") {
-      String pathWithSlash = path + "/";
-      server->on(pathWithSlash.c_str(), httpMethod, handler);
-      Serial.printf("WebPlatform: Registered both %s and %s\n", path.c_str(),
-                    pathWithSlash.c_str());
-    }
-  };
+  Serial.println(
+      "WebPlatform: Registering core platform routes with unified system");
 
   // Home page
-  registerRoute("/", WebModule::WM_GET, [this]() {
-    IWebModule::setCurrentPath("/");
-    String response = handleConnectedRoot();
-    server->send(200, "text/html", response);
-  });
+  this->registerRoute(
+      "/",
+      [this](WebRequest &req, WebResponse &res) {
+        IWebModule::setCurrentPath("/");
+        String response = handleConnectedRoot();
+        res.setContent(response, "text/html");
+      },
+      WebModule::WM_GET);
 
   // System status
-  registerRoute("/status", WebModule::WM_GET, [this]() {
-    IWebModule::setCurrentPath("/status");
-    String response = handleSystemStatus();
-    server->send(200, "text/html", response);
-  });
+  this->registerRoute(
+      "/status",
+      [this](WebRequest &req, WebResponse &res) {
+        IWebModule::setCurrentPath("/status");
+        String response = handleSystemStatus();
+        res.setContent(response, "text/html");
+      },
+      WebModule::WM_GET);
 
   // WiFi management page
-  registerRoute("/wifi", WebModule::WM_GET, [this]() {
-    IWebModule::setCurrentPath("/wifi");
-    String response = handleWiFiManagement();
-    server->send(200, "text/html", response);
-  });
+  this->registerRoute(
+      "/wifi",
+      [this](WebRequest &req, WebResponse &res) {
+        IWebModule::setCurrentPath("/wifi");
+        String response = handleWiFiManagement();
+        res.setContent(response, "text/html");
+      },
+      WebModule::WM_GET);
 
-  // WiFi API endpoints - support both /api/* and /wifi/api/* patterns for
-  // consistency Define a connect handler function to reuse
-  auto connectHandler = [this]() {
-    String ssid = server->arg("ssid");
-    String password = server->arg("password");
+  // WiFi API endpoints
+  auto connectHandler = [this](WebRequest &req, WebResponse &res) {
+    String ssid = req.getParam("ssid");
+    String password = req.getParam("password");
 
     if (ssid.length() > 0) {
       saveWiFiCredentials(ssid, password);
 
-      // Return success response before restarting
-      server->send(200, "application/json",
-                   "{\"status\": \"restarting\", \"message\": \"Connecting to "
-                   "new network...\"}");
+      res.setContent("{\"status\": \"restarting\", \"message\": \"Connecting "
+                     "to new network...\"}",
+                     "application/json");
 
-      // Schedule restart to apply new credentials
-      delay(1000);
+      // Schedule restart after response is sent
+      // Note: This is a simplified approach - in a real implementation you
+      // might want to use a timer
+      delay(100); // Give time for response to be sent
       ESP.restart();
     } else {
-      server->send(
-          400, "application/json",
-          "{\"status\": \"error\", \"message\": \"Invalid SSID provided\"}");
+      res.setStatus(400);
+      res.setContent(
+          "{\"status\": \"error\", \"message\": \"Invalid SSID provided\"}",
+          "application/json");
     }
   };
 
   // WiFi scan API
-  registerRoute("/wifi/api/scan", WebModule::WM_GET, [this]() {
-    String response = handleWiFiScanAPI();
-    server->send(200, "application/json", response);
-  });
+  this->registerRoute(
+      "/wifi/api/scan",
+      [this](WebRequest &req, WebResponse &res) {
+        String response = handleWiFiScanAPI();
+        res.setContent(response, "application/json");
+      },
+      WebModule::WM_GET);
 
-  registerRoute("/api/scan", WebModule::WM_GET, [this]() {
-    String response = handleWiFiScanAPI();
-    server->send(200, "application/json", response);
-  });
+  this->registerRoute(
+      "/api/scan",
+      [this](WebRequest &req, WebResponse &res) {
+        String response = handleWiFiScanAPI();
+        res.setContent(response, "application/json");
+      },
+      WebModule::WM_GET);
 
   // WiFi status API
-  registerRoute("/wifi/api/status", WebModule::WM_GET, [this]() {
-    String response = handleWiFiStatusAPI();
-    server->send(200, "application/json", response);
-  });
+  this->registerRoute(
+      "/wifi/api/status",
+      [this](WebRequest &req, WebResponse &res) {
+        String response = handleWiFiStatusAPI();
+        res.setContent(response, "application/json");
+      },
+      WebModule::WM_GET);
 
-  registerRoute("/api/status", WebModule::WM_GET, [this]() {
-    String response = handleWiFiStatusAPI();
-    server->send(200, "application/json", response);
-  });
+  this->registerRoute(
+      "/api/status",
+      [this](WebRequest &req, WebResponse &res) {
+        String response = handleWiFiStatusAPI();
+        res.setContent(response, "application/json");
+      },
+      WebModule::WM_GET);
 
   // WiFi connect API
-  registerRoute("/wifi/api/connect", WebModule::WM_POST, connectHandler);
-  registerRoute("/api/connect", WebModule::WM_POST, connectHandler);
+  this->registerRoute("/wifi/api/connect", connectHandler, WebModule::WM_POST);
+  this->registerRoute("/api/connect", connectHandler, WebModule::WM_POST);
 
   // WiFi reset API
-  registerRoute("/wifi/api/reset", WebModule::WM_POST, [this]() {
-    String response = handleWiFiResetAPI();
-    server->send(200, "application/json", response);
-  });
+  this->registerRoute(
+      "/wifi/api/reset",
+      [this](WebRequest &req, WebResponse &res) {
+        String response = handleWiFiResetAPI();
+        res.setContent(response, "application/json");
+      },
+      WebModule::WM_POST);
 
-  registerRoute("/api/reset", WebModule::WM_POST, [this]() {
-    String response = handleWiFiResetAPI();
-    server->send(200, "application/json", response);
-  });
+  this->registerRoute(
+      "/api/reset",
+      [this](WebRequest &req, WebResponse &res) {
+        String response = handleWiFiResetAPI();
+        res.setContent(response, "application/json");
+      },
+      WebModule::WM_POST);
 }
 
 void WebPlatform::registerModuleRoutes() {
@@ -225,7 +250,7 @@ void WebPlatform::registerModuleRoutes() {
   bool isHttpRedirectServer = false;
 #if defined(ESP8266)
   // For ESP8266, we can check the server port directly
-  isHttpRedirectServer = isRedirectServer && server->port() == 80;
+  isHttpRedirectServer = isRedirectServer && serverPort == 80;
 #elif defined(ESP32)
   // For ESP32, we can determine this based on our setup logic
   // If HTTPS is enabled and we have a server, it must be the redirect server on

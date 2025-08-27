@@ -1,7 +1,18 @@
 #include "web_platform.h"
 
+#if defined(ESP32)
+#include <WebServer.h>
+#elif defined(ESP8266)
+#include <ESP8266WebServer.h>
+#endif
+
 // HTTPS route registration and management
 // This file handles registering routes with the ESP-IDF HTTPS server
+
+// Forward declare RouteEntry struct and routeRegistry since it's now in global
+// namespace in web_platform_routes.cpp
+struct RouteEntry;
+extern std::vector<RouteEntry> routeRegistry;
 
 #if defined(ESP32)
 
@@ -11,134 +22,14 @@ void WebPlatform::registerHttpsRoutes() {
 
   Serial.println("WebPlatform: Registering HTTPS routes...");
 
-  // Register specific routes BEFORE catch-all (ESP-IDF matches in order)
+  // In Phase 1 migration, we now use a unified route registration system
+  registerUnifiedHttpsRoutes();
 
-  // Root route
-  httpd_uri_t root_route = {.uri = "/",
-                            .method = HTTP_GET,
-                            .handler = httpsGenericHandler,
-                            .user_ctx = nullptr};
-  esp_err_t ret = httpd_register_uri_handler(httpsServerHandle, &root_route);
-  if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to register root route: %d\n", ret);
-  } else {
-    Serial.println("WebPlatform: Root route / registered");
-  }
-
-  // Status route - register both with and without trailing slash
-  httpd_uri_t status_route = {.uri = "/status",
-                              .method = HTTP_GET,
-                              .handler = httpsGenericHandler,
-                              .user_ctx = nullptr};
-  ret = httpd_register_uri_handler(httpsServerHandle, &status_route);
-  if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to register status route: %d\n", ret);
-  } else {
-    Serial.println("WebPlatform: Status route /status registered");
-  }
-
-  // Also register with trailing slash
-  httpd_uri_t status_route_trailing = {.uri = "/status/",
-                                       .method = HTTP_GET,
-                                       .handler = httpsGenericHandler,
-                                       .user_ctx = nullptr};
-  ret = httpd_register_uri_handler(httpsServerHandle, &status_route_trailing);
-  if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to register status route with trailing "
-                  "slash: %d\n",
-                  ret);
-  } else {
-    Serial.println("WebPlatform: Status route /status/ registered");
-  }
-
-  // WiFi route (specially added here because it's critical)
-  // Register both with and without trailing slash
-  httpd_uri_t wifi_route = {.uri = "/wifi",
-                            .method = HTTP_GET,
-                            .handler = httpsGenericHandler,
-                            .user_ctx = nullptr};
-  ret = httpd_register_uri_handler(httpsServerHandle, &wifi_route);
-  if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to register wifi route: %d\n", ret);
-  } else {
-    Serial.println("WebPlatform: WiFi route /wifi registered");
-  }
-
-  // Also register with trailing slash
-  httpd_uri_t wifi_route_trailing = {.uri = "/wifi/",
-                                     .method = HTTP_GET,
-                                     .handler = httpsGenericHandler,
-                                     .user_ctx = nullptr};
-  ret = httpd_register_uri_handler(httpsServerHandle, &wifi_route_trailing);
-  if (ret != ESP_OK) {
-    Serial.printf(
-        "WebPlatform: Failed to register wifi route with trailing slash: %d\n",
-        ret);
-  } else {
-    Serial.println("WebPlatform: WiFi route /wifi/ registered");
-  }
-
-  // Static assets are registered at the end of the registration process
-
-  // WiFi API routes (critical for both config portal and connected modes)
-  httpd_uri_t wifi_scan_route = {.uri = "/api/scan",
-                                 .method = HTTP_GET,
-                                 .handler = httpsGenericHandler,
-                                 .user_ctx = nullptr};
-  ret = httpd_register_uri_handler(httpsServerHandle, &wifi_scan_route);
-  if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to register /api/scan route: %d\n", ret);
-  } else {
-    Serial.println("WebPlatform: WiFi scan route /api/scan registered");
-  }
-
-  httpd_uri_t wifi_status_route = {.uri = "/api/status",
-                                   .method = HTTP_GET,
-                                   .handler = httpsGenericHandler,
-                                   .user_ctx = nullptr};
-  ret = httpd_register_uri_handler(httpsServerHandle, &wifi_status_route);
-  if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to register /api/status route: %d\n",
-                  ret);
-  } else {
-    Serial.println("WebPlatform: WiFi status route /api/status registered");
-  }
-
-  httpd_uri_t wifi_connect_route = {.uri = "/api/connect",
-                                    .method = HTTP_POST,
-                                    .handler = httpsGenericHandler,
-                                    .user_ctx = nullptr};
-  ret = httpd_register_uri_handler(httpsServerHandle, &wifi_connect_route);
-  if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to register /api/connect route: %d\n",
-                  ret);
-  } else {
-    Serial.println("WebPlatform: WiFi connect route /api/connect registered");
-  }
-
-  httpd_uri_t wifi_reset_route = {.uri = "/api/reset",
-                                  .method = HTTP_POST,
-                                  .handler = httpsGenericHandler,
-                                  .user_ctx = nullptr};
-  ret = httpd_register_uri_handler(httpsServerHandle, &wifi_reset_route);
-  if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to register /api/reset route: %d\n",
-                  ret);
-  } else {
-    Serial.println("WebPlatform: WiFi reset route /api/reset registered");
-  }
-
-  // Register module routes (in connected mode)
-  if (currentMode == CONNECTED) {
-    registerHttpsModuleRoutes();
-  }
-
-  // Register all static assets for HTTPS (implemented in
-  // web_platform_https_assets.cpp)
-  registerHttpsStaticAssets(); // Verify error page is available
+  // Register 404 error handler for ESP-IDF
   String testPage = IWebModule::getErrorPage(404);
   Serial.printf("Custom error page (404) available: %d bytes\n",
-                testPage.length()); // Register 404 error handler for ESP-IDF
+                testPage.length());
+
   httpd_register_err_handler(
       httpsServerHandle, HTTPD_404_NOT_FOUND,
       [](httpd_req_t *req, httpd_err_code_t err) -> esp_err_t {
@@ -195,80 +86,63 @@ void WebPlatform::registerHttpsModuleRoutesForModule(const String &basePath,
   Serial.printf("Processing module for HTTPS: %s at %s\n",
                 module->getModuleName().c_str(), basePath.c_str());
 
-  // First register the module's root path
-  String moduleRootPath = basePath;
-  if (moduleRootPath.endsWith("/")) {
-    // If it already has a trailing slash, leave it
-  } else {
-    // Make sure we also register with trailing slash
-    httpsRoutePaths.push_back(moduleRootPath + "/");
-    const char *pathWithSlash = httpsRoutePaths.back().c_str();
+  // No need to register routes manually here, as we now use the unified route
+  // system Instead, convert module routes to unified routes
 
-    httpd_uri_t root_config = {.uri = pathWithSlash,
-                               .method = HTTP_GET,
-                               .handler = httpsGenericHandler,
-                               .user_ctx = nullptr};
-
-    esp_err_t ret = httpd_register_uri_handler(httpsServerHandle, &root_config);
-    if (ret != ESP_OK) {
-      Serial.printf("  Failed to register module root path: %s, error: %d\n",
-                    (moduleRootPath + "/").c_str(), ret);
-    } else {
-      Serial.printf("  Registered module root path: %s\n",
-                    (moduleRootPath + "/").c_str());
-    }
-  }
-
-  // Also register without trailing slash (will redirect)
-  httpsRoutePaths.push_back(moduleRootPath);
-  const char *pathWithoutSlash = httpsRoutePaths.back().c_str();
-
-  httpd_uri_t root_config_no_slash = {.uri = pathWithoutSlash,
-                                      .method = HTTP_GET,
-                                      .handler = httpsGenericHandler,
-                                      .user_ctx = nullptr};
-
-  esp_err_t ret =
-      httpd_register_uri_handler(httpsServerHandle, &root_config_no_slash);
-  if (ret != ESP_OK) {
-    Serial.printf("  Failed to register module path: %s, error: %d\n",
-                  moduleRootPath.c_str(), ret);
-  } else {
-    Serial.printf("  Registered module path: %s\n", moduleRootPath.c_str());
-  }
-
-  // Register each module route
-  auto routes = module->getHttpsRoutes();
-  for (const auto &route : routes) {
+  // Process HTTP routes
+  auto httpRoutes = module->getHttpRoutes();
+  for (const auto &route : httpRoutes) {
+    // Create full path
     String fullPath = basePath;
-    // Make sure we don't double slash
-    if (fullPath.endsWith("/") && route.path.startsWith("/")) {
-      fullPath += route.path.substring(1); // Skip leading slash in route.path
-    } else if (!fullPath.endsWith("/") && !route.path.startsWith("/")) {
-      fullPath += "/" + route.path; // Add slash between
-    } else {
-      fullPath += route.path; // One has slash, one doesn't
+    if (!fullPath.endsWith("/") && !route.path.startsWith("/")) {
+      fullPath += "/";
+    } else if (fullPath.endsWith("/") && route.path.startsWith("/")) {
+      fullPath = fullPath.substring(0, fullPath.length() - 1);
     }
+    fullPath += route.path;
 
-    // Store path permanently for ESP-IDF
-    httpsRoutePaths.push_back(fullPath);
-    const char *pathPtr = httpsRoutePaths.back().c_str();
+    // Check if this is a unified route or legacy route
+    if (route.isUnified && route.unifiedHandler) {
+      // Register unified handler directly
+      registerRoute(fullPath, route.unifiedHandler, route.method);
+    } else if (route.handler) {
+      // Convert legacy handler to unified handler
+      auto unifiedHandler = [route, module](WebRequest &req, WebResponse &res) {
+        // Extract parameters from request
+        std::map<String, String> params = req.getAllParams();
 
-    Serial.printf("  Registering HTTPS route: %s %s\n",
-                  (route.method == WebModule::WM_GET ? "GET" : "POST"),
-                  fullPath.c_str());
+        // Call legacy handler
+        String result = route.handler(req.getBody(), params);
 
-    httpd_uri_t uri_config = {
-        .uri = pathPtr,
-        .method = (route.method == WebModule::WM_GET ? HTTP_GET : HTTP_POST),
-        .handler = httpsGenericHandler,
-        .user_ctx = nullptr};
+        // Set response
+        res.setContent(result, route.contentType);
+      };
 
-    esp_err_t ret = httpd_register_uri_handler(httpsServerHandle, &uri_config);
-    if (ret != ESP_OK) {
-      Serial.printf("    Failed to register: %d\n", ret);
-    } else {
-      Serial.printf("    Successfully registered: %s\n", fullPath.c_str());
+      registerRoute(fullPath, unifiedHandler, route.method);
+    }
+  }
+
+  // Process HTTPS routes (similar logic)
+  auto httpsRoutes = module->getHttpsRoutes();
+  for (const auto &route : httpsRoutes) {
+    String fullPath = basePath;
+    if (!fullPath.endsWith("/") && !route.path.startsWith("/")) {
+      fullPath += "/";
+    } else if (fullPath.endsWith("/") && route.path.startsWith("/")) {
+      fullPath = fullPath.substring(0, fullPath.length() - 1);
+    }
+    fullPath += route.path;
+
+    if (route.isUnified && route.unifiedHandler) {
+      registerRoute(fullPath, route.unifiedHandler, route.method);
+    } else if (route.handler) {
+      auto unifiedHandler = [route, module](WebRequest &req, WebResponse &res) {
+        std::map<String, String> params = req.getAllParams();
+        String result = route.handler(req.getBody(), params);
+        res.setContent(result, route.contentType);
+      };
+
+      registerRoute(fullPath, unifiedHandler, route.method);
     }
   }
 }

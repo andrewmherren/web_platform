@@ -5,6 +5,12 @@
 #include "web_platform.h"
 #include <ArduinoJson.h>
 
+#if defined(ESP32)
+#include <WebServer.h>
+#elif defined(ESP8266)
+#include <ESP8266WebServer.h>
+#endif
+
 // WebPlatform config portal implementation
 // This file contains functions specific to the WiFi configuration portal mode
 
@@ -33,9 +39,21 @@ String WebPlatform::handleConfigPortalRoot() {
   html.replace("{{SECURITY_NOTICE}}", securityNotice);
 
   // Register CSS and JS
-  IWebModule::addStaticAsset("/assets/config-portal.css", CONFIG_PORTAL_CSS,
-                             "text/css", true);
-  IWebModule::addJavaScript("/assets/config-portal.js", CONFIG_PORTAL_JS);
+  this->registerRoute(
+      "/assets/config-portal.css",
+      [](WebRequest &req, WebResponse &res) {
+        res.setContent(FPSTR(CONFIG_PORTAL_CSS), "text/css");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+      },
+      WebModule::WM_GET);
+
+  this->registerRoute(
+      "/assets/config-portal.js",
+      [](WebRequest &req, WebResponse &res) {
+        res.setContent(FPSTR(CONFIG_PORTAL_JS), "application/javascript");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+      },
+      WebModule::WM_GET);
 
   return IWebModule::injectNavigationMenu(html);
 }
@@ -150,9 +168,21 @@ void WebPlatform::setupConfigPortalMode() {
   setupCaptivePortal();
 
   // Register static assets for the config portal
-  IWebModule::addStaticAsset("/assets/config-portal.css", CONFIG_PORTAL_CSS,
-                             "text/css", true);
-  IWebModule::addJavaScript("/assets/config-portal.js", CONFIG_PORTAL_JS);
+  this->registerRoute(
+      "/assets/config-portal.css",
+      [](WebRequest &req, WebResponse &res) {
+        res.setContent(FPSTR(CONFIG_PORTAL_CSS), "text/css");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+      },
+      WebModule::WM_GET);
+
+  this->registerRoute(
+      "/assets/config-portal.js",
+      [](WebRequest &req, WebResponse &res) {
+        res.setContent(FPSTR(CONFIG_PORTAL_JS), "application/javascript");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+      },
+      WebModule::WM_GET);
 }
 
 void WebPlatform::registerConfigPortalRoutes() {

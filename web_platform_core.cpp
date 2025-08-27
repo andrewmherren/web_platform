@@ -1,6 +1,12 @@
 #include "web_platform.h"
 #include <web_ui_styles.h>
 
+#if defined(ESP32)
+#include <WebServer.h>
+#elif defined(ESP8266)
+#include <ESP8266WebServer.h>
+#endif
+
 // Core implementation of WebPlatform class
 // Basic initialization, setup, and handling functions
 
@@ -214,7 +220,7 @@ void WebPlatform::setupRoutes() {
   bool isHttpRedirectServer = false;
 #if defined(ESP8266)
   // For ESP8266, we can check the server port directly
-  isHttpRedirectServer = isRedirectServer && server->port() == 80;
+  isHttpRedirectServer = isRedirectServer && serverPort == 80;
 #elif defined(ESP32)
   // For ESP32, we can determine this based on our setup logic
   // If HTTPS is enabled and we have a server, it must be the redirect server on
@@ -239,7 +245,7 @@ void WebPlatform::registerStaticAssetRoutes() {
   bool isHttpRedirectServer = false;
 #if defined(ESP8266)
   // For ESP8266, we can check the server port directly
-  isHttpRedirectServer = isRedirectServer && server->port() == 80;
+  isHttpRedirectServer = isRedirectServer && serverPort == 80;
 #elif defined(ESP32)
   // For ESP32, we can determine this based on our setup logic
   // If HTTPS is enabled and we have a server, it must be the redirect server on
@@ -253,44 +259,21 @@ void WebPlatform::registerStaticAssetRoutes() {
     return;
   }
 
-  server->on("/assets/style.css", HTTP_GET, [this]() {
-    // First check for the specific style.css asset
-    StaticAsset cssAsset = IWebModule::getStaticAsset("/assets/style.css");
+  // In Phase 1 of the Route Handler Migration, static assets are now registered
+  // as routes directly by the main application and modules
+  Serial.println(
+      "WebPlatform: Phase 1 - Static assets now use the unified route system");
 
-    if (cssAsset.path.length() > 0) {
-      String content = cssAsset.useProgmem ? FPSTR(cssAsset.content.c_str())
-                                           : cssAsset.content;
-      server->send(200, "text/css", content);
-    } else {
-      // If no custom CSS is found, serve the default theme from IWebModule
-      server->send(200, "text/css", FPSTR(WEB_UI_DEFAULT_CSS));
-    }
+  // Default style.css route as fallback
+  server->on("/assets/style.css", HTTP_GET, [this]() {
+    // Serve the default theme from web_ui_styles.h
+    server->send(200, "text/css", FPSTR(WEB_UI_DEFAULT_CSS));
   });
 
-  // Get all static assets from IWebModule
-  auto assetRoutes = IWebModule::getStaticAssetRoutes();
-
-  for (const auto &route : assetRoutes) {
-    // Copy the route path for lambda capture
-    String routePath = route.path;
-
-    server->on(routePath.c_str(), HTTP_GET, [this, routePath]() {
-      // Get the static asset content
-      StaticAsset asset = IWebModule::getStaticAsset(routePath);
-
-      if (asset.path.length() > 0) {
-        // Serve the asset with correct MIME type
-        String content =
-            asset.useProgmem ? FPSTR(asset.content.c_str()) : asset.content;
-        server->send(200, asset.mimeType.c_str(), content);
-      } else {
-        // Asset not found
-        server->send(404, "text/plain", "Asset not found");
-      }
-    });
-  }
-  Serial.printf("WebPlatform: Registered %d static asset routes\n",
-                assetRoutes.size());
+  // Static assets are now registered using registerRoute directly from main.cpp
+  // and modules
+  Serial.println(
+      "WebPlatform: Static asset routes now use unified route system");
 }
 void WebPlatform::handle() {
   if (server) {
