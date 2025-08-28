@@ -3,6 +3,7 @@
 
 #include <DNSServer.h>
 #include <EEPROM.h>
+#include <auth_types.h>
 #include <functional>
 #include <map>
 #include <vector>
@@ -75,10 +76,12 @@ public:
   // Module registration (only works in CONNECTED mode)
   bool registerModule(const char *basePath, IWebModule *module);
 
-  // Route registration - unified handler system
+  // Route registration - unified handler system with auth requirements
   void registerRoute(const String &path, WebModule::UnifiedRouteHandler handler,
+                     const AuthRequirements &auth = {AuthType::NONE},
                      WebModule::Method method = WebModule::WM_GET);
   void overrideRoute(const String &path, WebModule::UnifiedRouteHandler handler,
+                     const AuthRequirements &auth = {AuthType::NONE},
                      WebModule::Method method = WebModule::WM_GET);
   void disableRoute(const String &path,
                     WebModule::Method method = WebModule::WM_GET);
@@ -116,10 +119,16 @@ public:
   size_t getRouteCount() const;
   void printRoutes() const;
   void printUnifiedRoutes() const;
+  void validateRoutes() const;
 
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
   DNSServer dnsServer;              // For captive portal functionality
+
+  // Authentication system
+  bool authenticateRequest(WebRequest &req, WebResponse &res,
+                           const AuthRequirements &requirements);
+  void registerAuthRoutes();
 
   // Platform state
   PlatformMode currentMode;
@@ -184,7 +193,8 @@ private:                            // Core server components
   void registerConfigPortalRoutes();
   void registerConnectedModeRoutes();
   void registerModuleRoutes();
-  void registerModuleRoutesForModule(const String &basePath, IWebModule *module);
+  void registerModuleRoutesForModule(const String &basePath,
+                                     IWebModule *module);
   void registerUnifiedRoutes();
 
 #if defined(ESP32)

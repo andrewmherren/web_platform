@@ -15,6 +15,7 @@ std::vector<RouteEntry> routeRegistry;
 
 void WebPlatform::registerRoute(const String &path,
                                 WebModule::UnifiedRouteHandler handler,
+                                const AuthRequirements &auth,
                                 WebModule::Method method) {
   // Check if route already exists
   for (auto &route : routeRegistry) {
@@ -35,7 +36,7 @@ void WebPlatform::registerRoute(const String &path,
   }
 
   // Add new route
-  routeRegistry.push_back(RouteEntry(path, method, handler, false));
+  routeRegistry.push_back(RouteEntry(path, method, handler, auth, false));
 
   Serial.printf("WebPlatform: Added new route %s %s\n",
                 httpMethodToString(method).c_str(), path.c_str());
@@ -43,6 +44,7 @@ void WebPlatform::registerRoute(const String &path,
 
 void WebPlatform::overrideRoute(const String &path,
                                 WebModule::UnifiedRouteHandler handler,
+                                const AuthRequirements &auth,
                                 WebModule::Method method) {
   // Find existing route and mark as overridden
   for (auto &route : routeRegistry) {
@@ -59,7 +61,7 @@ void WebPlatform::overrideRoute(const String &path,
 
   // Create new override route that will take precedence over future
   // registrations
-  routeRegistry.push_back(RouteEntry(path, method, handler, true));
+  routeRegistry.push_back(RouteEntry(path, method, handler, auth, true));
 
   Serial.printf("WebPlatform: Added preemptive override route %s %s\n",
                 httpMethodToString(method).c_str(), path.c_str());
@@ -154,8 +156,12 @@ void WebPlatform::registerUnifiedRoutes() {
       WebRequest request(server);
       WebResponse response;
 
-      // Call the unified handler
-      route.handler(request, response);
+      // Check authentication requirements
+      if (this->authenticateRequest(request, response,
+                                    route.authRequirements)) {
+        // Call the unified handler
+        route.handler(request, response);
+      }
 
       // Send the response
       response.sendTo(server);
@@ -251,7 +257,6 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
       String requestUri(req->uri);
 
       Serial.printf("HTTPS handling request: %s\n", requestUri.c_str());
-
       for (const auto &route : routeRegistry) {
         bool pathMatches = (route.path == requestUri ||
                             (route.path + "/" == requestUri &&
@@ -264,7 +269,11 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
           WebRequest request(req);
           WebResponse response;
 
-          route.handler(request, response);
+          // Check authentication requirements
+          if (WebPlatform::httpsInstance->authenticateRequest(
+                  request, response, route.authRequirements)) {
+            route.handler(request, response);
+          }
           return response.sendTo(req);
         }
       }
@@ -292,17 +301,17 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
 // Register all module routes into the unified system
 void WebPlatform::registerModuleRoutes() {
   Serial.println("\nWEBPLATFORM: Registering module routes in unified system");
-  
+
   for (const auto &regModule : registeredModules) {
     registerModuleRoutesForModule(regModule.basePath, regModule.module);
   }
 }
 
 // Register routes for a specific module
-void WebPlatform::registerModuleRoutesForModule(const String &basePath, IWebModule *module) {
+void WebPlatform::registerModuleRoutesForModule(const String &basePath,
+                                                IWebModule *module) {
   Serial.printf("  Processing module: %s at path: %s\n",
-                module->getModuleName().c_str(),
-                basePath.c_str());
+                module->getModuleName().c_str(), basePath.c_str());
 
   // Process HTTP routes
   auto httpRoutes = module->getHttpRoutes();
@@ -333,33 +342,33 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath, IWebModu
       fullPath += routePath;
       Serial.printf("  Standard path concatenation: %s\n", fullPath.c_str());
     }
-    
+
     // Register the route directly with the unified system
     if (route.isUnified && route.unifiedHandler) {
       Serial.printf("  Registering unified route: %s %s\n",
-                  httpMethodToString(route.method).c_str(), fullPath.c_str());
-      registerRoute(fullPath, route.unifiedHandler, route.method);
+                    httpMethodToString(route.method).c_str(), fullPath.c_str());
+      registerRoute(fullPath, route.unifiedHandler, {AuthType::NONE},
+                    route.method);
     } else if (route.handler) {
       // Convert legacy handler to unified handler
-      Serial.printf("  Converting to unified route: %s %s\n",
-                  httpMethodToString(route.method).c_str(), fullPath.c_str());
-      
       // Lambda to adapt the legacy handler format
-      auto unifiedHandler = [route, basePath](WebRequest &req, WebResponse &res) {
+      auto unifiedHandler = [route, basePath](WebRequest &req,
+                                              WebResponse &res) {
         // Set current path for navigation highlighting
         IWebModule::setCurrentPath(basePath);
-        
+
         // Extract parameters from request
         std::map<String, String> params = req.getAllParams();
-        
+
         // Call legacy handler
         String result = route.handler(req.getBody(), params);
-        
+
         // Set response
         res.setContent(result, route.contentType);
       };
-      
-      registerRoute(fullPath, unifiedHandler, route.method);
+
+      // By default, legacy routes have no auth requirements
+      registerRoute(fullPath, unifiedHandler, {AuthType::NONE}, route.method);
     }
   }
 

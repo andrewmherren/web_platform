@@ -45,7 +45,7 @@ String WebPlatform::handleConfigPortalRoot() {
         res.setContent(FPSTR(CONFIG_PORTAL_CSS), "text/css");
         res.setHeader("Cache-Control", "public, max-age=3600");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 
   this->registerRoute(
       "/assets/config-portal.js",
@@ -53,7 +53,7 @@ String WebPlatform::handleConfigPortalRoot() {
         res.setContent(FPSTR(CONFIG_PORTAL_JS), "application/javascript");
         res.setHeader("Cache-Control", "public, max-age=3600");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 
   return IWebModule::injectNavigationMenu(html);
 }
@@ -174,7 +174,7 @@ void WebPlatform::setupConfigPortalMode() {
         res.setContent(FPSTR(CONFIG_PORTAL_CSS), "text/css");
         res.setHeader("Cache-Control", "public, max-age=3600");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 
   this->registerRoute(
       "/assets/config-portal.js",
@@ -182,7 +182,7 @@ void WebPlatform::setupConfigPortalMode() {
         res.setContent(FPSTR(CONFIG_PORTAL_JS), "application/javascript");
         res.setHeader("Cache-Control", "public, max-age=3600");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 }
 
 void WebPlatform::registerConfigPortalRoutes() {

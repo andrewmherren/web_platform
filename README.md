@@ -2,8 +2,8 @@
 
 WebPlatform is a unified web server module that merges the functionality of `web_router` and `wifi_ap` into a single, secure platform. It handles both WiFi configuration (config portal mode) and application serving (connected mode) through a single server instance.
 
-## Status Update: All Phases Completed (1-6)
-The WebPlatform implementation is now complete with all planned phases finished. It provides a simplified, unified web server that handles both WiFi configuration and application serving through a single instance. The latest enhancement (Phase 6) enables automatic certificate detection without requiring build flags, making HTTPS seamless when certificates are available.
+## Status Update: Authentication Framework Added (Phases 1-2 Complete)
+The WebPlatform implementation now includes a complete authentication framework (Phase 2). It provides a simplified, unified web server that handles WiFi configuration, application serving, and authentication through a single instance. The system now supports multiple authentication types (SESSION, TOKEN) with route-specific protection requirements.
 
 ## Key Features
 
@@ -13,12 +13,16 @@ The WebPlatform implementation is now complete with all planned phases finished.
 - **Restart-Based Transitions**: Simple and reliable mode switching via device restart
 - **Module Registration**: IWebModule-based component registration for connected mode
 - **Static Asset Management**: Consistent asset serving across both modes
+- **Authentication Framework**: Route-specific auth requirements with session and token support
 
 ### Security Enhancements
 - **HTTPS Config Portal**: Secure WiFi credential transmission when certificates available
 - **Certificate Auto-Detection**: Runtime certificate detection without build flags
 - **Graceful Fallback**: HTTP operation when certificates unavailable
 - **Captive Portal**: Secure WiFi setup with DNS redirection
+- **Session Authentication**: Cookie-based web authentication system
+- **API Tokens**: Secure Bearer token authentication for programmatic access
+- **Route Protection**: Fine-grained authentication requirements per route
 
 ### Integration Benefits
 - **Simplified API**: Single initialization and handle calls
@@ -39,7 +43,14 @@ void setup() {
     
     // Register modules (only works in connected mode)
     if (webPlatform.isConnected()) {
+        // Register module routes
         webPlatform.registerModule("/usb_pd", &usbPDController);
+        
+        // Override a module route with custom auth requirement
+        webPlatform.overrideRoute("/usb_pd/config", configHandler, {AuthType::SESSION});
+        
+        // Disable a module route completely
+        webPlatform.disableRoute("/usb_pd/firmware");
     }
 }
 
@@ -126,6 +137,15 @@ void begin(const char* deviceName = "Device");
 // Module management
 bool registerModule(const char* basePath, IWebModule* module);
 
+// Route management
+void registerRoute(const String &path, WebModule::UnifiedRouteHandler handler,
+                  const AuthRequirements &auth = {AuthType::NONE},
+                  WebModule::Method method = WebModule::WM_GET);
+void overrideRoute(const String &path, WebModule::UnifiedRouteHandler handler,
+                  const AuthRequirements &auth = {AuthType::NONE},
+                  WebModule::Method method = WebModule::WM_GET);
+void disableRoute(const String &path, WebModule::Method method = WebModule::WM_GET);
+
 // Request handling
 void handle();
 
@@ -145,6 +165,11 @@ String getHostname() const;
 void resetWiFiCredentials();
 void startConfigPortal();
 void onSetupComplete(WiFiSetupCompleteCallback callback);
+
+// Route debugging
+size_t getRouteCount() const;
+void printUnifiedRoutes() const;
+void validateRoutes() const;
 ```
 
 ### States and Enums

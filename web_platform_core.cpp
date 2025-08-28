@@ -209,17 +209,12 @@ void WebPlatform::setupRoutes() {
     setupConfigPortalMode();
   } else {
     setupConnectedMode();
+    registerAuthRoutes(); // Add authentication routes
   }
 
   // Print final route registry for debugging
-  Serial.println("\nFINAL ROUTE REGISTRY AFTER SETUP:");
-  for (const auto &route : routeRegistry) {
-    Serial.printf("  %s %s (Override: %s, Disabled: %s)\n",
-                  httpMethodToString(route.method).c_str(), route.path.c_str(),
-                  route.isOverride ? "YES" : "no",
-                  route.disabled ? "YES" : "no");
-  }
-  Serial.println("");
+  printUnifiedRoutes();
+  validateRoutes();
 
   // For HTTPS-only mode with redirection server, we don't register normal
   // routes on HTTP server We know we're in redirect mode if server exists and

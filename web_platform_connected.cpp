@@ -138,7 +138,7 @@ void WebPlatform::registerConnectedModeRoutes() {
         String response = handleConnectedRoot();
         res.setContent(response, "text/html");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 
   // System status
   this->registerRoute(
@@ -148,7 +148,7 @@ void WebPlatform::registerConnectedModeRoutes() {
         String response = handleSystemStatus();
         res.setContent(response, "text/html");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 
   // WiFi management page
   this->registerRoute(
@@ -158,7 +158,7 @@ void WebPlatform::registerConnectedModeRoutes() {
         String response = handleWiFiManagement();
         res.setContent(response, "text/html");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 
   // WiFi API endpoints
   auto connectHandler = [this](WebRequest &req, WebResponse &res) {
@@ -192,7 +192,7 @@ void WebPlatform::registerConnectedModeRoutes() {
         String response = handleWiFiScanAPI();
         res.setContent(response, "application/json");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 
   this->registerRoute(
       "/api/scan",
@@ -200,7 +200,7 @@ void WebPlatform::registerConnectedModeRoutes() {
         String response = handleWiFiScanAPI();
         res.setContent(response, "application/json");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 
   // WiFi status API
   this->registerRoute(
@@ -209,7 +209,7 @@ void WebPlatform::registerConnectedModeRoutes() {
         String response = handleWiFiStatusAPI();
         res.setContent(response, "application/json");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 
   this->registerRoute(
       "/api/status",
@@ -217,11 +217,13 @@ void WebPlatform::registerConnectedModeRoutes() {
         String response = handleWiFiStatusAPI();
         res.setContent(response, "application/json");
       },
-      WebModule::WM_GET);
+      {AuthType::NONE}, WebModule::WM_GET);
 
   // WiFi connect API
-  this->registerRoute("/wifi/api/connect", connectHandler, WebModule::WM_POST);
-  this->registerRoute("/api/connect", connectHandler, WebModule::WM_POST);
+  this->registerRoute("/wifi/api/connect", connectHandler, {AuthType::NONE},
+                      WebModule::WM_POST);
+  this->registerRoute("/api/connect", connectHandler, {AuthType::NONE},
+                      WebModule::WM_POST);
 
   // WiFi reset API
   this->registerRoute(
@@ -230,7 +232,7 @@ void WebPlatform::registerConnectedModeRoutes() {
         String response = handleWiFiResetAPI();
         res.setContent(response, "application/json");
       },
-      WebModule::WM_POST);
+      {AuthType::NONE}, WebModule::WM_POST);
 
   this->registerRoute(
       "/api/reset",
@@ -238,7 +240,7 @@ void WebPlatform::registerConnectedModeRoutes() {
         String response = handleWiFiResetAPI();
         res.setContent(response, "application/json");
       },
-      WebModule::WM_POST);
+      {AuthType::NONE}, WebModule::WM_POST);
 }
 
 // Method removed as part of Phase 1 migration to unified route system
@@ -292,13 +294,4 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *module) {
 #endif
 
   return true;
-}
-
-size_t WebPlatform::getRouteCount() const {
-  // Basic route counting - will be enhanced in later phases
-  size_t count = 0;
-  for (const auto &regModule : registeredModules) {
-    count += regModule.module->getHttpRoutes().size();
-  }
-  return count;
 }
