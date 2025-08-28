@@ -241,116 +241,7 @@ void WebPlatform::registerConnectedModeRoutes() {
       WebModule::WM_POST);
 }
 
-void WebPlatform::registerModuleRoutes() {
-  // Skip if no server or if we're in HTTPS-only mode with a redirect server
-  // (port 80)
-  bool isRedirectServer =
-      (httpsEnabled && serverPort == 443 && server != nullptr);
-  // Check if we know this is the HTTP server running on port 80
-  bool isHttpRedirectServer = false;
-#if defined(ESP8266)
-  // For ESP8266, we can check the server port directly
-  isHttpRedirectServer = isRedirectServer && serverPort == 80;
-#elif defined(ESP32)
-  // For ESP32, we can determine this based on our setup logic
-  // If HTTPS is enabled and we have a server, it must be the redirect server on
-  // port 80
-  isHttpRedirectServer = isRedirectServer;
-#endif
-
-  if (!server || isHttpRedirectServer) {
-    Serial.println("WebPlatform: No HTTP server to register module routes on "
-                   "or running in HTTP redirect mode");
-    return;
-  }
-
-  // Register routes for all registered modules
-  Serial.println("WebPlatform: Registering module routes...");
-
-  for (const auto &regModule : registeredModules) {
-    Serial.printf("WebPlatform: Processing module '%s' at path: %s\n",
-                  regModule.module->getModuleName().c_str(),
-                  regModule.basePath.c_str());
-
-    auto routes = regModule.module->getHttpRoutes();
-    Serial.printf("WebPlatform: Module has %d routes\n", routes.size());
-
-    for (const auto &route : routes) {
-      // Create both versions of the path - with and without trailing slash
-      String basePath = regModule.basePath;
-      String routePath = route.path;
-
-      // Handle base path and route path slash combinations
-      String fullPath;
-      if (basePath.endsWith("/") && routePath.startsWith("/")) {
-        fullPath = basePath + routePath.substring(1); // Remove duplicate slash
-      } else if (!basePath.endsWith("/") && !routePath.startsWith("/")) {
-        fullPath = basePath + "/" + routePath; // Add missing slash
-      } else {
-        fullPath = basePath + routePath; // Perfect match
-      }
-
-      // Also create a version with trailing slash for non-root paths
-      String fullPathWithTrailing = fullPath;
-      if (!fullPath.endsWith("/") && routePath != "/") {
-        fullPathWithTrailing += "/";
-      }
-
-      String methodStr = (route.method == WebModule::WM_GET) ? "GET" : "POST";
-      Serial.printf("WebPlatform: Registering %s %s\n", methodStr.c_str(),
-                    fullPath.c_str());
-
-      // Make a copy of the module and route for lambda capture
-      IWebModule *module = regModule.module;
-      WebRoute routeCopy = route;
-      String moduleBasePath = regModule.basePath;
-
-      auto handlerFunction = [this, module, routeCopy, moduleBasePath]() {
-        // Set current path for navigation highlighting
-        IWebModule::setCurrentPath(moduleBasePath);
-
-        // Extract URL parameters
-        std::map<String, String> params;
-        for (int i = 0; i < server->args(); i++) {
-          params[server->argName(i)] = server->arg(i);
-        }
-
-        // Call the module's handler with appropriate data
-        String response;
-        if (routeCopy.method == WebModule::WM_POST) {
-          response = routeCopy.handler(server->arg("plain"), params);
-        } else {
-          response = routeCopy.handler("", params);
-        }
-
-        server->send(200, routeCopy.contentType.c_str(), response);
-      };
-
-      // Register both versions of the path
-      if (route.method == WebModule::WM_GET) {
-        server->on(fullPath.c_str(), HTTP_GET, handlerFunction);
-
-        // Register trailing slash version if different
-        if (fullPath != fullPathWithTrailing) {
-          server->on(fullPathWithTrailing.c_str(), HTTP_GET, handlerFunction);
-          Serial.printf("WebPlatform: Also registered %s %s\n",
-                        methodStr.c_str(), fullPathWithTrailing.c_str());
-        }
-      } else if (route.method == WebModule::WM_POST) {
-        server->on(fullPath.c_str(), HTTP_POST, handlerFunction);
-
-        // Register trailing slash version if different
-        if (fullPath != fullPathWithTrailing) {
-          server->on(fullPathWithTrailing.c_str(), HTTP_POST, handlerFunction);
-          Serial.printf("WebPlatform: Also registered %s %s\n",
-                        methodStr.c_str(), fullPathWithTrailing.c_str());
-        }
-      }
-    }
-  }
-
-  Serial.println("WebPlatform: Module routes registered");
-}
+// Method removed as part of Phase 1 migration to unified route system
 
 bool WebPlatform::registerModule(const char *basePath, IWebModule *module) {
   if (currentMode != CONNECTED) {
@@ -389,17 +280,12 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *module) {
                   route.path.c_str());
   }
 
-  // Register HTTP routes if HTTP server exists
-  registerModuleRoutes();
+  // Routes are registered through the unified system
+  // No direct registration needed here
 
-// Register HTTPS routes for this module
-#if defined(ESP32)
-  if (httpsServerHandle && httpsEnabled) {
-    Serial.printf("WebPlatform: Registering HTTPS routes for module: %s\n",
-                  module->getModuleName().c_str());
-    registerHttpsModuleRoutesForModule(basePath, module);
-  }
-#endif
+  // Routes are now handled by the unified route system
+  // which processes all modules during setupConnectedMode()
+  // No need for individual module route registration here
 
   return true;
 }

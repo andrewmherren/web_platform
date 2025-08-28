@@ -211,6 +211,16 @@ void WebPlatform::setupRoutes() {
     setupConnectedMode();
   }
 
+  // Print final route registry for debugging
+  Serial.println("\nFINAL ROUTE REGISTRY AFTER SETUP:");
+  for (const auto &route : routeRegistry) {
+    Serial.printf("  %s %s (Override: %s, Disabled: %s)\n",
+                  httpMethodToString(route.method).c_str(), route.path.c_str(),
+                  route.isOverride ? "YES" : "no",
+                  route.disabled ? "YES" : "no");
+  }
+  Serial.println("");
+
   // For HTTPS-only mode with redirection server, we don't register normal
   // routes on HTTP server We know we're in redirect mode if server exists and
   // HTTPS is enabled with serverPort 443
@@ -229,52 +239,11 @@ void WebPlatform::setupRoutes() {
 #endif
 
   if (server && !isHttpRedirectServer) {
-    // Register static assets in both modes
-    registerStaticAssetRoutes();
-
     // Setup 404 handler
     server->onNotFound([this]() { handleNotFound(); });
   }
 }
-void WebPlatform::registerStaticAssetRoutes() {
-  // Skip if no server or if we're in HTTPS-only mode with a redirect server
-  // (port 80)
-  bool isRedirectServer =
-      (httpsEnabled && serverPort == 443 && server != nullptr);
-  // Check if we know this is the HTTP server running on port 80
-  bool isHttpRedirectServer = false;
-#if defined(ESP8266)
-  // For ESP8266, we can check the server port directly
-  isHttpRedirectServer = isRedirectServer && serverPort == 80;
-#elif defined(ESP32)
-  // For ESP32, we can determine this based on our setup logic
-  // If HTTPS is enabled and we have a server, it must be the redirect server on
-  // port 80
-  isHttpRedirectServer = isRedirectServer;
-#endif
 
-  if (!server || isHttpRedirectServer) {
-    Serial.println("WebPlatform: No HTTP server to register static assets on "
-                   "or running in redirect mode");
-    return;
-  }
-
-  // In Phase 1 of the Route Handler Migration, static assets are now registered
-  // as routes directly by the main application and modules
-  Serial.println(
-      "WebPlatform: Phase 1 - Static assets now use the unified route system");
-
-  // Default style.css route as fallback
-  server->on("/assets/style.css", HTTP_GET, [this]() {
-    // Serve the default theme from web_ui_styles.h
-    server->send(200, "text/css", FPSTR(WEB_UI_DEFAULT_CSS));
-  });
-
-  // Static assets are now registered using registerRoute directly from main.cpp
-  // and modules
-  Serial.println(
-      "WebPlatform: Static asset routes now use unified route system");
-}
 void WebPlatform::handle() {
   if (server) {
     server->handleClient();

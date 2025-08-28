@@ -35,6 +35,15 @@ esp_err_t WebPlatform::httpsGenericHandler(httpd_req_t *req) {
 
   Serial.printf("HTTPS Request: %s %s\n", methodStr.c_str(), uri.c_str());
 
+  // Print all registered routes for debugging
+  Serial.println("Available routes:");
+  for (const auto &route : routeRegistry) {
+    Serial.printf("  %s %s (Override: %s, Disabled: %s)\n",
+                  httpMethodToString(route.method).c_str(), route.path.c_str(),
+                  route.isOverride ? "YES" : "no",
+                  route.disabled ? "YES" : "no");
+  }
+
   // Find matching route in the registry
   WebModule::Method method = (req->method == HTTP_GET)    ? WebModule::WM_GET
                              : (req->method == HTTP_POST) ? WebModule::WM_POST
@@ -52,6 +61,11 @@ esp_err_t WebPlatform::httpsGenericHandler(httpd_req_t *req) {
     bool pathMatches =
         (route.path == uri || (route.path + "/" == uri &&
                                !route.path.endsWith("/") && route.path != "/"));
+
+    Serial.printf("  Checking route: %s == %s ? %s (method: %s == %s ? %s)\n",
+                  route.path.c_str(), uri.c_str(), pathMatches ? "YES" : "NO",
+                  httpMethodToString(route.method).c_str(), methodStr.c_str(),
+                  (route.method == method) ? "YES" : "NO");
 
     if (pathMatches && route.method == method && !route.disabled) {
       foundRoute = true;

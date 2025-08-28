@@ -29,8 +29,6 @@
 // WebServerClass is now defined in web_module_interface/webserver_typedefs.h
 // No need for a local definition
 
-// Include the mock static asset API for backward compatibility
-#include "mock_static_asset.h"
 #include "route_entry.h"
 
 // Platform operation modes
@@ -64,7 +62,6 @@ typedef std::function<void()> WiFiSetupCompleteCallback;
  * - HTTPS config portal for secure WiFi credential transmission
  * - Restart-based mode switching (simple and reliable)
  * - Module registration system for connected mode
- * - Static asset management across both modes
  * - Automatic certificate detection without build flags
  */
 class WebPlatform : public IWebModule {
@@ -186,8 +183,6 @@ private:                            // Core server components
   // Route management
   void registerConfigPortalRoutes();
   void registerConnectedModeRoutes();
-  void registerStaticAssetRoutes();
-  void registerModuleRoutes();
   void registerUnifiedRoutes();
   void convertModuleRoutesToUnified();
 
@@ -207,11 +202,6 @@ private:                            // Core server components
 
   // Route registration methods (implemented in web_platform_https_routes.cpp)
   void registerHttpsRoutes();
-  void registerHttpsModuleRoutes();
-  void registerHttpsModuleRoutesForModule(const String &basePath,
-                                          IWebModule *module);
-  void registerHttpsStaticAssets();
-
   // Request handling methods (implemented in web_platform_https_handlers.cpp)
   static esp_err_t httpsGenericHandler(httpd_req_t *req);
   esp_err_t handleHttpsConfigPortal(httpd_req_t *req);
