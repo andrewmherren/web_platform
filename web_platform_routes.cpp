@@ -289,130 +289,81 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
 }
 #endif
 
-// Direct registration of module routes using the unified system
-void WebPlatform::convertModuleRoutesToUnified() {
-  Serial.println("\nWEBPLATFORM: Registering module routes directly to unified system");
+// Register all module routes into the unified system
+void WebPlatform::registerModuleRoutes() {
+  Serial.println("\nWEBPLATFORM: Registering module routes in unified system");
+  
   for (const auto &regModule : registeredModules) {
-    Serial.printf("  Processing module: %s at path: %s\n",
-                  regModule.module->getModuleName().c_str(),
-                  regModule.basePath.c_str());
+    registerModuleRoutesForModule(regModule.basePath, regModule.module);
+  }
+}
 
-    // Register each module's root path to ensure it exists
-    auto rootHandler = [regModule](WebRequest &req, WebResponse &res) {
-      // This is just a placeholder - module should have registered a proper root handler
-      // but we provide this as a fallback
-      res.setContent("<h1>" + regModule.module->getModuleName() + "</h1><p>No index page provided by module.</p>",
-                     "text/html");
-    };
+// Register routes for a specific module
+void WebPlatform::registerModuleRoutesForModule(const String &basePath, IWebModule *module) {
+  Serial.printf("  Processing module: %s at path: %s\n",
+                module->getModuleName().c_str(),
+                basePath.c_str());
 
-    String rootPath = regModule.basePath;
-    if (!rootPath.endsWith("/")) {
-      rootPath += "/";
-    }
+  // Process HTTP routes
+  auto httpRoutes = module->getHttpRoutes();
+  Serial.printf("  Module has %d HTTP routes\n", httpRoutes.size());
 
-    // Only register this fallback if the module didn't register its own root handler
-    bool hasRootHandler = false;
-    for (const auto &route : routeRegistry) {
-      if (route.path == rootPath && !route.disabled) {
-        hasRootHandler = true;
-        break;
+  for (const auto &route : httpRoutes) {
+    // Create full path
+    String fullPath = basePath;
+    String routePath = route.path;
+
+    // Special case for root path
+    if (routePath == "/" || routePath.isEmpty()) {
+      // For root path, ensure the base path ends with a slash
+      if (!fullPath.endsWith("/")) {
+        fullPath += "/";
       }
-    }
-
-    if (!hasRootHandler) {
-      Serial.printf("  Adding fallback root handler for module at %s\n", rootPath.c_str());
-      registerRoute(rootPath, rootHandler, WebModule::WM_GET);
+      Serial.printf("  Module root path: %s\n", fullPath.c_str());
+    } else if (!fullPath.endsWith("/") && !routePath.startsWith("/")) {
+      // Neither has slash, add one between
+      fullPath += "/" + routePath;
+      Serial.printf("  Added slash between paths: %s\n", fullPath.c_str());
+    } else if (fullPath.endsWith("/") && routePath.startsWith("/")) {
+      // Both have slash, remove duplicate
+      fullPath += routePath.substring(1);
+      Serial.printf("  Removed duplicate slash: %s\n", fullPath.c_str());
+    } else {
+      // One has slash, just concatenate
+      fullPath += routePath;
+      Serial.printf("  Standard path concatenation: %s\n", fullPath.c_str());
     }
     
-    // Process HTTP routes
-    auto httpRoutes = regModule.module->getHttpRoutes();
-    Serial.printf("  Module has %d HTTP routes\n", httpRoutes.size());
-
-    for (const auto &route : httpRoutes) {
-      Serial.printf("    Processing route: '%s' (method: %s)\n",
-                    route.path.c_str(),
-                    httpMethodToString(route.method).c_str());
-
-      // Create full path
-      String fullPath = regModule.basePath;
-
-      // Special case for root path
-      if (route.path == "/" || route.path.isEmpty()) {
-        // For root path, ensure the base path ends with a slash
-        if (!fullPath.endsWith("/")) {
-          fullPath += "/";
-        }
-        Serial.printf("    Module root path at %s\n", fullPath.c_str());
-      } else if (!fullPath.endsWith("/") && !route.path.startsWith("/")) {
-        // Neither has slash, add one between
-        fullPath += "/" + route.path;
-        Serial.printf("    Added slash between paths: %s\n", fullPath.c_str());
-      } else if (fullPath.endsWith("/") && route.path.startsWith("/")) {
-        // Both have slash, remove duplicate
-        fullPath += route.path.substring(1);
-        Serial.printf("    Removed duplicate slash: %s\n", fullPath.c_str());
-      } else {
-        // One has slash, just concatenate
-        fullPath += route.path;
-        Serial.printf("    Standard path concatenation: %s\n", fullPath.c_str());
-      }
+    // Register the route directly with the unified system
+    if (route.isUnified && route.unifiedHandler) {
+      Serial.printf("  Registering unified route: %s %s\n",
+                  httpMethodToString(route.method).c_str(), fullPath.c_str());
+      registerRoute(fullPath, route.unifiedHandler, route.method);
+    } else if (route.handler) {
+      // Convert legacy handler to unified handler
+      Serial.printf("  Converting to unified route: %s %s\n",
+                  httpMethodToString(route.method).c_str(), fullPath.c_str());
       
-      // Register route directly with unified system
-      if (route.isUnified && route.unifiedHandler) {
-        // Direct unified handler registration
-        Serial.printf("    Registering unified route: %s %s\n",
-                      httpMethodToString(route.method).c_str(),
-                      fullPath.c_str());
-        registerRoute(fullPath, route.unifiedHandler, route.method);
-      } else if (route.handler) {
-        // Convert to unified handler
-        Serial.printf("    Converting to unified route: %s %s\n",
-                      httpMethodToString(route.method).c_str(),
-                      fullPath.c_str());
-        auto unifiedHandler = [route, regModule](WebRequest &req, WebResponse &res) {
-          std::map<String, String> params = req.getAllParams();
-          String result = route.handler(req.getBody(), params);
-          res.setContent(result, route.contentType);
-        };
-
-        registerRoute(fullPath, unifiedHandler, route.method);
-      }
-    }
-
-    // Process HTTPS routes (similar logic)
-    auto httpsRoutes = regModule.module->getHttpsRoutes();
-    for (const auto &route : httpsRoutes) {
-      String fullPath = regModule.basePath;
-
-      // Special case for root path
-      if (route.path == "/" || route.path.isEmpty()) {
-        // For root path, ensure the base path ends with a slash
-        if (!fullPath.endsWith("/")) {
-          fullPath += "/";
-        }
-        Serial.printf("    Module HTTPS root path at %s\n", fullPath.c_str());
-      } else if (!fullPath.endsWith("/") && !route.path.startsWith("/")) {
-        // Neither has slash, add one between
-        fullPath += "/" + route.path;
-      } else if (fullPath.endsWith("/") && route.path.startsWith("/")) {
-        // Both have slash, remove duplicate
-        fullPath += route.path.substring(1);
-      } else {
-        // One has slash, just concatenate
-        fullPath += route.path;
-      }
-
-      if (route.isUnified && route.unifiedHandler) {
-        registerRoute(fullPath, route.unifiedHandler, route.method);
-      } else if (route.handler) {
-        auto unifiedHandler = [route, regModule](WebRequest &req, WebResponse &res) {
-          std::map<String, String> params = req.getAllParams();
-          String result = route.handler(req.getBody(), params);
-          res.setContent(result, route.contentType);
-        };
-
-        registerRoute(fullPath, unifiedHandler, route.method);
-      }
+      // Lambda to adapt the legacy handler format
+      auto unifiedHandler = [route, basePath](WebRequest &req, WebResponse &res) {
+        // Set current path for navigation highlighting
+        IWebModule::setCurrentPath(basePath);
+        
+        // Extract parameters from request
+        std::map<String, String> params = req.getAllParams();
+        
+        // Call legacy handler
+        String result = route.handler(req.getBody(), params);
+        
+        // Set response
+        res.setContent(result, route.contentType);
+      };
+      
+      registerRoute(fullPath, unifiedHandler, route.method);
     }
   }
+
+  // Similar process for HTTPS routes
+  auto httpsRoutes = module->getHttpsRoutes();
+  // Skip detailed HTTPS processing as it's redundant with the unified system
 }

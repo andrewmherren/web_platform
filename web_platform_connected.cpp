@@ -113,8 +113,8 @@ void WebPlatform::setupConnectedMode() {
   // Register core platform routes FIRST (before overrides are processed)
   registerConnectedModeRoutes();
 
-  // Convert legacy module routes to unified system
-  convertModuleRoutesToUnified();
+  // Register all module routes directly in the unified system
+  registerModuleRoutes();
 
   // Register all unified routes with servers (this processes overrides)
   registerUnifiedRoutes();
@@ -280,12 +280,16 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *module) {
                   route.path.c_str());
   }
 
-  // Routes are registered through the unified system
-  // No direct registration needed here
+  // Register this module's routes immediately
+  registerModuleRoutesForModule(basePath, module);
 
-  // Routes are now handled by the unified route system
-  // which processes all modules during setupConnectedMode()
-  // No need for individual module route registration here
+  // Re-register with the server
+  registerUnifiedRoutes();
+#if defined(ESP32)
+  if (httpsEnabled && httpsServerHandle) {
+    registerUnifiedHttpsRoutes();
+  }
+#endif
 
   return true;
 }

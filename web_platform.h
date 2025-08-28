@@ -183,8 +183,9 @@ private:                            // Core server components
   // Route management
   void registerConfigPortalRoutes();
   void registerConnectedModeRoutes();
+  void registerModuleRoutes();
+  void registerModuleRoutesForModule(const String &basePath, IWebModule *module);
   void registerUnifiedRoutes();
-  void convertModuleRoutesToUnified();
 
 #if defined(ESP32)
   void registerUnifiedHttpsRoutes();
@@ -202,6 +203,7 @@ private:                            // Core server components
 
   // Route registration methods (implemented in web_platform_https_routes.cpp)
   void registerHttpsRoutes();
+
   // Request handling methods (implemented in web_platform_https_handlers.cpp)
   static esp_err_t httpsGenericHandler(httpd_req_t *req);
   esp_err_t handleHttpsConfigPortal(httpd_req_t *req);
