@@ -8,17 +8,24 @@
 
 // Register authentication-related routes
 void WebPlatform::registerAuthRoutes() {
+
+  registerRoute(
+      "/assets/style.css",
+      std::bind(&WebPlatform::styleCSSAssetHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+
   // Login page - accessible without auth
   registerRoute("/login",
                 std::bind(&WebPlatform::loginPageHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::NONE});
+                {AuthType::LOCAL_ONLY});
 
   // Logout endpoint
   registerRoute("/logout",
                 std::bind(&WebPlatform::logoutPageHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::NONE});
+                {AuthType::LOCAL_ONLY});
 
   // User account page - requires session authentication
   registerRoute("/account",

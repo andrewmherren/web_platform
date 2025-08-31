@@ -153,10 +153,8 @@ void WebPlatform::setupRoutes() {
     setupConfigPortalMode();
   }
 
-  // Print final route registry for debugging
-  printUnifiedRoutes(); // TODO: eventually we can remove this
-  validateRoutes(); // TODO: eventaully can remove not only this call but the
-                    // whole method
+  // Print final route registry for debugging (web platform routes only)
+  printUnifiedRoutes();
 
   // For HTTPS-only mode with redirection server, we don't register normal
   // routes on HTTP server We know we're in redirect mode if server exists and
@@ -300,14 +298,10 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
     } else {
       // One has slash, just concatenate
       fullPath += routePath;
-      Serial.printf("  Standard path concatenation: %s\n", fullPath.c_str());
     }
 
     // Register the route directly with the unified system
     if (route.unifiedHandler) {
-      Serial.printf("  Registering unified route: %s %s\n",
-                    httpMethodToString(route.method).c_str(), fullPath.c_str());
-
       // Pass the route's auth requirements when registering
       registerRoute(fullPath, route.unifiedHandler, route.authRequirements,
                     route.method);
@@ -333,6 +327,9 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
       registerRoute(fullPath, unifiedHandler, {AuthType::NONE}, route.method);
     }
   }
+  
+  // Print only routes for this specific module
+  printUnifiedRoutes(&basePath, module);
 
   // Similar process for HTTPS routes
   auto httpsRoutes = module->getHttpsRoutes();

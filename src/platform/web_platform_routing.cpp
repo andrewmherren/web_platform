@@ -87,19 +87,6 @@ void WebPlatform::disableRoute(const String &path, WebModule::Method method) {
                 httpMethodToString(method).c_str(), path.c_str());
 }
 
-// TODO: compare registerUnifiedRoutes and registerUnifiedHttpsRoutes
-
-// Helper function to print route registry state (shared by HTTP and HTTPS registration)
-void WebPlatform::printRouteRegistryState(const String& serverType) {
-  Serial.printf("WebPlatform: Route registry state before %s registration:\n", serverType.c_str());
-  for (const auto &route : routeRegistry) {
-    Serial.printf("  %s %s (Override: %s, Disabled: %s)\n",
-                  httpMethodToString(route.method).c_str(), route.path.c_str(),
-                  route.isOverride ? "YES" : "no",
-                  route.disabled ? "YES" : "no");
-  }
-}
-
 // Helper function to check if route should be skipped (shared logic)
 bool WebPlatform::shouldSkipRoute(const RouteEntry& route, const String& serverType) {
   if (route.disabled) {
@@ -167,11 +154,6 @@ void WebPlatform::registerUnifiedRoutes() {
     return;
   }
 
-  // Use shared debugging function
-  printRouteRegistryState("HTTP");
-  Serial.printf("WebPlatform: Registering %d unified routes with HTTP server\n",
-                routeRegistry.size());
-
   for (const auto &route : routeRegistry) {
     // Use shared route validation
     if (shouldSkipRoute(route, "HTTP")) {
@@ -205,9 +187,6 @@ void WebPlatform::registerUnifiedRoutes() {
       String pathWithSlash = route.path + "/";
       server->on(pathWithSlash.c_str(), httpMethod, wrapperHandler);
     }
-
-    Serial.printf("WebPlatform: Registered unified route %s %s\n",
-                  httpMethodToString(route.method).c_str(), route.path.c_str());
   }
 }
 
@@ -219,12 +198,6 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
         "WebPlatform: No HTTPS server to register unified routes on");
     return;
   }
-
-  // Use shared debugging function
-  printRouteRegistryState("HTTPS");
-  Serial.printf(
-      "WebPlatform: Registering %d unified routes with HTTPS server\n",
-      routeRegistry.size());
 
   for (const auto &route : routeRegistry) {
     // Use shared route validation
@@ -291,9 +264,6 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
       uri_config.uri = httpsRoutePaths.back().c_str();
       httpd_register_uri_handler(httpsServerHandle, &uri_config);
     }
-
-    Serial.printf("WebPlatform: Registered unified HTTPS route %s %s\n",
-                  httpMethodToString(route.method).c_str(), route.path.c_str());
   }
 }
 #endif

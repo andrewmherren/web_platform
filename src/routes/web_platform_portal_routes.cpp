@@ -5,28 +5,34 @@ void WebPlatform::registerConfigPortalRoutes() {
   Serial.println("WebPlatform: Registering config portal routes using unified "
                  "system"); // Main configuration page - register at both / and
 
+  registerRoute(
+      "/assets/style.css",
+      std::bind(&WebPlatform::styleCSSAssetHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+
   // Register static assets first
   registerRoute("/assets/config-portal.js",
                 std::bind(&WebPlatform::configPortalJSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::NONE}, WebModule::WM_GET);
+                {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   // Register at multiple paths to ensure captive portal works
   registerRoute("/",
                 std::bind(&WebPlatform::configPortalPageHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::NONE}, WebModule::WM_GET);
+                {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   registerRoute("/index.html",
                 std::bind(&WebPlatform::configPortalPageHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::NONE}, WebModule::WM_GET);
+                {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   // Save WiFi credentials
   registerRoute("/save",
                 std::bind(&WebPlatform::configPortalSavePageHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::NONE}, WebModule::WM_POST);
+                {AuthType::LOCAL_ONLY}, WebModule::WM_POST);
 
   // API endpoints
   registerRoute(

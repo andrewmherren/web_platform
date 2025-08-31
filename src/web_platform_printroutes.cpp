@@ -4,14 +4,41 @@
 
 // Enhanced route debugging tools for Phase 2
 
-void WebPlatform::printUnifiedRoutes() const {
-  Serial.println("\n=== WebPlatform Route Registry ===");
+void WebPlatform::printUnifiedRoutes(const String* moduleBasePath, IWebModule* module) const {
+  // Determine what we're printing based on parameters
+  String headerTitle;
+  if (module && moduleBasePath) {
+    headerTitle = "Module '" + module->getModuleName() + "' Routes (" + *moduleBasePath + ")";
+  } else {
+    headerTitle = "WebPlatform Route Registry";
+  }
+  
+  Serial.printf("\n=== %s ===\n", headerTitle.c_str());
   Serial.println(
       "PATH                     METHOD  AUTH         STATUS     SOURCE");
   Serial.println(
       "------------------------ ------- ------------ ---------- -----------");
 
+  int routeCount = 0;
   for (const auto &route : routeRegistry) {
+    // If filtering by module, only show routes that start with the module's base path
+    bool shouldShow = true;
+    if (moduleBasePath && module) {
+      // Only show routes that start with the module's base path
+      shouldShow = route.path.startsWith(*moduleBasePath);
+      
+      // Special case for module root path
+      if (*moduleBasePath != "/" && route.path == *moduleBasePath) {
+        shouldShow = true;
+      }
+    }
+    
+    if (!shouldShow) {
+      continue;
+    }
+    
+    routeCount++;
+    
     // Format path with padding (up to 24 chars)
     String pathStr = route.path;
     if (pathStr.length() > 24) {
@@ -61,7 +88,11 @@ void WebPlatform::printUnifiedRoutes() const {
   }
 
   Serial.println("=============================================");
-  Serial.printf("Total routes: %d\n\n", routeRegistry.size());
+  if (module && moduleBasePath) {
+    Serial.printf("Total module routes: %d\n\n", routeCount);
+  } else {
+    Serial.printf("Total routes: %d\n\n", routeRegistry.size());
+  }
 }
 
 size_t WebPlatform::getRouteCount() const {

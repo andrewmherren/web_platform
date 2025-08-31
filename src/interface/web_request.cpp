@@ -7,6 +7,13 @@
 #include <esp_http_server.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+// For IN6_IS_ADDR_V4MAPPED macro
+#ifndef IN6_IS_ADDR_V4MAPPED
+#define IN6_IS_ADDR_V4MAPPED(a) \
+    (((const uint32_t *) (a))[0] == 0 \
+     && ((const uint32_t *) (a))[1] == 0 \
+     && ((const uint32_t *) (a))[2] == htonl (0xffff))
+#endif
 #elif defined(ESP8266)
 #include <ESP8266WebServer.h>
 #endif
@@ -40,7 +47,10 @@ WebRequest::WebRequest(WebServerClass *server) {
   }
 
   // Parse ClientIp
-  clientIp = server->client().remoteIP().toString();
+  clientIp = headers["X-Forwarded-For"];
+  if (clientIp.isEmpty()) {
+    clientIp = server->client().remoteIP().toString();
+  }
 }
 
 // Constructor for ESP-IDF HTTPS server
@@ -130,7 +140,10 @@ WebRequest::WebRequest(httpd_req *req) {
   }
 
   // Parse ClientIp
-  parseClientIp(req);
+  clientIp = headers["X-Forwarded-For"];
+  if (clientIp.isEmpty()) {
+    parseClientIp(req);
+  }
 }
 #endif
 
@@ -212,11 +225,46 @@ void WebRequest::parseFormData(const String &formData) {
 #if defined(ESP32)
 void WebRequest::parseClientIp(httpd_req *req) {
   int sockfd = httpd_req_to_sockfd(req);
-  struct sockaddr_in addr;
-  socklen_t len = sizeof(addr);
-  if (getpeername(sockfd, (struct sockaddr *)&addr, &len) == 0) {
-    clientIp = String(inet_ntoa(addr.sin_addr));
-  } else {
+  struct sockaddr_storage client_addr;
+  socklen_t client_addr_len = sizeof(client_addr);
+  
+  if (sockfd >= 0 && getpeername(sockfd, (struct sockaddr*)&client_addr, &client_addr_len) == 0) {
+    if (client_addr.ss_family == AF_INET) {
+      // Pure IPv4
+      struct sockaddr_in* addr_in = (struct sockaddr_in*)&client_addr;
+      char ipStr[INET_ADDRSTRLEN];
+      if (inet_ntop(AF_INET, &addr_in->sin_addr, ipStr, INET_ADDRSTRLEN) != NULL) {
+        clientIp = String(ipStr);
+      }
+    } else if (client_addr.ss_family == AF_INET6) {
+      // IPv6 or IPv4-mapped IPv6
+      struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)&client_addr;
+      
+      // Check if this is an IPv4-mapped IPv6 address (::FFFF:x.x.x.x)
+      if (IN6_IS_ADDR_V4MAPPED(&addr_in6->sin6_addr)) {
+        // Extract the IPv4 address from the IPv4-mapped IPv6 address
+        // The IPv4 address is in the last 4 bytes of the IPv6 address
+        uint32_t ipv4_addr = *((uint32_t*)&addr_in6->sin6_addr.s6_addr[12]);
+        struct in_addr ipv4_in_addr;
+        ipv4_in_addr.s_addr = ipv4_addr;
+        
+        char ipStr[INET_ADDRSTRLEN];
+        if (inet_ntop(AF_INET, &ipv4_in_addr, ipStr, INET_ADDRSTRLEN) != NULL) {
+          clientIp = String(ipStr);
+        }
+      } else {
+        // Pure IPv6 address
+        char ipStr[INET6_ADDRSTRLEN];
+        if (inet_ntop(AF_INET6, &addr_in6->sin6_addr, ipStr, INET6_ADDRSTRLEN) != NULL) {
+          clientIp = String(ipStr);
+          Serial.printf("--> Client IP parsed (IPv6): %s\n", clientIp.c_str());
+        }
+      }
+    }
+  }
+  
+  // Final fallback
+  if (clientIp.isEmpty()) {
     clientIp = "unknown";
   }
 }

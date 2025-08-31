@@ -10,7 +10,6 @@
 #include "interface/web_module_interface.h"
 #include "interface/web_request.h"
 #include "interface/web_response.h"
-#include "interface/web_ui_styles.h"
 
 #if defined(ESP32)
 #include <EEPROM.h>
@@ -114,7 +113,7 @@ public:
 
   // Debug and monitoring
   size_t getRouteCount() const;
-  void printUnifiedRoutes() const;
+  void printUnifiedRoutes(const String* moduleBasePath = nullptr, IWebModule* module = nullptr) const;
   void validateRoutes() const;
 
   // Debug and monitoring helpers (defined in web_platform_debug.cpp)
@@ -156,6 +155,7 @@ private:                            // Core server components
   void webPlatformCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformJSAssetHandler(WebRequest &req, WebResponse &res);
   void wifiManagementJSAssetHandler(WebRequest &req, WebResponse &res);
+  void styleCSSAssetHandler(WebRequest &req, WebResponse &res);
 
   // Platform state
   PlatformMode currentMode;
@@ -201,7 +201,7 @@ private:                            // Core server components
   // WiFi management (internal)
   bool loadWiFiCredentials(String &ssid, String &password);
   void saveWiFiCredentials(const String &ssid, const String &password);
-  bool connectToStoredWiFi();
+  bool connectToStoredWiFi(String &ssid, String &password);
   void setupAccessPoint();
   void setupmDNS();
 
@@ -217,7 +217,6 @@ private:                            // Core server components
 #endif
 
   // Route registration helper methods (shared between HTTP and HTTPS)
-  void printRouteRegistryState(const String& serverType);
   bool shouldSkipRoute(const RouteEntry& route, const String& serverType);
   void executeRouteWithAuth(const RouteEntry& route, WebRequest& request, WebResponse& response, const String& serverType);
 

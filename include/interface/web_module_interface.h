@@ -5,7 +5,7 @@
 #include "web_module_types.h"
 #include "web_request.h"
 #include "web_response.h"
-#include "web_ui_styles.h"
+#include "../../assets/web_ui_styles.h"
 #include "webserver_typedefs.h"
 #include <Arduino.h>
 #include <functional>

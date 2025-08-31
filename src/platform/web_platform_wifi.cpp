@@ -41,15 +41,13 @@ void WebPlatform::saveWiFiCredentials(const String &ssid,
   // Clear previous data
   for (int i = 0; i < 96; i++) {
     EEPROM.write(WIFI_SSID_ADDR + i, 0);
-  }
-
-  // Write SSID
-  for (int i = 0; i < ssid.length() && i < 31; i++) {
+  }// Write SSID
+  for (unsigned int i = 0; i < ssid.length() && i < 31; i++) {
     EEPROM.write(WIFI_SSID_ADDR + i, ssid[i]);
   }
 
   // Write password
-  for (int i = 0; i < password.length() && i < 63; i++) {
+  for (unsigned int i = 0; i < password.length() && i < 63; i++) {
     EEPROM.write(WIFI_PASS_ADDR + i, password[i]);
   }
 
@@ -71,12 +69,7 @@ void WebPlatform::saveWiFiCredentials(const String &ssid,
                 success ? "successful" : "failed");
 }
 
-bool WebPlatform::connectToStoredWiFi() {
-  String ssid, password;
-  if (!loadWiFiCredentials(ssid, password)) {
-    return false;
-  }
-
+bool WebPlatform::connectToStoredWiFi(String &ssid, String &password) {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), password.c_str());
 
@@ -132,7 +125,7 @@ void WebPlatform::determinePlatformMode() {
     Serial.println(
         "WebPlatform: Found stored WiFi credentials, attempting connection...");
 
-    if (connectToStoredWiFi()) {
+    if (connectToStoredWiFi(ssid, password)) {
       currentMode = CONNECTED;
       connectionState = WIFI_CONNECTED;
       setupmDNS();

@@ -132,11 +132,24 @@ bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
         }
       }
     } else if (authType == AuthType::LOCAL_ONLY) {
-      // TODO: Implement local network verification
-      // For now, just allow all
-      authSuccess = true;
-      authContext.isAuthenticated = true;
-      authContext.authenticatedVia = AuthType::LOCAL_ONLY;
+      // Check if client IP is from local network
+      AuthUtils::IPAddress clientAddr = AuthUtils::parseIPAddress(clientIp);
+      
+      if (clientAddr.isValid()) {
+        bool isLocalNetwork = AuthUtils::isLocalNetworkIP(clientAddr);
+        
+        if (isLocalNetwork) {
+          authSuccess = true;
+          authContext.isAuthenticated = true;
+          authContext.authenticatedVia = AuthType::LOCAL_ONLY;
+        } else {
+          Serial.printf("LOCAL_ONLY auth failed for %s - IP %s is not in local network\n",
+                       req.getPath().c_str(), clientIp.c_str());
+        }
+      } else {
+        Serial.printf("LOCAL_ONLY auth failed for %s - Invalid IP address: %s\n",
+                     req.getPath().c_str(), clientIp.c_str());
+      }
     }
 
     // If any auth method succeeded, we can stop checking
