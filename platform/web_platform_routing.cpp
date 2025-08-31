@@ -1,5 +1,5 @@
+#include "../web_platform.h"
 #include "route_entry.h"
-#include "web_platform.h"
 #include <web_module_interface.h>
 
 #if defined(ESP32)
@@ -37,9 +37,6 @@ void WebPlatform::registerRoute(const String &path,
 
   // Add new route
   routeRegistry.push_back(RouteEntry(path, method, handler, auth, false));
-
-  Serial.printf("WebPlatform: Added new route %s %s\n",
-                httpMethodToString(method).c_str(), path.c_str());
 }
 
 void WebPlatform::overrideRoute(const String &path,
@@ -90,9 +87,64 @@ void WebPlatform::disableRoute(const String &path, WebModule::Method method) {
                 httpMethodToString(method).c_str(), path.c_str());
 }
 
+// TODO: compare registerUnifiedRoutes and registerUnifiedHttpsRoutes
+
+// Helper function to print route registry state (shared by HTTP and HTTPS registration)
+void WebPlatform::printRouteRegistryState(const String& serverType) {
+  Serial.printf("WebPlatform: Route registry state before %s registration:\n", serverType.c_str());
+  for (const auto &route : routeRegistry) {
+    Serial.printf("  %s %s (Override: %s, Disabled: %s)\n",
+                  httpMethodToString(route.method).c_str(), route.path.c_str(),
+                  route.isOverride ? "YES" : "no",
+                  route.disabled ? "YES" : "no");
+  }
+}
+
+// Helper function to check if route should be skipped (shared logic)
+bool WebPlatform::shouldSkipRoute(const RouteEntry& route, const String& serverType) {
+  if (route.disabled) {
+    Serial.printf("WebPlatform: Skipping disabled %s route %s %s\n",
+                  serverType.c_str(),
+                  httpMethodToString(route.method).c_str(),
+                  route.path.c_str());
+    return true;
+  }
+
+  if (!route.handler) {
+    Serial.printf("WebPlatform: Skipping %s route with null handler %s %s\n",
+                  serverType.c_str(),
+                  httpMethodToString(route.method).c_str(),
+                  route.path.c_str());
+    return true;
+  }
+
+  return false;
+}
+
+// Helper function to execute route with authentication and CSRF processing (shared logic)
+void WebPlatform::executeRouteWithAuth(const RouteEntry& route, WebRequest& request, WebResponse& response, const String& serverType) {
+  Serial.printf("--> %s handling request: %s\n",
+                serverType.c_str(), request.getPath().c_str());
+
+  // Check authentication requirements
+  if (this->authenticateRequest(request, response, route.authRequirements)) {
+    // Call the unified handler
+    route.handler(request, response);
+
+    // Process CSRF token injection for HTML responses
+    if (!response.isResponseSent() &&
+        response.getMimeType() == "text/html") {
+      Serial.printf("Processing CSRF for %s %s response, content length: %d\n",
+                    serverType.c_str(),
+                    request.getPath().c_str(),
+                    response.getContent().length());
+      this->processCsrfForResponse(request, response);
+    }
+  }
+}
+
 // Internal method to register unified routes with actual server
 void WebPlatform::registerUnifiedRoutes() {
-
   if (!server) {
     Serial.println("WebPlatform: No HTTP server to register unified routes on");
     return;
@@ -115,30 +167,14 @@ void WebPlatform::registerUnifiedRoutes() {
     return;
   }
 
-  // Dump route registry for debugging
-  Serial.println("WebPlatform: Route registry state before registration:");
-  for (const auto &route : routeRegistry) {
-    Serial.printf("  %s %s (Override: %s, Disabled: %s)\n",
-                  httpMethodToString(route.method).c_str(), route.path.c_str(),
-                  route.isOverride ? "YES" : "no",
-                  route.disabled ? "YES" : "no");
-  }
-
+  // Use shared debugging function
+  printRouteRegistryState("HTTP");
   Serial.printf("WebPlatform: Registering %d unified routes with HTTP server\n",
                 routeRegistry.size());
 
   for (const auto &route : routeRegistry) {
-    if (route.disabled) {
-      Serial.printf("WebPlatform: Skipping disabled route %s %s\n",
-                    httpMethodToString(route.method).c_str(),
-                    route.path.c_str());
-      continue;
-    }
-
-    if (!route.handler) {
-      Serial.printf("WebPlatform: Skipping route with null handler %s %s\n",
-                    httpMethodToString(route.method).c_str(),
-                    route.path.c_str());
+    // Use shared route validation
+    if (shouldSkipRoute(route, "HTTP")) {
       continue;
     }
 
@@ -150,18 +186,13 @@ void WebPlatform::registerUnifiedRoutes() {
                                 ? HTTP_DELETE
                                 : HTTP_GET;
 
-    // Create wrapper function that converts Arduino WebServer calls to unified
-    // handlers
+    // Create wrapper function that converts Arduino WebServer calls to unified handlers
     auto wrapperHandler = [route, this]() {
       WebRequest request(server);
       WebResponse response;
 
-      // Check authentication requirements
-      if (this->authenticateRequest(request, response,
-                                    route.authRequirements)) {
-        // Call the unified handler
-        route.handler(request, response);
-      }
+      // Use shared execution logic with authentication and CSRF
+      executeRouteWithAuth(route, request, response, "HTTP");
 
       // Send the response
       response.sendTo(server);
@@ -189,32 +220,15 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
     return;
   }
 
-  // Add debugging for HTTPS route registration
-  Serial.println(
-      "WebPlatform: Route registry state before HTTPS registration:");
-  for (const auto &route : routeRegistry) {
-    Serial.printf("  %s %s (Override: %s, Disabled: %s)\n",
-                  httpMethodToString(route.method).c_str(), route.path.c_str(),
-                  route.isOverride ? "YES" : "no",
-                  route.disabled ? "YES" : "no");
-  }
-
+  // Use shared debugging function
+  printRouteRegistryState("HTTPS");
   Serial.printf(
       "WebPlatform: Registering %d unified routes with HTTPS server\n",
       routeRegistry.size());
 
   for (const auto &route : routeRegistry) {
-    if (route.disabled) {
-      Serial.printf("WebPlatform: Skipping disabled HTTPS route %s %s\n",
-                    httpMethodToString(route.method).c_str(),
-                    route.path.c_str());
-      continue;
-    }
-
-    if (!route.handler) {
-      Serial.printf(
-          "WebPlatform: Skipping HTTPS route with null handler %s %s\n",
-          httpMethodToString(route.method).c_str(), route.path.c_str());
+    // Use shared route validation
+    if (shouldSkipRoute(route, "HTTPS")) {
       continue;
     }
 
@@ -232,18 +246,6 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
     if (!route.path.endsWith("/") && route.path != "/") {
       httpsRoutePaths.push_back(pathWithSlash);
     }
-
-    // Create HTTPS route handler wrapper
-    auto httpsWrapper = [route](httpd_req_t *req) -> esp_err_t {
-      WebRequest request(req);
-      WebResponse response;
-
-      // Call the unified handler
-      route.handler(request, response);
-
-      // Send the response
-      return response.sendTo(req);
-    };
 
     // Register the route
     httpd_uri_t uri_config = {};
@@ -269,11 +271,9 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
           WebRequest request(req);
           WebResponse response;
 
-          // Check authentication requirements
-          if (WebPlatform::httpsInstance->authenticateRequest(
-                  request, response, route.authRequirements)) {
-            route.handler(request, response);
-          }
+          // Use shared execution logic with authentication and CSRF
+          WebPlatform::httpsInstance->executeRouteWithAuth(route, request, response, "HTTPS");
+
           return response.sendTo(req);
         }
       }
@@ -297,82 +297,3 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
   }
 }
 #endif
-
-// Register all module routes into the unified system
-void WebPlatform::registerModuleRoutes() {
-  Serial.println("\nWEBPLATFORM: Registering module routes in unified system");
-
-  for (const auto &regModule : registeredModules) {
-    registerModuleRoutesForModule(regModule.basePath, regModule.module);
-  }
-}
-
-// Register routes for a specific module
-void WebPlatform::registerModuleRoutesForModule(const String &basePath,
-                                                IWebModule *module) {
-  Serial.printf("  Processing module: %s at path: %s\n",
-                module->getModuleName().c_str(), basePath.c_str());
-
-  // Process HTTP routes
-  auto httpRoutes = module->getHttpRoutes();
-  Serial.printf("  Module has %d HTTP routes\n", httpRoutes.size());
-
-  for (const auto &route : httpRoutes) {
-    // Create full path
-    String fullPath = basePath;
-    String routePath = route.path;
-
-    // Special case for root path
-    if (routePath == "/" || routePath.isEmpty()) {
-      // For root path, ensure the base path ends with a slash
-      if (!fullPath.endsWith("/")) {
-        fullPath += "/";
-      }
-      Serial.printf("  Module root path: %s\n", fullPath.c_str());
-    } else if (!fullPath.endsWith("/") && !routePath.startsWith("/")) {
-      // Neither has slash, add one between
-      fullPath += "/" + routePath;
-      Serial.printf("  Added slash between paths: %s\n", fullPath.c_str());
-    } else if (fullPath.endsWith("/") && routePath.startsWith("/")) {
-      // Both have slash, remove duplicate
-      fullPath += routePath.substring(1);
-      Serial.printf("  Removed duplicate slash: %s\n", fullPath.c_str());
-    } else {
-      // One has slash, just concatenate
-      fullPath += routePath;
-      Serial.printf("  Standard path concatenation: %s\n", fullPath.c_str());
-    }
-
-    // Register the route directly with the unified system
-    if (route.isUnified && route.unifiedHandler) {
-      Serial.printf("  Registering unified route: %s %s\n",
-                    httpMethodToString(route.method).c_str(), fullPath.c_str());
-      registerRoute(fullPath, route.unifiedHandler, {AuthType::NONE},
-                    route.method);
-    } else if (route.handler) {
-      // Convert legacy handler to unified handler
-      // Lambda to adapt the legacy handler format
-      auto unifiedHandler = [route, basePath](WebRequest &req,
-                                              WebResponse &res) {
-        // Set current path for navigation highlighting
-        IWebModule::setCurrentPath(basePath);
-
-        // Extract parameters from request
-        std::map<String, String> params = req.getAllParams();
-
-        // Call legacy handler
-        String result = route.handler(req.getBody(), params);
-
-        // Set response
-        res.setContent(result, route.contentType);
-      };
-
-      // By default, legacy routes have no auth requirements
-      registerRoute(fullPath, unifiedHandler, {AuthType::NONE}, route.method);
-    }
-  }
-
-  // Similar process for HTTPS routes
-  auto httpsRoutes = module->getHttpsRoutes();
-  // Skip detailed HTTPS processing as it's redundant with the unified system
-}

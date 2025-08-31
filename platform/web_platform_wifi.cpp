@@ -1,25 +1,4 @@
-#include "web_platform.h"
-
-// WebPlatform WiFi management implementation
-// This file contains the WiFi-specific functionality of the WebPlatform class
-
-void WebPlatform::setupAccessPoint() {
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(apSSIDBuffer, apPassword);
-
-  Serial.printf("WebPlatform: Access Point started: %s\n", apSSIDBuffer);
-  Serial.printf("WebPlatform: AP IP address: %s\n",
-                WiFi.softAPIP().toString().c_str());
-}
-
-void WebPlatform::setupmDNS() {
-  if (MDNS.begin(deviceName)) {
-    MDNS.addService("http", "tcp", serverPort);
-    Serial.printf("WebPlatform: mDNS started: %s.local\n", deviceName);
-  } else {
-    Serial.println("WebPlatform: mDNS failed to start");
-  }
-}
+#include "../web_platform.h"
 
 bool WebPlatform::loadWiFiCredentials(String &ssid, String &password) {
   // Check if credentials exist
@@ -112,6 +91,30 @@ bool WebPlatform::connectToStoredWiFi() {
   return WiFi.status() == WL_CONNECTED;
 }
 
+void WebPlatform::resetWiFiCredentials() {
+  EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
+  EEPROM.commit();
+  Serial.println("WebPlatform: WiFi credentials reset");
+}
+
+void WebPlatform::setupAccessPoint() {
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(apSSIDBuffer, apPassword);
+
+  Serial.printf("WebPlatform: Access Point started: %s\n", apSSIDBuffer);
+  Serial.printf("WebPlatform: AP IP address: %s\n",
+                WiFi.softAPIP().toString().c_str());
+}
+
+void WebPlatform::setupmDNS() {
+  if (MDNS.begin(deviceName)) {
+    MDNS.addService("http", "tcp", serverPort);
+    Serial.printf("WebPlatform: mDNS started: %s.local\n", deviceName);
+  } else {
+    Serial.println("WebPlatform: mDNS failed to start");
+  }
+}
+
 void WebPlatform::updateConnectionState() {
   if (currentMode == CONNECTED && WiFi.status() != WL_CONNECTED) {
     Serial.println(
@@ -180,27 +183,4 @@ String WebPlatform::extractPostParameter(const String &postBody,
   String value = postBody.substring(startIndex, endIndex);
   // URL decode would go here in a full implementation
   return value;
-}
-
-void WebPlatform::resetWiFiCredentials() {
-  EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
-  EEPROM.commit();
-  Serial.println("WebPlatform: WiFi credentials reset");
-}
-
-void WebPlatform::startConfigPortal() {
-  currentMode = CONFIG_PORTAL;
-  connectionState = WIFI_CONFIG_PORTAL;
-  setupAccessPoint();
-  Serial.println("WebPlatform: Config portal started");
-}
-
-String WebPlatform::getBaseUrl() const {
-  if (currentMode == CONFIG_PORTAL) {
-    return "http://" + WiFi.softAPIP().toString() + ":" + String(serverPort);
-  } else {
-    String protocol = httpsEnabled ? "https" : "http";
-    return protocol + "://" + WiFi.localIP().toString() + ":" +
-           String(serverPort);
-  }
 }

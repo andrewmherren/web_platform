@@ -10,40 +10,10 @@ const char CONFIG_PORTAL_SUCCESS_HTML[] PROGMEM = R"HTML(
 <head>
     <title>{{DEVICE_NAME}} - Configuration Saved</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{csrfToken}}">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="/assets/style.css">
-    <style>
-        .success-container {
-            max-width: 500px;
-            margin: 50px auto;
-            text-align: center;
-        }
-        .success-icon {
-            font-size: 4em;
-            color: #4CAF50;
-            margin-bottom: 20px;
-        }
-        .countdown {
-            font-size: 2em;
-            color: #4CAF50;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 3px;
-            overflow: hidden;
-            margin: 20px 0;
-        }
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #4CAF50, #45a049);
-            width: 0%;
-            transition: width 0.1s ease;
-        }
-    </style>
+    <link rel="stylesheet" href="/assets/web-platform-styles.css">
 </head>
 <body>
     <div class="container">
@@ -63,10 +33,12 @@ const char CONFIG_PORTAL_SUCCESS_HTML[] PROGMEM = R"HTML(
         </div>
     </div>
     
+    <script src="/assets/web-platform-utils.js"></script>
     <script>
-        var countdown = 3;
-        var countdownEl = document.getElementById('countdown');
-        var progressEl = document.getElementById('progress');
+        // Success page countdown functionality
+        let countdown = 3;
+        const countdownEl = document.getElementById('countdown');
+        const progressEl = document.getElementById('progress');
         
         function updateCountdown() {
             countdownEl.textContent = countdown;
@@ -76,9 +48,9 @@ const char CONFIG_PORTAL_SUCCESS_HTML[] PROGMEM = R"HTML(
                 countdownEl.textContent = 'Restarting...';
                 progressEl.style.width = '100%';
                 
-                // Trigger restart
-                fetch('/api/reset', { method: 'POST' })
-                    .catch(function() {}); // Ignore errors as device is restarting
+                // Trigger restart using web-platform utilities
+                AuthUtils.fetch('/api/reset', { method: 'POST' })
+                    .catch(() => {}); // Ignore errors as device is restarting
                 return;
             }
             
@@ -86,8 +58,10 @@ const char CONFIG_PORTAL_SUCCESS_HTML[] PROGMEM = R"HTML(
             setTimeout(updateCountdown, 1000);
         }
         
-        // Start countdown
-        setTimeout(updateCountdown, 100);
+        // Start countdown when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(updateCountdown, 100);
+        });
     </script>
 </body>
 </html>

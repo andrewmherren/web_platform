@@ -30,7 +30,7 @@
 // WebServerClass is now defined in web_module_interface/webserver_typedefs.h
 // No need for a local definition
 
-#include "route_entry.h"
+#include "platform/route_entry.h"
 
 // Platform operation modes
 enum PlatformMode {
@@ -117,9 +117,12 @@ public:
 
   // Debug and monitoring
   size_t getRouteCount() const;
-  void printRoutes() const;
   void printUnifiedRoutes() const;
   void validateRoutes() const;
+
+  // Debug and monitoring helpers (defined in web_platform_debug.cpp)
+  void debugAuthState() const; // Print current authentication state
+  void cleanExpiredTokens();   // Clean expired tokens and sessions
 
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
@@ -129,6 +132,33 @@ private:                            // Core server components
   bool authenticateRequest(WebRequest &req, WebResponse &res,
                            const AuthRequirements &requirements);
   void registerAuthRoutes();
+
+  // CSRF token processing
+  String injectCsrfToken(const String &html, const String &clientIp);
+  void addCsrfCookie(WebResponse &res, const String &token);
+  void processCsrfForResponse(WebRequest &req, WebResponse &res);
+
+  // Controllers
+  void rootPageHandler(WebRequest &req, WebResponse &res);
+  void statusPageHandler(WebRequest &req, WebResponse &res);
+  void wifiPageHandler(WebRequest &req, WebResponse &res);
+  void resetApiHandler(WebRequest &req, WebResponse &res);
+  void statusApiHandler(WebRequest &req, WebResponse &res);
+  void scanApiHandler(WebRequest &req, WebResponse &res);
+  void connectApiHandler(WebRequest &req, WebResponse &res);
+  void loginPageHandler(WebRequest &req, WebResponse &res);
+  void logoutPageHandler(WebRequest &req, WebResponse &res);
+  void accountPageHandler(WebRequest &req, WebResponse &res);
+  void accountPageJSAssetHandler(WebRequest &req, WebResponse &res);
+  void updatePasswordApiHandler(WebRequest &req, WebResponse &res);
+  void createTokenApiHandler(WebRequest &req, WebResponse &res);
+  void deleteTokenApiHandler(WebRequest &req, WebResponse &res);
+  void configPortalSavePageHandler(WebRequest &req, WebResponse &res);
+  void configPortalPageHandler(WebRequest &req, WebResponse &res);
+  void configPortalJSAssetHandler(WebRequest &req, WebResponse &res);
+  void webPlatformCSSAssetHandler(WebRequest &req, WebResponse &res);
+  void webPlatformJSAssetHandler(WebRequest &req, WebResponse &res);
+  void wifiManagementJSAssetHandler(WebRequest &req, WebResponse &res);
 
   // Platform state
   PlatformMode currentMode;
@@ -165,6 +195,7 @@ private:                            // Core server components
   bool detectHttpsCapability();
   void startServer();
   void setupRoutes();
+  void initializeAuth();
 
   // Mode-specific setup
   void setupConfigPortalMode();
@@ -177,22 +208,9 @@ private:                            // Core server components
   void setupAccessPoint();
   void setupmDNS();
 
-  // Route handlers for CONFIG_PORTAL mode
-  String handleConfigPortalRoot();
-  String handleConfigPortalSave(const String &postBody);
-  String handleWiFiStatusAPI();
-  String handleWiFiScanAPI();
-  String handleWiFiResetAPI();
-
-  // Route handlers for CONNECTED mode
-  String handleConnectedRoot();
-  String handleWiFiManagement();
-  String handleSystemStatus();
-
   // Route management
   void registerConfigPortalRoutes();
   void registerConnectedModeRoutes();
-  void registerModuleRoutes();
   void registerModuleRoutesForModule(const String &basePath,
                                      IWebModule *module);
   void registerUnifiedRoutes();
@@ -200,6 +218,11 @@ private:                            // Core server components
 #if defined(ESP32)
   void registerUnifiedHttpsRoutes();
 #endif
+
+  // Route registration helper methods (shared between HTTP and HTTPS)
+  void printRouteRegistryState(const String& serverType);
+  bool shouldSkipRoute(const RouteEntry& route, const String& serverType);
+  void executeRouteWithAuth(const RouteEntry& route, WebRequest& request, WebResponse& response, const String& serverType);
 
   // Certificate detection and HTTPS setup
   bool areCertificatesAvailable();
@@ -210,14 +233,6 @@ private:                            // Core server components
   // HTTPS server components (ESP32 only)
 #if defined(ESP32)
   httpd_handle_t httpsServerHandle = nullptr;
-
-  // Route registration methods (implemented in web_platform_https_routes.cpp)
-  void registerHttpsRoutes();
-
-  // Request handling methods (implemented in web_platform_https_handlers.cpp)
-  static esp_err_t httpsGenericHandler(httpd_req_t *req);
-  esp_err_t handleHttpsConfigPortal(httpd_req_t *req);
-  esp_err_t handleHttpsConnected(httpd_req_t *req);
 
   std::vector<String> httpsRoutePaths; // Permanent path storage
 #endif
@@ -234,7 +249,6 @@ public:
   std::map<String, String> parseQueryParams(const String &query);
 
   // Captive portal helpers
-  void setupCaptivePortal();
   bool isCaptivePortalRequest(const String &host);
 
   // Status and monitoring

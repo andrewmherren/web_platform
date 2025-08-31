@@ -9,24 +9,9 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
 <head>
     <title>{{DEVICE_NAME}} - System Status</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{csrfToken}}">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="/assets/style.css">
-    <style>
-        .status-section {
-            margin-bottom: 20px;
-        }
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-        }
-        .status-value {
-            font-family: monospace;
-            padding: 4px 8px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 4px;
-        }
-    </style>
 </head>
 <body>
     <div class="container">

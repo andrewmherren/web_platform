@@ -304,7 +304,7 @@ void setup() {
     
     // Add a route that allows controlling the device via API
     webPlatform.registerRoute("/api/usb_pd/set-profile", [](WebRequest& req, WebResponse& res) {
-      if (req.getMethod() != "POST") {
+      if (req.getMethod() != WebModule::WM_POST) {
         res.setStatus(405);
         res.setContent("{\"error\":\"Method not allowed\"}", "application/json");
         return;
@@ -397,7 +397,7 @@ void setup() {
         redirectUrl = "/";
       }
       
-      if (req.getMethod() == "POST") {
+      if (req.getMethod() == WebModule::WM_POST) {
         String username = req.getParam("username");
         String password = req.getParam("password");
         
