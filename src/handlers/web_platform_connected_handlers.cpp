@@ -1,9 +1,9 @@
-#include "../assets/connected_home_html.h"
-#include "../assets/system_status_html.h"
-#include "../assets/wifi_management_html.h"
-#include "../auth/auth_storage.h"
-#include "../web_platform.h"
-#include <web_module_interface.h>
+#include "../../assets/connected_home_html.h"
+#include "../../assets/system_status_html.h"
+#include "../../assets/wifi_management_html.h"
+#include "../../include/auth/auth_storage.h"
+#include "../../include/web_platform.h"
+#include "../../include/interface/web_module_interface.h"
 
 #if defined(ESP32)
 #include <WebServer.h>

@@ -1,4 +1,4 @@
-#include "../web_platform.h"
+#include "../../include/web_platform.h"
 
 #if defined(ESP32)
 #include <WebServer.h>
@@ -8,9 +8,6 @@
 
 // Core implementation of WebPlatform class
 // Basic initialization, setup, and handling functions
-
-// Global instance
-WebPlatform webPlatform;
 
 #if defined(ESP32)
 // Static instance pointer for ESP-IDF callbacks

@@ -1,5 +1,5 @@
-#include "auth_storage.h"
-#include "auth_utils.h"
+#include "../../include/auth/auth_storage.h"
+#include "../../include/auth/auth_utils.h"
 #include <ArduinoJson.h>
 
 #if defined(ESP32)

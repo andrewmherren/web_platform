@@ -1,8 +1,8 @@
 
-#include "../web_platform.h"
-#include "assets/config_portal_html.h"
-#include "assets/config_portal_js.h"
-#include "assets/config_portal_success_html.h"
+#include "../../include/web_platform.h"
+#include "../../assets/config_portal_html.h"
+#include "../../assets/config_portal_js.h"
+#include "../../assets/config_portal_success_html.h"
 #include <ArduinoJson.h>
 
 void WebPlatform::configPortalJSAssetHandler(WebRequest &req, WebResponse &res) {

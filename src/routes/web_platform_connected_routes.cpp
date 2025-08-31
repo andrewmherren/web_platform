@@ -1,5 +1,5 @@
-#include "../web_platform.h"
-#include <web_module_interface.h>
+#include "../../include/web_platform.h"
+#include "../../include/interface/web_module_interface.h"
 
 void WebPlatform::registerConnectedModeRoutes() {
   Serial.println(

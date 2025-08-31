@@ -1,7 +1,7 @@
-#include "../web_platform.h"
-#include "auth_storage.h"
-#include "auth_utils.h"
-#include <auth_types.h>
+#include "../../include/web_platform.h"
+#include "../../include/auth/auth_storage.h"
+#include "../../include/auth/auth_utils.h"
+#include "../../include/interface/auth_types.h"
 #include <functional>
 
 // External debug function declaration

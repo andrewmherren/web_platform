@@ -3,14 +3,14 @@
 
 #include <DNSServer.h>
 #include <EEPROM.h>
-#include <auth_types.h>
 #include <functional>
 #include <map>
 #include <vector>
-#include <web_module_interface.h>
-#include <web_request.h>
-#include <web_response.h>
-#include <web_ui_styles.h>
+#include "interface/auth_types.h"
+#include "interface/web_module_interface.h"
+#include "interface/web_request.h"
+#include "interface/web_response.h"
+#include "interface/web_ui_styles.h"
 
 #if defined(ESP32)
 #include <EEPROM.h>
@@ -27,10 +27,7 @@
 #include <ESP8266mDNS.h>
 #endif
 
-// WebServerClass is now defined in web_module_interface/webserver_typedefs.h
-// No need for a local definition
-
-#include "platform/route_entry.h"
+#include "route_entry.h"
 
 // Platform operation modes
 enum PlatformMode {

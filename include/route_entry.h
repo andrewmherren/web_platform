@@ -1,8 +1,8 @@
 #ifndef ROUTE_ENTRY_H
 #define ROUTE_ENTRY_H
 #include <Arduino.h>
-#include <auth_types.h>
-#include <web_module_interface.h>
+#include "interface/auth_types.h"
+#include "interface/web_module_interface.h"
 
 // Complete RouteEntry definition
 struct RouteEntry {

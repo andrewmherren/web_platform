@@ -1,6 +1,6 @@
-#include "../web_platform.h"
-#include "../assets/wifi_management_js.h"
-#include <web_module_interface.h>
+#include "../../include/web_platform.h"
+#include "../../assets/wifi_management_js.h"
+#include "../../include/interface/web_module_interface.h"
 #include <ArduinoJson.h>
 
 void WebPlatform::scanApiHandler(WebRequest &req, WebResponse &res) {

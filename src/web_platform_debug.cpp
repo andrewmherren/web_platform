@@ -1,6 +1,6 @@
-#include "auth/auth_storage.h"
-#include "web_platform.h"
-#include <auth_types.h>
+#include "../include/auth/auth_storage.h"
+#include "../include/web_platform.h"
+#include "../include/interface/auth_types.h"
 
 /**
  * WebPlatform Debug Utilities (Simplified)

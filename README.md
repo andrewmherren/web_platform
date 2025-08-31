@@ -1,6 +1,42 @@
-# WebPlatform - Unified Web Server for ESP32/ESP8266
+# WebPlatform Library
 
-WebPlatform is a unified web server module that merges the functionality of `web_router` and `wifi_ap` into a single, secure platform. It handles both WiFi configuration (config portal mode) and application serving (connected mode) through a single server instance.
+Unified web platform for ESP32/ESP8266 with integrated module interface, WiFi management, HTTPS support, and authentication system.
+
+## Overview
+
+WebPlatform is a comprehensive library that combines:
+- **Web Module Interface**: Abstract interface for web-enabled modules with CSS theming and navigation systems
+- **Web Platform**: Unified HTTP/HTTPS server with WiFi configuration and application serving
+- **Authentication System**: Session-based and token-based authentication with CSRF protection
+- **Asset Management**: Static asset serving and CSS/JS framework
+- **WiFi Management**: Captive portal configuration and connection handling
+
+## Architecture
+
+### Core Components
+
+1. **Interface Layer** (`include/interface/`, `src/interface/`)
+   - Abstract IWebModule interface
+   - Request/Response abstractions
+   - Authentication types and requirements
+   - UI styling and navigation systems
+
+2. **Platform Layer** (`platform/`)
+   - Core web server implementation
+   - WiFi management and captive portal
+   - Route registration and handling
+   - HTTPS certificate detection
+
+3. **Authentication System** (`auth/`)
+   - User management and password hashing
+   - Session and API token management
+   - CSRF protection
+   - Authentication middleware
+
+4. **Asset Management** (`assets/`)
+   - Built-in CSS framework
+   - JavaScript utilities
+   - HTML templates for common pages
 
 ## Status Update: Authentication Framework Added (Phases 1-2 Complete)
 The WebPlatform implementation now includes a complete authentication framework (Phase 2). It provides a simplified, unified web server that handles WiFi configuration, application serving, and authentication through a single instance. The system now supports multiple authentication types (SESSION, TOKEN) with route-specific protection requirements.

@@ -1,6 +1,6 @@
-#include "platform/route_entry.h"
-#include "web_platform.h"
-#include <auth_types.h>
+#include "../include/route_entry.h"
+#include "../include/web_platform.h"
+#include "../include/interface/auth_types.h"
 
 // Enhanced route debugging tools for Phase 2
 

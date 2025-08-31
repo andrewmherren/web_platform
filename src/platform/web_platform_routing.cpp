@@ -1,6 +1,6 @@
-#include "../web_platform.h"
-#include "route_entry.h"
-#include <web_module_interface.h>
+#include "../../include/web_platform.h"
+#include "../../include/route_entry.h"
+#include "../../include/interface/web_module_interface.h"
 
 #if defined(ESP32)
 #include <WebServer.h>
