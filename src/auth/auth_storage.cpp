@@ -26,8 +26,7 @@ void AuthStorage::initialize() {
   // If no users exist, create default admin account
   if (users.empty()) {
     String salt = AuthUtils::generateSalt();
-    String hash =
-        AuthUtils::hashPassword(AuthConstants::DEFAULT_ADMIN_PASSWORD, salt);
+    String hash = AuthUtils::hashPassword(AuthConstants::DEFAULT_ADMIN_PASSWORD, salt);
     users.push_back(User(AuthConstants::DEFAULT_ADMIN_USERNAME, hash, salt));
     saveToPreferences();
   }
@@ -153,9 +152,9 @@ void AuthStorage::cleanExpiredSessions() {
 }
 
 // API Token management
-String AuthStorage::createApiToken(const String &username, const String &name) {
+String AuthStorage::createApiToken(const String &username, const String &name, unsigned long expireInDays) {
   String token = "tok_" + AuthUtils::generateSecureToken(32);
-  apiTokens.push_back(ApiToken(token, username, name));
+  apiTokens.push_back(ApiToken(token, username, name, expireInDays));
   saveToPreferences();
   return token;
 }
@@ -238,20 +237,15 @@ bool AuthStorage::validatePageToken(const String &token,
     return false;
   }
 
-  // TEMPORARY: For simplicity in the embedded environment, we'll allow
-  // any client IP to use a valid token (removes double-submit protection)
-  // In production, this should be: return pageToken.clientIp == clientIp;
-  // AI ASSISTANT: Please fix this... we do not want temporary fixes and notes
-  // like this
-
-  // Log the IP check
+  // Proper CSRF protection requires that the token is used from the same IP
+  // that it was issued to, implementing the double-submit cookie pattern
   if (pageToken.clientIp != clientIp) {
-    Serial.printf("PageToken IP mismatch (allowing anyway): token IP '%s' vs "
-                  "request IP '%s'\n",
+    Serial.printf("PageToken IP mismatch: token IP '%s' vs request IP '%s'\n",
                   pageToken.clientIp.c_str(), clientIp.c_str());
+    return false;
   }
 
-  return true; // Allow any client IP to use a valid token
+  return true;
 }
 
 void AuthStorage::cleanExpiredPageTokens() {
@@ -302,12 +296,75 @@ void AuthStorage::loadFromPreferences() {
 
   prefs.end();
 #elif defined(ESP8266)
-  // For ESP8266, you'd need to implement a similar loading mechanism
-  // using EEPROM or SPIFFS
-  // This is a simplified example
+  // ESP8266 implementation using EEPROM
   EEPROM.begin(4096);
-  // TODO: Implement EEPROM-based storage for ESP8266
-  // For now, just initialize with default values
+  
+  // Read length of user JSON
+  int userJsonLength = 0;
+  EEPROM.get(0, userJsonLength);
+  
+  // Check if the length is reasonable (prevent corruption)
+  if (userJsonLength > 0 && userJsonLength < 2048) {
+    // Read user JSON
+    char* userJsonBuffer = new char[userJsonLength + 1];
+    for (int i = 0; i < userJsonLength; i++) {
+      userJsonBuffer[i] = EEPROM.read(4 + i);
+    }
+    userJsonBuffer[userJsonLength] = '\0';
+    
+    String userJson = String(userJsonBuffer);
+    delete[] userJsonBuffer;
+    
+    // Parse user JSON
+    DynamicJsonDocument doc(2048);
+    DeserializationError error = deserializeJson(doc, userJson);
+    
+    if (!error) {
+      users.clear();
+      for (JsonObject userObj : doc.as<JsonArray>()) {
+        User user;
+        user.username = userObj["username"].as<String>();
+        user.passwordHash = userObj["hash"].as<String>();
+        user.salt = userObj["salt"].as<String>();
+        user.createdAt = userObj["created"].as<unsigned long>();
+        users.push_back(user);
+      }
+    }
+  }
+  
+  // Read length of token JSON (starting at position 2052)
+  int tokenJsonLength = 0;
+  EEPROM.get(2048, tokenJsonLength);
+  
+  // Check if the length is reasonable
+  if (tokenJsonLength > 0 && tokenJsonLength < 2000) {
+    // Read token JSON
+    char* tokenJsonBuffer = new char[tokenJsonLength + 1];
+    for (int i = 0; i < tokenJsonLength; i++) {
+      tokenJsonBuffer[i] = EEPROM.read(2052 + i);
+    }
+    tokenJsonBuffer[tokenJsonLength] = '\0';
+    
+    String tokenJson = String(tokenJsonBuffer);
+    delete[] tokenJsonBuffer;
+    
+    // Parse token JSON
+    DynamicJsonDocument docTokens(2048);
+    DeserializationError error = deserializeJson(docTokens, tokenJson);
+    
+    if (!error) {
+      apiTokens.clear();
+      for (JsonObject tokenObj : docTokens.as<JsonArray>()) {
+        ApiToken token;
+        token.token = tokenObj["token"].as<String>();
+        token.username = tokenObj["username"].as<String>();
+        token.name = tokenObj["name"].as<String>();
+        token.createdAt = tokenObj["created"].as<unsigned long>();
+        token.expiresAt = tokenObj["expires"].as<unsigned long>();
+        apiTokens.push_back(token);
+      }
+    }
+  }
 #endif
 }
 
@@ -347,9 +404,56 @@ void AuthStorage::saveToPreferences() {
 
   prefs.end();
 #elif defined(ESP8266)
-  // TODO: Implement EEPROM-based storage for ESP8266
-  EEPROM.begin(4096);
-  // Simplified example - would need more robust implementation
+  // ESP8266 implementation using EEPROM
+  
+  // Save users
+  DynamicJsonDocument doc(2048);
+  JsonArray userArray = doc.to<JsonArray>();
+  for (const User &user : users) {
+    JsonObject userObj = userArray.createNestedObject();
+    userObj["username"] = user.username;
+    userObj["hash"] = user.passwordHash;
+    userObj["salt"] = user.salt;
+    userObj["created"] = user.createdAt;
+  }
+  
+  String userJson;
+  serializeJson(doc, userJson);
+  
+  // Store the length of the JSON string
+  int userJsonLength = userJson.length();
+  EEPROM.put(0, userJsonLength);
+  
+  // Store the JSON string
+  for (int i = 0; i < userJsonLength; i++) {
+    EEPROM.write(4 + i, userJson[i]);
+  }
+  
+  // Save API tokens
+  DynamicJsonDocument docTokens(2048);
+  JsonArray tokenArray = docTokens.to<JsonArray>();
+  for (const ApiToken &token : apiTokens) {
+    JsonObject tokenObj = tokenArray.createNestedObject();
+    tokenObj["token"] = token.token;
+    tokenObj["username"] = token.username;
+    tokenObj["name"] = token.name;
+    tokenObj["created"] = token.createdAt;
+    tokenObj["expires"] = token.expiresAt;
+  }
+  
+  String tokenJson;
+  serializeJson(docTokens, tokenJson);
+  
+  // Store the length of the token JSON string
+  int tokenJsonLength = tokenJson.length();
+  EEPROM.put(2048, tokenJsonLength);
+  
+  // Store the token JSON string
+  for (int i = 0; i < tokenJsonLength; i++) {
+    EEPROM.write(2052 + i, tokenJson[i]);
+  }
+  
+  // Commit the changes to EEPROM
   EEPROM.commit();
 #endif
 }

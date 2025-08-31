@@ -45,8 +45,22 @@ struct ApiToken {
   ApiToken(const String &t, const String &user, const String &tokenName)
       : token(t), username(user), name(tokenName), createdAt(millis()),
         expiresAt(0) {}
+  
+  // Constructor with expiration
+  ApiToken(const String &t, const String &user, const String &tokenName, unsigned long expireInDays)
+      : token(t), username(user), name(tokenName), createdAt(millis()),
+        expiresAt(expireInDays > 0 ? millis() + (expireInDays * 24 * 60 * 60 * 1000) : 0) {}
 
   bool isValid() const { return expiresAt == 0 || millis() < expiresAt; }
+  
+  // Get expiration days remaining (0 for never expires, negative for expired)
+  float getExpirationDaysRemaining() const {
+    if (expiresAt == 0) return 0; // Never expires
+    if (!isValid()) return -1; // Already expired
+    
+    unsigned long remainingMs = expiresAt - millis();
+    return remainingMs / (24.0f * 60 * 60 * 1000);
+  }
 };
 
 // Page Token model (for CSRF protection)
@@ -101,7 +115,7 @@ public:
   static void cleanExpiredSessions();
 
   // API Token management
-  static String createApiToken(const String &username, const String &name);
+  static String createApiToken(const String &username, const String &name, unsigned long expireInDays = 0);
   static ApiToken *findApiToken(const String &token);
   static bool validateApiToken(const String &token);
   static bool deleteApiToken(const String &token);
