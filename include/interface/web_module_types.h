@@ -1,6 +1,12 @@
 #ifndef WEB_MODULE_TYPES_H
 #define WEB_MODULE_TYPES_H
 
+#if defined(ESP32)
+#include <WebServer.h>
+#elif defined(ESP8266)
+#include <ESP8266WebServer.h>
+#endif
+
 // Use a completely different namespace to avoid conflicts with ESP32/ESP8266
 // built-in HTTP enums
 namespace WebModule {
@@ -17,7 +23,7 @@ enum Method {
 } // namespace WebModule
 
 // Utility functions for HTTP method conversion
-inline String httpMethodToString(WebModule::Method method) {
+inline String wmMethodToString(WebModule::Method method) {
   switch (method) {
   case WebModule::WM_GET:
     return "GET";
@@ -34,16 +40,26 @@ inline String httpMethodToString(WebModule::Method method) {
   }
 }
 
-inline WebModule::Method stringToHttpMethod(const String &method) {
-  if (method == "GET")
+inline HTTPMethod wmMethodToHttpMethod(WebModule::Method method) {
+  return (method == WebModule::WM_GET)    ? HTTP_GET
+                            : (method == WebModule::WM_POST) ? HTTP_POST
+                            : (method == WebModule::WM_PUT)  ? HTTP_PUT
+                            : (method == WebModule::WM_PATCH) ? HTTP_PATCH
+                            : (method == WebModule::WM_DELETE)
+                                ? HTTP_DELETE
+                                : HTTP_GET;
+}
+
+inline WebModule::Method httpMethodToWMMethod(HTTPMethod method) {
+  if (method == HTTP_GET)
     return WebModule::WM_GET;
-  if (method == "POST")
+  if (method == HTTP_POST)
     return WebModule::WM_POST;
-  if (method == "PUT")
+  if (method == HTTP_PUT)
     return WebModule::WM_PUT;
-  if (method == "DELETE")
+  if (method == HTTP_DELETE)
     return WebModule::WM_DELETE;
-  if (method == "PATCH")
+  if (method == HTTP_PATCH)
     return WebModule::WM_PATCH;
   return WebModule::WM_GET; // Default fallback
 }

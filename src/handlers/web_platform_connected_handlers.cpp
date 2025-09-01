@@ -17,7 +17,6 @@ void WebPlatform::rootPageHandler(WebRequest &req, WebResponse &res) {
   String html = FPSTR(CONNECTED_HOME_HTML);
 
   // Replace template variables with actual values
-  html.replace("{{DEVICE_NAME}}", deviceName);
   html.replace("{{WIFI_SSID}}", WiFi.SSID());
   html.replace("{{IP_ADDRESS}}", WiFi.localIP().toString());
   html.replace("{{SIGNAL_STRENGTH}}", String(WiFi.RSSI()));
@@ -28,11 +27,7 @@ void WebPlatform::rootPageHandler(WebRequest &req, WebResponse &res) {
   html.replace("{{HOSTNAME}}", getHostname());
   html.replace("{{FREE_MEMORY}}", String(ESP.getFreeHeap() / 1024));
 
-  // Add CSRF token if needed
-  if (html.indexOf("{{csrfToken}}") >= 0) {
-    String csrfToken = AuthStorage::createPageToken("127.0.0.1");
-    html.replace("{{csrfToken}}", csrfToken);
-  }
+  html = g_platformService->prepareHtml(html, req);
 
   // Build module list HTML
   String moduleListHtml = "";
@@ -66,7 +61,6 @@ void WebPlatform::statusPageHandler(WebRequest &req, WebResponse &res) {
   String html = FPSTR(SYSTEM_STATUS_HTML);
 
   // Replace template variables with actual values
-  html.replace("{{DEVICE_NAME}}", deviceName);
   html.replace("{{UPTIME}}", String(millis() / 1000));
   html.replace("{{FREE_HEAP}}", String(ESP.getFreeHeap()));
   html.replace(
@@ -83,11 +77,7 @@ void WebPlatform::statusPageHandler(WebRequest &req, WebResponse &res) {
   html.replace("{{MODULE_COUNT}}", String(registeredModules.size()));
   html.replace("{{ROUTE_COUNT}}", String(getRouteCount()));
 
-  // Add CSRF token if needed
-  if (html.indexOf("{{csrfToken}}") >= 0) {
-    String csrfToken = AuthStorage::createPageToken("127.0.0.1");
-    html.replace("{{csrfToken}}", csrfToken);
-  }
+  html = g_platformService->prepareHtml(html, req);
 
   // Build module table HTML
   String moduleTableHtml = "";
@@ -113,17 +103,12 @@ void WebPlatform::wifiPageHandler(WebRequest &req, WebResponse &res) {
   String html = FPSTR(WIFI_MANAGEMENT_HTML);
 
   // Replace template variables with actual values
-  html.replace("{{DEVICE_NAME}}", deviceName);
   html.replace("{{CURRENT_SSID}}", WiFi.SSID());
   html.replace("{{SIGNAL_STRENGTH}}", String(WiFi.RSSI()));
   html.replace("{{IP_ADDRESS}}", WiFi.localIP().toString());
   html.replace("{{MAC_ADDRESS}}", WiFi.macAddress());
 
-  // Add CSRF token if needed
-  if (html.indexOf("{{csrfToken}}") >= 0) {
-    String csrfToken = AuthStorage::createPageToken("127.0.0.1");
-    html.replace("{{csrfToken}}", csrfToken);
-  }
+  html = g_platformService->prepareHtml(html, req);
 
   res.setContent(IWebModule::injectNavigationMenu(html), "text/html");
 }

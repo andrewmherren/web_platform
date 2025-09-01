@@ -8,8 +8,10 @@ const char ACCOUNT_PAGE_HTML[] PROGMEM = R"rawliteral(
 <html>
 <head>
   <title>Account - {{DEVICE_NAME}}</title>
-  <link rel="stylesheet" href="/assets/styles.css">
-  <link rel="stylesheet" href="/assets/web-platform-styles.css">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/web-platform-style.css">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/favicon.ico" sizes="any">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{csrfToken}}">
 </head>
@@ -17,6 +19,7 @@ const char ACCOUNT_PAGE_HTML[] PROGMEM = R"rawliteral(
   <div class="container">
     <h1>Account Settings</h1>
     <p>Logged in as: <strong>{{username}}</strong> | <a href="/logout">Logout</a></p>
+    <!-- Navigation menu will be auto-injected here -->
     
     <div class="card">
       <h2>Change Password</h2>

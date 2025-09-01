@@ -5,7 +5,7 @@
 
 // Default CSS styles for web interface - based on LOCAL_WEB_UI_STYLEGUIDE.md
 const char WEB_UI_DEFAULT_CSS[] PROGMEM = R"css(
-/* Web UI Default Styles - TickerTapeFW */
+/* Web UI Default Styles */
 /* Based on LOCAL_WEB_UI_STYLEGUIDE.md glass morphism design */
 
 /* Reset and base styles */

@@ -1,182 +1,464 @@
-# Authentication System for TickerTape
+# WebPlatform Authentication Guide
 
-This document provides details on how to use the authentication system in the TickerTape platform.
+This document explains how to implement and use the authentication system in WebPlatform applications.
 
-## Architecture Overview
+## Overview
 
-The authentication system is designed with a clear separation of responsibilities:
-
-1. **WebPlatform Core**: Handles token generation, validation, and cookie management
-2. **Module Templates**: Include placeholders for tokens and use the auth utilities
-3. **Client-Side Library**: Provides standardized methods for authenticated API requests
-
-This separation ensures modules remain independent from the WebPlatform internals.
+WebPlatform provides a comprehensive authentication system that supports multiple authentication methods and can be applied at the route level. This allows for flexible security implementations ranging from simple login systems to complex API access controls.
 
 ## Authentication Types
 
-The system supports multiple authentication methods:
+The system supports several authentication methods that can be combined:
 
-- `AuthType::NONE` - No authentication required (public access)
-- `AuthType::SESSION` - Cookie-based session authentication (for UI)
-- `AuthType::TOKEN` - Bearer token authentication (for API)
-- `AuthType::PAGE_TOKEN` - CSRF protection for forms
-- `AuthType::LOCAL_ONLY` - Restrict to local network (implementation pending)
+- `AuthType::NONE` - Public access (no authentication required)
+- `AuthType::SESSION` - Cookie-based session authentication (web UI)
+- `AuthType::TOKEN` - Bearer token authentication (API access)
+- `AuthType::PAGE_TOKEN` - CSRF protection for form submissions
+- `AuthType::LOCAL_ONLY` - Restrict access to local network only
 
-## Route Protection
+## For Application Developers
 
-Routes in the TickerTape platform can be protected using different authentication requirements:
+### Basic Login System
+
+Protect your entire application behind a login screen:
 
 ```cpp
-// Public route - no authentication required
-webPlatform.registerRoute("/public", publicHandler, {AuthType::NONE});
+#include <web_platform.h>
+#include <my_device_module.h>
 
-// UI route - requires session authentication
-webPlatform.registerRoute("/dashboard", dashboardHandler, {AuthType::SESSION});
-
-// API route - requires token authentication
-webPlatform.registerRoute("/api/data", apiHandler, {AuthType::TOKEN});
-
-// Form submission - requires session and CSRF protection
-webPlatform.registerRoute("/api/update-settings", updateHandler, 
-                         {AuthType::SESSION, AuthType::PAGE_TOKEN}, 
-                         WebModule::WM_POST);
+void setup() {
+    Serial.begin(115200);
+    
+    // Set up navigation with logout option
+    std::vector<NavigationItem> navItems = {
+        NavigationItem("Dashboard", "/"),
+        NavigationItem("Device Control", "/device/"),
+        NavigationItem("Settings", "/settings"),
+        NavigationItem("Logout", "/logout")
+    };
+    IWebModule::setNavigationMenu(navItems);
+    
+    webPlatform.begin("SecureDevice");
+    
+    if (webPlatform.isConnected()) {
+        // Register your modules
+        webPlatform.registerModule("/device", &myDeviceModule);
+        
+        // Protect the main dashboard
+        webPlatform.registerRoute("/", [](WebRequest& req, WebResponse& res) {
+            String html = R"(
+                <html><head><title>Dashboard</title></head><body>
+                <h1>Welcome, )" + req.getAuthContext().username + R"(!</h1>
+                <p>You are successfully logged in.</p>
+                <ul>
+                    <li><a href="/device/">Device Control</a></li>
+                    <li><a href="/settings">Settings</a></li>
+                    <li><a href="/account">Manage Account</a></li>
+                </ul>
+                </body></html>
+            )";
+            res.setContent(html, "text/html");
+        }, {AuthType::SESSION});
+        
+        // Override module routes to add authentication
+        webPlatform.overrideRoute("/device/", deviceDashboardHandler, {AuthType::SESSION});
+    }
+}
 ```
 
-## Authentication Best Practices
+### API Token Management
 
-### For Web UI:
+Allow users to create API tokens for programmatic access:
 
-1. Public static assets (HTML, CSS, JS) should use `{AuthType::NONE}`
-2. UI pages that require login should use `{AuthType::SESSION}`
-3. Form submissions should use both `{AuthType::SESSION, AuthType::PAGE_TOKEN}`
+```cpp
+void setup() {
+    // ... basic setup ...
+    
+    if (webPlatform.isConnected()) {
+        // API management page (web interface)
+        webPlatform.registerRoute("/api-tokens", [](WebRequest& req, WebResponse& res) {
+            String html = R"(
+                <!DOCTYPE html>
+                <html><head>
+                    <title>API Token Management</title>
+                    <meta name="csrf-token" content="{{csrfToken}}">
+                    <script>
+                        async function createToken() {
+                            const description = document.getElementById('description').value;
+                            const csrf = document.querySelector('meta[name="csrf-token"]').content;
+                            
+                            const response = await fetch('/api/tokens', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-Token': csrf
+                                },
+                                body: JSON.stringify({description: description})
+                            });
+                            
+                            const result = await response.json();
+                            if (result.success) {
+                                document.getElementById('result').innerHTML = 
+                                    '<div class="success">Token created: ' + result.token + 
+                                    '<br><strong>Save this now - it won\'t be shown again!</strong></div>';
+                            }
+                        }
+                    </script>
+                </head><body>
+                    <h1>API Token Management</h1>
+                    <div>
+                        <input type="text" id="description" placeholder="Token description">
+                        <button onclick="createToken()">Create Token</button>
+                    </div>
+                    <div id="result"></div>
+                </body></html>
+            )";
+            res.setContent(html, "text/html");
+        }, {AuthType::SESSION});
+        
+        // API endpoints that accept both session and token auth
+        webPlatform.registerRoute("/api/device/status", [](WebRequest& req, WebResponse& res) {
+            // This route can be accessed via web interface OR API token
+            res.setContent(myDeviceModule.getStatusJSON(), "application/json");
+        }, {AuthType::SESSION, AuthType::TOKEN});
+        
+        webPlatform.registerRoute("/api/device/control", [](WebRequest& req, WebResponse& res) {
+            if (req.getMethod() != WebModule::WM_POST) {
+                res.setStatus(405);
+                return;
+            }
+            
+            String command = req.getParam("command");
+            bool success = myDeviceModule.executeCommand(command);
+            
+            String result = success ? 
+                "{\"success\":true}" : 
+                "{\"success\":false,\"error\":\"Command failed\"}";
+            res.setContent(result, "application/json");
+        }, {AuthType::SESSION, AuthType::TOKEN}, WebModule::WM_POST);
+    }
+}
+```
 
-### For API Routes:
+### Custom Login Page
 
-1. All API endpoints should use `{AuthType::TOKEN}`
-2. API routes should be prefixed with `/api/` by convention
+Override the default login page with your own branding:
 
-## Client-Side Authentication
+```cpp
+void setup() {
+    // ... basic setup ...
+    
+    if (webPlatform.isConnected()) {
+        // Override the default login page
+        webPlatform.overrideRoute("/login", [](WebRequest& req, WebResponse& res) {
+            if (req.getMethod() == WebModule::WM_POST) {
+                // Handle login submission
+                String username = req.getParam("username");
+                String password = req.getParam("password");
+                
+                // Custom authentication logic here
+                if (authenticateUser(username, password)) {
+                    // Redirect to requested page
+                    String redirect = req.getParam("redirect", "/");
+                    res.redirect(redirect);
+                    return;
+                }
+                
+                // Show error
+                res.setContent(getLoginPage("Invalid credentials"), "text/html");
+                res.setStatus(401);
+            } else {
+                // Show login form
+                res.setContent(getLoginPage(), "text/html");
+            }
+        }, {AuthType::NONE});
+    }
+}
 
-The platform includes a JavaScript utility (`auth_utils_js.h`) that simplifies API authentication in the browser:
+String getLoginPage(const String& error = "") {
+    String html = R"(
+        <!DOCTYPE html>
+        <html><head>
+            <title>Login - My Device</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                .login-form { max-width: 300px; margin: 0 auto; }
+                .error { color: red; margin-bottom: 10px; }
+                input { width: 100%; padding: 8px; margin: 5px 0; }
+                button { width: 100%; padding: 10px; background: #007cba; color: white; border: none; }
+            </style>
+        </head><body>
+            <div class="login-form">
+                <h1>Device Login</h1>
+    )";
+    
+    if (error.length() > 0) {
+        html += "<div class='error'>" + error + "</div>";
+    }
+    
+    html += R"(
+                <form method="post">
+                    <input type="text" name="username" placeholder="Username" required>
+                    <input type="password" name="password" placeholder="Password" required>
+                    <button type="submit">Login</button>
+                </form>
+            </div>
+        </body></html>
+    )";
+    
+    return html;
+}
+```
+
+## For Module Developers
+
+### Protecting Module Routes
+
+As a module developer, you can specify authentication requirements for your routes:
+
+```cpp
+class MyDeviceModule : public IWebModule {
+public:
+    std::vector<WebRoute> getHttpRoutes() override {
+        return {
+            // Public information page
+            WebRoute("/info", WebModule::WM_GET, 
+                [this](WebRequest& req, WebResponse& res) {
+                    res.setContent(getDeviceInfo(), "text/html");
+                }, {AuthType::NONE}),
+            
+            // Main control interface - no auth specified (application can override)
+            WebRoute("/", WebModule::WM_GET, 
+                [this](WebRequest& req, WebResponse& res) {
+                    res.setContent(getControlPage(), "text/html");
+                }),
+            
+            // Configuration API - suggest session auth but allow override
+            WebRoute("/api/config", WebModule::WM_GET, 
+                [this](WebRequest& req, WebResponse& res) {
+                    res.setContent(getConfigJSON(), "application/json");
+                }, {AuthType::SESSION}),
+            
+            // Dangerous operations - require authentication
+            WebRoute("/api/factory-reset", WebModule::WM_POST, 
+                [this](WebRequest& req, WebResponse& res) {
+                    bool success = performFactoryReset();
+                    res.setContent(success ? "{\"success\":true}" : "{\"error\":\"Failed\"}", 
+                                 "application/json");
+                }, {AuthType::SESSION})
+        };
+    }
+    
+    std::vector<WebRoute> getHttpsRoutes() override {
+        return getHttpRoutes(); // Same routes for HTTPS
+    }
+    
+    String getModuleName() const override { return "Device Controller"; }
+    
+private:
+    String getDeviceInfo() { /* return public device info */ }
+    String getControlPage() { /* return main control interface */ }
+    String getConfigJSON() { /* return configuration data */ }
+    bool performFactoryReset() { /* perform reset operation */ }
+};
+```
+
+### CSRF Protection for Forms
+
+When creating forms in your modules, include CSRF protection:
+
+```cpp
+WebRoute("/config", WebModule::WM_GET, 
+    [this](WebRequest& req, WebResponse& res) {
+        String html = R"(
+            <!DOCTYPE html>
+            <html><head>
+                <title>Device Configuration</title>
+                <meta name="csrf-token" content="{{csrfToken}}">
+            </head><body>
+                <form method="post" action="/device/api/update-config">
+                    <input type="text" name="setting1" placeholder="Setting 1">
+                    <input type="text" name="setting2" placeholder="Setting 2">
+                    <button type="submit">Save Configuration</button>
+                </form>
+                
+                <script>
+                    // Add CSRF token to form submissions
+                    document.querySelector('form').addEventListener('submit', function(e) {
+                        const csrf = document.querySelector('meta[name="csrf-token"]').content;
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = '_csrf';
+                        input.value = csrf;
+                        this.appendChild(input);
+                    });
+                </script>
+            </body></html>
+        )";
+        res.setContent(html, "text/html");
+    }),
+
+WebRoute("/api/update-config", WebModule::WM_POST, 
+    [this](WebRequest& req, WebResponse& res) {
+        // Update configuration
+        bool success = updateConfig(req.getBody());
+        res.setContent(success ? "{\"success\":true}" : "{\"error\":\"Update failed\"}", 
+                     "application/json");
+    }, {AuthType::SESSION, AuthType::PAGE_TOKEN})  // Requires both session and CSRF
+```
+
+## API Usage Examples
+
+### Using API Tokens
+
+Once tokens are created, they can be used for programmatic access:
+
+```bash
+# Using curl with Bearer token
+curl -H "Authorization: Bearer tok_abc123def456" \
+     https://device.local/api/device/status
+
+# Using curl with URL parameter (alternative)
+curl "https://device.local/api/device/status?access_token=tok_abc123def456"
+
+# POST request with token
+curl -X POST \
+     -H "Authorization: Bearer tok_abc123def456" \
+     -H "Content-Type: application/json" \
+     -d '{"command":"restart"}' \
+     https://device.local/api/device/control
+```
+
+### JavaScript API Integration
 
 ```javascript
-// Make an authenticated GET request
-TickerTapeAuth.get('/api/data')
-  .then(data => {
-    console.log('Data received:', data);
-  })
-  .catch(error => {
-    console.error('Error:', error);
-  });
+// Store the API token
+const API_TOKEN = 'tok_abc123def456';
+const BASE_URL = 'https://device.local';
 
-// Make an authenticated POST request
-TickerTapeAuth.post('/api/update', { 
-  value: 42 
-})
-  .then(response => {
-    console.log('Update successful:', response);
-  })
-  .catch(error => {
-    console.error('Error:', error);
-  });
+// Helper function for authenticated requests
+async function apiRequest(endpoint, options = {}) {
+    const config = {
+        headers: {
+            'Authorization': `Bearer ${API_TOKEN}`,
+            'Content-Type': 'application/json',
+            ...options.headers
+        },
+        ...options
+    };
+    
+    const response = await fetch(`${BASE_URL}${endpoint}`, config);
+    return await response.json();
+}
+
+// Get device status
+async function getDeviceStatus() {
+    try {
+        const status = await apiRequest('/api/device/status');
+        console.log('Device status:', status);
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+// Send control command
+async function sendCommand(command) {
+    try {
+        const result = await apiRequest('/api/device/control', {
+            method: 'POST',
+            body: JSON.stringify({command: command})
+        });
+        console.log('Command result:', result);
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+// Usage examples
+getDeviceStatus();
+sendCommand('restart');
 ```
 
-## Creating and Managing Tokens
+## Authentication Context
 
-### From the UI:
+In your route handlers, you can access authentication information:
 
-1. Navigate to the `/account` page when logged in
-2. Use the token management interface to create new API tokens
-3. Store the token securely - it cannot be viewed again after creation
-
-### Using the JavaScript Library:
-
-```javascript
-// Create a new token
-TickerTapeAuth.createToken('My Device')
-  .then(token => {
-    console.log('New token created:', token);
-    // Token is automatically stored for future requests
-  })
-  .catch(error => {
-    console.error('Failed to create token:', error);
-  });
-
-// Manually set a token
-TickerTapeAuth.setToken('tok_abcdef123456');
-
-// Show the token input dialog
-TickerTapeAuth.showTokenDialog();
+```cpp
+void protectedHandler(WebRequest& req, WebResponse& res) {
+    const AuthContext& auth = req.getAuthContext();
+    
+    // Check how the user authenticated
+    if (auth.authenticatedVia == AuthType::SESSION) {
+        // Web user logged in with username/password
+        String username = auth.username;
+        Serial.println("Web user: " + username);
+        
+    } else if (auth.authenticatedVia == AuthType::TOKEN) {
+        // API access with token
+        String tokenId = auth.token;
+        Serial.println("API access with token: " + tokenId);
+    }
+    
+    // Check if user has admin privileges (custom logic)
+    bool isAdmin = (auth.username == "admin");
+    
+    if (isAdmin) {
+        res.setContent(getAdminPage(), "text/html");
+    } else {
+        res.setContent(getRegularUserPage(), "text/html");
+    }
+}
 ```
 
-## Token Storage
+## Best Practices
 
-Tokens are securely stored in the device's persistent storage (Preferences on ESP32, EEPROM on ESP8266) and remain valid until explicitly deleted. For security reasons:
+### Security Guidelines
 
-- Tokens are never stored in plain text
-- Tokens are prefixed with `tok_` to identify them
-- Token validation is performed on every request
+1. **Use HTTPS**: Enable HTTPS whenever possible for encrypted communication
+2. **Protect Sensitive Operations**: Always require authentication for configuration changes
+3. **CSRF Protection**: Use `PAGE_TOKEN` for all form submissions
+4. **Token Security**: Show API tokens only once during creation
+5. **Network Restrictions**: Consider `LOCAL_ONLY` for administrative functions
 
-## Module Implementation
+### Route Organization
 
-When implementing modules, follow these guidelines:
+```cpp
+// Good: Clear separation of public and protected routes
+WebRoute("/info", handler, {AuthType::NONE})           // Public information
+WebRoute("/", handler, {AuthType::NONE})               // Let application decide
+WebRoute("/api/status", handler, {AuthType::TOKEN})    // API access only
+WebRoute("/config", handler, {AuthType::SESSION})      // Web interface only
+WebRoute("/api/config", handler, {AuthType::SESSION, AuthType::TOKEN})  // Both
 
-1. Use `{AuthType::NONE}` for static content (HTML, CSS, JavaScript)
-2. Use `{AuthType::PAGE_TOKEN}` for API endpoints accessed from the browser
-3. Use `{AuthType::TOKEN}` for API endpoints accessed by external systems
-4. Use `{AuthType::SESSION}` for UI pages that require user login
-
-### HTML Templates
-
-Include a CSRF token placeholder in your HTML templates:
-
-```html
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="csrf-token" content="{{csrfToken}}">
-  <!-- Other head content -->
-</head>
+// Good: Descriptive route paths
+WebRoute("/api/factory-reset", resetHandler, {AuthType::SESSION})
+WebRoute("/api/firmware-update", updateHandler, {AuthType::SESSION})
 ```
 
-The WebPlatform will automatically replace `{{csrfToken}}` with a valid token.
+### Error Handling
 
-### JavaScript Implementation
-
-Include the auth utilities JavaScript in your module's HTML:
-
-```html
-<script src="/assets/auth_utils.js"></script>
-<script>
-  // Use TickerTapeAuth for API requests
-  function loadData() {
-    TickerTapeAuth.get('/api/mymodule/data')
-      .then(data => {
-        // Process data
-      })
-      .catch(error => {
-        console.error('Failed to load data:', error);
-      });
-  }
-</script>
+```cpp
+void apiHandler(WebRequest& req, WebResponse& res) {
+    const AuthContext& auth = req.getAuthContext();
+    
+    if (!auth.isAuthenticated) {
+        res.setStatus(401);
+        res.setContent("{\"error\":\"Authentication required\"}", "application/json");
+        return;
+    }
+    
+    // Proceed with authenticated request
+    res.setContent(processRequest(req), "application/json");
+}
 ```
 
-The `TickerTapeAuth` library will automatically:
-1. Extract the CSRF token from the meta tag
-2. Include it in all API requests
-3. Handle authentication errors appropriately
+## Default Credentials
 
-## Testing API Endpoints
+WebPlatform creates a default admin account on first boot:
 
-For development purposes:
+- **Username**: `admin`
+- **Password**: `admin`
 
-1. Use the development token button that appears in the corner on local networks
-2. Enter a valid API token in the dialog
-3. All API requests will include this token automatically
+**Important**: Change these credentials in production deployments!
 
-## Security Considerations
-
-1. API tokens should be treated like passwords and stored securely
-2. For production use, consider implementing token expiration
-3. Use HTTPS when possible to protect token transmission
-4. API tokens should have granular permissions (feature pending)
+The authentication system provides comprehensive security features while remaining flexible enough for various use cases. Application developers can choose the level of security appropriate for their needs, while module developers can suggest reasonable defaults that can be overridden when necessary.

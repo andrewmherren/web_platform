@@ -1,4 +1,5 @@
 #include "../../include/interface/web_module_interface.h"
+#include "../../include/auth/auth_storage.h"
 
 // Initialize static variables
 std::vector<NavigationItem> IWebModule::navigationMenu;

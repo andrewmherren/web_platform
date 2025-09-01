@@ -1,0 +1,406 @@
+/**
+ * Authenticated WebPlatform Application Example
+ * 
+ * This example demonstrates how to create a secure web application with user authentication.
+ * It shows:
+ * - Session-based authentication for web interface
+ * - API token authentication for programmatic access
+ * - CSRF protection for forms
+ * - Route-level security
+ * - Custom login page
+ * - User account management
+ */
+
+#include <Arduino.h>
+#include <web_platform.h>
+
+// Optional: Include your secure modules
+// #include <secure_device_module.h>
+// SecureDeviceModule secureModule;
+
+void setup() {
+    Serial.begin(115200);
+    Serial.println("Starting Authenticated WebPlatform Application...");
+
+    // Set up navigation menu with authentication-aware items
+    std::vector<NavigationItem> navItems = {
+        NavigationItem("Dashboard", "/"),
+        NavigationItem("Device Control", "/control"),
+        NavigationItem("API Tokens", "/tokens"),
+        NavigationItem("Account", "/account"),
+        NavigationItem("Logout", "/logout")
+    };
+    IWebModule::setNavigationMenu(navItems);
+
+    // Register all routes prior to calling webPlatform.begin()
+
+    // Protected dashboard (requires login)
+    webPlatform.overrideRoute("/", [](WebRequest& req, WebResponse& res) {
+        const AuthContext& auth = req.getAuthContext();
+        
+        String html = R"(
+            <!DOCTYPE html>
+            <html><head>
+                <title>Secure Dashboard</title>
+                <link rel="stylesheet" href="/assets/style.css">
+            </head><body>
+                <div class="container">
+                    <h1>Welcome, )" + auth.username + R"(!</h1>
+                    <p>You are successfully logged into the secure dashboard.</p>
+                    <!-- Navigation menu will be auto-injected here -->
+                    
+                    <div class="status-grid">
+                        <div class="status-card">
+                            <h3>Authentication</h3>
+                            <p class="success">Logged In</p>
+                        </div>
+                        <div class="status-card">
+                            <h3>Session Type</h3>
+                            <p>)" + String(auth.authenticatedVia == AuthType::SESSION ? "Web Session" : "API Token") + R"(</p>
+                        </div>
+                        <div class="status-card">
+                            <h3>Access Level</h3>
+                            <p>)" + String(auth.username == "admin" ? "Administrator" : "User") + R"(</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>System Information</h2>
+                        <table class="info-table">
+                            <tr><td>Device:</td><td>)" + String(webPlatform.getDeviceName()) + R"(</td></tr>
+                            <tr><td>Uptime:</td><td>)" + String(millis() / 1000) + R"( seconds</td></tr>
+                            <tr><td>Free Memory:</td><td>)" + String(ESP.getFreeHeap()) + R"( bytes</td></tr>
+                            <tr><td>HTTPS:</td><td>)" + String(webPlatform.isHttpsEnabled() ? "Enabled" : "Disabled") + R"(</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </body></html>
+        )";
+        res.setContent(IWebModule::injectNavigationMenu(html), "text/html");
+    }, {AuthType::SESSION});
+
+    // Device control page with CSRF-protected forms
+    webPlatform.registerRoute("/control", [](WebRequest& req, WebResponse& res) {
+        String html = R"(
+            <!DOCTYPE html>
+            <html><head>
+                <title>Device Control</title>
+                <meta name="csrf-token" content="{{csrfToken}}">
+                <link rel="stylesheet" href="/assets/style.css">
+            </head><body>
+                <div class="container">
+                    <h1>Device Control Panel</h1>
+                    
+                    <div class="card">
+                        <h2>System Controls</h2>
+                        <form id="control-form" method="post" action="/api/control">
+                            <div class="form-group">
+                                <label for="command">Command:</label>
+                                <select id="command" name="command" class="form-control" required>
+                                    <option value="">Select command...</option>
+                                    <option value="status">Get Status</option>
+                                    <option value="restart">Restart Device</option>
+                                    <option value="reset-wifi">Reset WiFi</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Execute Command</button>
+                        </form>
+                        
+                        <div id="result" class="mt-3"></div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Configuration</h2>
+                        <form id="config-form" method="post" action="/api/configure">
+                            <div class="form-group">
+                                <label for="device-name">Device Name:</label>
+                                <input type="text" id="device-name" name="device-name" 
+                                        class="form-control" value=")" + String(webPlatform.getDeviceName()) + R"(">
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" name="enable-debug"> Enable Debug Mode
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-secondary">Save Configuration</button>
+                        </form>
+                    </div>
+                </div>
+
+                <script>
+                    // Get CSRF token from meta tag
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                    
+                    // Handle control form submission
+                    document.getElementById('control-form').addEventListener('submit', async function(e) {
+                        e.preventDefault();
+                        
+                        const formData = new FormData(this);
+                        const command = formData.get('command');
+                        
+                        try {
+                            const response = await fetch('/api/control', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                    'X-CSRF-Token': csrfToken
+                                },
+                                credentials: 'same-origin',
+                                body: 'command=' + encodeURIComponent(command)
+                            });
+                            
+                            const result = await response.json();
+                            document.getElementById('result').innerHTML = 
+                                '<div class="card ' + (result.success ? 'success' : 'error') + '">' +
+                                '<p>' + (result.message || result.error || 'Operation completed') + '</p>' +
+                                '</div>';
+                        } catch (error) {
+                            document.getElementById('result').innerHTML = 
+                                '<div class="card error"><p>Error: ' + error.message + '</p></div>';
+                        }
+                    });
+                    
+                    // Handle config form submission
+                    document.getElementById('config-form').addEventListener('submit', async function(e) {
+                        e.preventDefault();
+                        
+                        const formData = new FormData(this);
+                        formData.append('_csrf', csrfToken);
+                        
+                        try {
+                            const response = await fetch('/api/configure', {
+                                method: 'POST',
+                                body: formData,
+                                credentials: 'same-origin'
+                            });
+                            
+                            const result = await response.json();
+                            alert(result.success ? 'Configuration saved!' : 'Error: ' + result.error);
+                        } catch (error) {
+                            alert('Error: ' + error.message);
+                        }
+                    });
+                </script>
+            </body></html>
+        )";
+        res.setContent(html, "text/html");
+    }, {AuthType::SESSION});
+
+    // API Token management page
+    webPlatform.registerRoute("/tokens", [](WebRequest& req, WebResponse& res) {
+        String html = R"(
+            <!DOCTYPE html>
+            <html><head>
+                <title>API Token Management</title>
+                <meta name="csrf-token" content="{{csrfToken}}">
+                <link rel="stylesheet" href="/assets/style.css">
+            </head><body>
+                <div class="container">
+                    <h1>API Token Management</h1>
+                    
+                    <div class="card">
+                        <h2>Create New Token</h2>
+                        <div class="form-group">
+                            <label for="token-description">Description:</label>
+                            <input type="text" id="token-description" class="form-control" 
+                                    placeholder="Home Assistant Integration">
+                        </div>
+                        <button onclick='createToken()' class="btn btn-primary">Create Token</button>
+                        <div id="token-result"></div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>API Usage Examples</h2>
+                        <p>Use your API tokens with these endpoints:</p>
+                        <pre class="code-block">
+# Get device status
+curl -H "Authorization: Bearer YOUR_TOKEN" )" + webPlatform.getBaseUrl() + R"(/api/status
+
+# Execute command  
+curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"command":"status"}' \
+  )" + webPlatform.getBaseUrl() + R"(/api/control
+
+# Using URL parameter (alternative)
+curl ")" + webPlatform.getBaseUrl() + R"(/api/status?access_token=YOUR_TOKEN"
+                        </pre>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>JavaScript Example</h2>
+                        <pre class="code-block">
+const token = 'YOUR_TOKEN';
+const baseUrl = ')" + webPlatform.getBaseUrl() + R"(';
+
+// Get status
+fetch(baseUrl + '/api/status', {
+headers: {'Authorization': 'Bearer ' + token}
+})
+.then(response => response.json())
+.then(data => console.log(data));
+
+// Send command
+fetch(baseUrl + '/api/control', {
+method: 'POST',
+headers: {
+    'Authorization': 'Bearer ' + token,
+    'Content-Type': 'application/json'
+},
+body: JSON.stringify({command: 'status'})
+})
+.then(response => response.json())
+.then(data => console.log(data));
+                        </pre>
+                    </div>
+                </div>
+
+                <script>
+                    async function createToken() {
+                        const description = document.getElementById('token-description').value;
+                        if (!description.trim()) {
+                            alert('Please enter a description for the token');
+                            return;
+                        }
+                        
+                        const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                        
+                        try {
+                            const response = await fetch('/api/tokens', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-Token': csrf
+                                },
+                                credentials: 'same-origin',
+                                body: JSON.stringify({description: description})
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (result.success) {
+                                document.getElementById('token-result').innerHTML = 
+                                    '<div class="card warning mt-3">' +
+                                    '<h3>Token Created Successfully!</h3>' +
+                                    '<p><strong>Your API Token:</strong></p>' +
+                                    '<code style="background: #f0f0f0; padding: 10px; display: block; margin: 10px 0; word-break: break-all;">' + 
+                                    result.token + '</code>' +
+                                    '<p class="error"><strong>Important:</strong> Save this token now! ' +
+                                    'It will not be shown again for security reasons.</p>' +
+                                    '</div>';
+                                document.getElementById('token-description').value = '';
+                            } else {
+                                alert('Error creating token: ' + result.error);
+                            }
+                        } catch (error) {
+                            alert('Error: ' + error.message);
+                        }
+                    }
+                </script>
+            </body></html>
+        )";
+        res.setContent(html, "text/html");
+    }, {AuthType::SESSION});
+
+    // API Endpoints - accessible via both session and token auth
+
+    // Status API (can be called from web interface or via API token)
+    webPlatform.registerRoute("/api/status", [](WebRequest& req, WebResponse& res) {
+        String json = R"({
+            "success": true,
+            "device": ")" + String(webPlatform.getDeviceName()) + R"(",
+            "uptime": )" + String(millis() / 1000) + R"(,
+            "free_memory": )" + String(ESP.getFreeHeap()) + R"(,
+            "wifi_ssid": ")" + WiFi.SSID() + R"(",
+            "ip_address": ")" + WiFi.localIP().toString() + R"(",
+            "https_enabled": )" + String(webPlatform.isHttpsEnabled() ? "true" : "false") + R"(
+        })";
+        res.setContent(json, "application/json");
+    }, {AuthType::SESSION, AuthType::TOKEN});
+
+    // Control API with CSRF protection for web forms
+    webPlatform.registerRoute("/api/control", [](WebRequest& req, WebResponse& res) {
+        if (req.getMethod() != WebModule::WM_POST) {
+            res.setStatus(405);
+            res.setContent("{\"error\":\"Method not allowed\"}", "application/json");
+            return;
+        }
+        
+        String command = req.getParam("command");
+        String result;
+        
+        if (command == "status") {
+            result = R"({"success":true,"message":"Device is operational"})";
+        } else if (command == "restart") {
+            result = R"({"success":true,"message":"Device will restart in 3 seconds"})";
+            // Schedule restart
+            // Note: In real implementation, use a timer or task
+        } else if (command == "reset-wifi") {
+            webPlatform.resetWiFiCredentials();
+            result = R"({"success":true,"message":"WiFi credentials cleared. Device will restart."})";
+        } else {
+            res.setStatus(400);
+            result = R"({"success":false,"error":"Unknown command"})";
+        }
+        
+        res.setContent(result, "application/json");
+    }, {AuthType::SESSION, AuthType::PAGE_TOKEN}, WebModule::WM_POST);
+
+    // Configuration API
+    webPlatform.registerRoute("/api/configure", [](WebRequest& req, WebResponse& res) {
+        if (req.getMethod() != WebModule::WM_POST) {
+            res.setStatus(405);
+            res.setContent("{\"error\":\"Method not allowed\"}", "application/json");
+            return;
+        }
+        
+        String deviceName = req.getParam("device-name");
+        bool enableDebug = req.getParam("enable-debug") == "on";
+        
+        // In a real implementation, you would save these settings
+        Serial.println("Configuration update:");
+        Serial.println("Device Name: " + deviceName);
+        Serial.println("Debug Mode: " + String(enableDebug ? "Enabled" : "Disabled"));
+        
+        res.setContent("{\"success\":true,\"message\":\"Configuration saved\"}", "application/json");
+    }, {AuthType::SESSION, AuthType::PAGE_TOKEN}, WebModule::WM_POST);
+
+    // Register secure modules
+    // webPlatform.registerModule("/secure", &secureModule);
+    
+    // Override module routes to add authentication if needed
+    // webPlatform.overrideRoute("/secure/admin", adminHandler, {AuthType::SESSION});
+
+
+    // Initialize WebPlatform
+    webPlatform.begin("SecureDevice");
+
+    if (webPlatform.isConnected()) {
+        Serial.println("Secure application ready!");
+        Serial.println("Default login: admin / admin");
+        Serial.print("Access at: ");
+        Serial.println(webPlatform.getBaseUrl());
+    } else {
+        Serial.println("Running in WiFi configuration mode");
+        Serial.print("Connect to: ");
+        Serial.println(webPlatform.getAPName());
+    }
+}
+
+void loop() {
+    webPlatform.handle();
+
+    if (webPlatform.isConnected()) {
+        // Handle your secure modules
+        // secureModule.handle();
+    }
+
+    // Status LED - slow blink when connected, fast when configuring
+    static unsigned long lastBlink = 0;
+    unsigned long interval = webPlatform.isConnected() ? 2000 : 500;
+    
+    if (millis() - lastBlink > interval) {
+        lastBlink = millis();
+        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+    }
+}

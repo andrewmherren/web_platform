@@ -5,6 +5,7 @@
 #include "web_module_types.h"
 #include "web_request.h"
 #include "web_response.h"
+#include "platform_service.h"
 #include "../../assets/web_ui_styles.h"
 #include "webserver_typedefs.h"
 #include <Arduino.h>
@@ -132,6 +133,10 @@ public:
   // Helper methods for navigation menu
   static String generateNavigationHtml();
   static String injectNavigationMenu(const String &htmlContent);
+
+  static String prepareHtml(String html, WebRequest req) {
+    return g_platformService->prepareHtml(html, req);
+  }
 
   // Custom error page management
   static void setErrorPage(int statusCode, const String &html);

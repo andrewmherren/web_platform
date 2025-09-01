@@ -5,7 +5,7 @@
 
 // Additional CSS styles for specific components not in base theme
 const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
-/* TickerTape Additional Styles - Extends /assets/style.css */
+/* Web-platform default styles*/
 
 /* Network scanning and management */
 .network-list {

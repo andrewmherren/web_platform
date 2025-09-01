@@ -1,5 +1,6 @@
 #include "../../include/interface/web_request.h"
 #include "../../include/interface/webserver_typedefs.h"
+#include <ArduinoJson.h>
 
 #if defined(ESP32)
 #include <WebServer.h>
@@ -18,22 +19,33 @@
 #include <ESP8266WebServer.h>
 #endif
 
+
+const char* COMMON_HTTP_HEADERS[] = {
+    "Host", "User-Agent", "Accept", "Accept-Language", "Accept-Encoding", 
+    "Content-Type", "Content-Length", "Authorization", "Cookie",
+    "X-CSRF-Token", "X-Requested-With", "Referer", "Cache-Control",
+    "Connection", "Pragma"
+};
+const size_t COMMON_HTTP_HEADERS_COUNT = sizeof(COMMON_HTTP_HEADERS) / sizeof(COMMON_HTTP_HEADERS[0]);
+
+
 // Constructor for Arduino WebServer
 WebRequest::WebRequest(WebServerClass *server) {
   if (!server)
     return;
 
-  path = server->uri();
-  method = server->method() == HTTP_GET      ? WebModule::WM_GET
-           : server->method() == HTTP_POST   ? WebModule::WM_POST
-           : server->method() == HTTP_PUT    ? WebModule::WM_PUT
-           : server->method() == HTTP_DELETE ? WebModule::WM_DELETE
-           : server->method() == HTTP_PATCH  ? WebModule::WM_PATCH
-                                             : WebModule::WM_GET;
+  // Extract path without query parameters
+  String fullUri = server->uri();
+  int queryStart = fullUri.indexOf('?');
+  path = (queryStart >= 0) ? fullUri.substring(0, queryStart) : fullUri;
+  method = httpMethodToWMMethod(server->method());
 
   // Get request body for POST requests
   if (server->method() == HTTP_POST) {
     body = server->arg("plain");
+    // Parse request body based on content type
+    String contentType = getHeader("Content-Type");
+    parseRequestBody(body, contentType);
   }
 
   // Parse URL parameters (query string)
@@ -42,8 +54,8 @@ WebRequest::WebRequest(WebServerClass *server) {
   }
 
   // Parse headers
-  for (int i = 0; i < server->headers(); i++) {
-    headers[server->headerName(i)] = server->header(i);
+  for (int i = 0; i < COMMON_HTTP_HEADERS_COUNT; i++) {
+    headers[COMMON_HTTP_HEADERS[i]] = server->header(COMMON_HTTP_HEADERS[i]);
   }
 
   // Parse ClientIp
@@ -59,29 +71,12 @@ WebRequest::WebRequest(httpd_req *req) {
   if (!req)
     return;
 
-  path = String(req->uri);
+  // Extract path without query parameters
+  String fullUri = String(req->uri);
+  int queryStart = fullUri.indexOf('?');
+  path = (queryStart >= 0) ? fullUri.substring(0, queryStart) : fullUri;
 
-  // Convert HTTP method
-  switch (req->method) {
-  case HTTP_GET:
-    method = WebModule::WM_GET;
-    break;
-  case HTTP_POST:
-    method = WebModule::WM_POST;
-    break;
-  case HTTP_PUT:
-    method = WebModule::WM_PUT;
-    break;
-  case HTTP_PATCH:
-    method = WebModule::WM_PATCH;
-    break;
-  case HTTP_DELETE:
-    method = WebModule::WM_DELETE;
-    break;
-  default:
-    method = WebModule::WM_GET;
-    break;
-  }
+  method = httpMethodToWMMethod((HTTPMethod) req->method);
 
   // Parse query string
   size_t query_len = httpd_req_get_url_query_len(req);
@@ -93,41 +88,7 @@ WebRequest::WebRequest(httpd_req *req) {
     delete[] query;
   }
 
-  // Get request body for POST requests
-  if (req->method == HTTP_POST && req->content_len > 0) {
-    char *content = new char[req->content_len + 1];
-    int received = httpd_req_recv(req, content, req->content_len);
-    if (received > 0) {
-      content[received] = '\0';
-      body = String(content);
-
-      // Parse form data if content type is form-urlencoded
-      String contentType = getHeader("Content-Type");
-      if (contentType.indexOf("application/x-www-form-urlencoded") >= 0) {
-        parseFormData(body);
-      }
-    }
-    delete[] content;
-  }
-
-  // Parse headers - ESP-IDF requires requesting headers individually by name
-  const char *commonHeaders[] = {"Host",
-                                 "User-Agent",
-                                 "Accept",
-                                 "Accept-Language",
-                                 "Accept-Encoding",
-                                 "Content-Type",
-                                 "Content-Length",
-                                 "Authorization",
-                                 "Cookie",
-                                 "X-CSRF-Token",
-                                 "X-Requested-With",
-                                 "Referer",
-                                 "Cache-Control",
-                                 "Connection",
-                                 "Pragma"};
-
-  for (const char *headerName : commonHeaders) {
+  for (const char *headerName : COMMON_HTTP_HEADERS) {
     size_t headerLen = httpd_req_get_hdr_value_len(req, headerName);
     if (headerLen > 0) {
       char *headerValue = new char[headerLen + 1];
@@ -137,6 +98,21 @@ WebRequest::WebRequest(httpd_req *req) {
       }
       delete[] headerValue;
     }
+  }
+
+  // Get request body for POST requests
+  if (req->method == HTTP_POST && req->content_len > 0) {
+    char *content = new char[req->content_len + 1];
+    int received = httpd_req_recv(req, content, req->content_len);
+    if (received > 0) {
+      content[received] = '\0';
+      body = String(content);
+      
+      // Parse request body based on content type
+      String contentType = getHeader("Content-Type");
+      parseRequestBody(body, contentType);
+    }
+    delete[] content;
   }
 
   // Parse ClientIp
@@ -154,6 +130,15 @@ String WebRequest::getParam(const String &name) const {
 
 bool WebRequest::hasParam(const String &name) const {
   return params.find(name) != params.end();
+}
+
+String WebRequest::getJsonParam(const String &name) const {
+  auto it = jsonParams.find(name);
+  return (it != jsonParams.end()) ? it->second : String();
+}
+
+bool WebRequest::hasJsonParam(const String &name) const {
+  return jsonParams.find(name) != jsonParams.end();
 }
 
 String WebRequest::getHeader(const String &name) const {
@@ -222,6 +207,57 @@ void WebRequest::parseFormData(const String &formData) {
   parseQueryParams(formData); // Form data uses same format as query params
 }
 
+void WebRequest::parseJsonData(const String &jsonData) {
+  if (jsonData.length() == 0) return;
+  
+  // Use ArduinoJson for robust JSON parsing
+  // Allocate a document with sufficient capacity (adjust size as needed)
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, jsonData);
+  
+  if (error) {
+    Serial.print("JSON parsing failed: ");
+    Serial.println(error.c_str());
+    return;
+  }
+  
+  // Extract all key-value pairs from the JSON object
+  if (doc.is<JsonObject>()) {
+    JsonObject obj = doc.as<JsonObject>();
+    for (JsonPair kv : obj) {
+      String key = kv.key().c_str();
+      String value = "";
+      
+      // Convert different JSON value types to strings
+      if (kv.value().is<const char*>()) {
+        value = kv.value().as<const char*>();
+      } else if (kv.value().is<int>()) {
+        value = String(kv.value().as<int>());
+      } else if (kv.value().is<float>()) {
+        value = String(kv.value().as<float>());
+      } else if (kv.value().is<bool>()) {
+        value = kv.value().as<bool>() ? "true" : "false";
+      }
+      
+      jsonParams[key] = value;
+    }
+  }
+}
+
+void WebRequest::parseRequestBody(const String &body, const String &contentType) {
+  if (body.length() == 0) return;
+  
+  Serial.println("--> Body data: " + body);
+  
+  if (contentType.indexOf("application/x-www-form-urlencoded") >= 0) {
+    Serial.println("--> parsing form data");
+    parseFormData(body);
+  } else if (contentType.indexOf("application/json") >= 0) {
+    Serial.println("--> parsing json data");
+    parseJsonData(body);
+  }
+}
+
 #if defined(ESP32)
 void WebRequest::parseClientIp(httpd_req *req) {
   int sockfd = httpd_req_to_sockfd(req);
@@ -257,7 +293,6 @@ void WebRequest::parseClientIp(httpd_req *req) {
         char ipStr[INET6_ADDRSTRLEN];
         if (inet_ntop(AF_INET6, &addr_in6->sin6_addr, ipStr, INET6_ADDRSTRLEN) != NULL) {
           clientIp = String(ipStr);
-          Serial.printf("--> Client IP parsed (IPv6): %s\n", clientIp.c_str());
         }
       }
     }

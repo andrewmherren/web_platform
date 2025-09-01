@@ -50,7 +50,7 @@ void WebPlatform::printUnifiedRoutes(const String* moduleBasePath, IWebModule* m
     }
 
     // Format method (7 chars)
-    String methodStr = httpMethodToString(route.method);
+    String methodStr = wmMethodToString(route.method);
     while (methodStr.length() < 7) {
       methodStr += " ";
     }
@@ -114,7 +114,7 @@ void WebPlatform::validateRoutes() const {
 
   for (size_t i = 0; i < routeRegistry.size(); i++) {
     const auto &route = routeRegistry[i];
-    String key = route.path + ":" + httpMethodToString(route.method);
+    String key = route.path + ":" + wmMethodToString(route.method);
     pathMethodMap[key].push_back(i);
   }
 
@@ -148,7 +148,7 @@ void WebPlatform::validateRoutes() const {
         Serial.println("Routes without authentication requirements:");
         hasUnauthenticatedRoutes = true;
       }
-      Serial.printf("  - %s %s\n", httpMethodToString(route.method).c_str(),
+      Serial.printf("  - %s %s\n", wmMethodToString(route.method).c_str(),
                     route.path.c_str());
     }
   }

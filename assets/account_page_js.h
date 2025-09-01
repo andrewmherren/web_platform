@@ -88,19 +88,17 @@ class AccountManager {
     try {
       const formData = new FormData();
       formData.append('password', password);
-      
-      const response = await AuthUtils.fetch('/api/account/password', {
+
+      const response = await AuthUtils.fetchJSON('/api/account/password', {
         method: 'POST',
-        body: formData
+        body: JSON.stringify({ password: password })
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
+      if (response.success) {
         alert('Password updated successfully');
         form.reset();
       } else {
-        alert('Error: ' + data.message);
+        alert('Error: ' + response.message);
       }
     } catch (error) {
       console.error('Password update error:', error);
@@ -108,7 +106,7 @@ class AccountManager {
     } finally {
       UIUtils.updateButtonState(submitBtn, false, 'Update Password');
     }
-  }
+  } 
 
   async createToken(event) {
     event.preventDefault();
@@ -125,21 +123,16 @@ class AccountManager {
     UIUtils.updateButtonState(submitBtn, true, 'Creating...');
     
     try {
-      const formData = new FormData();
-      formData.append('name', tokenName);
-      
-      const response = await AuthUtils.fetch('/api/tokens/create', {
+      const response = await AuthUtils.fetchJSON('/api/token', {
         method: 'POST',
-        body: formData
+        body: JSON.stringify({ name: tokenName })
       });
-
-      const data = await response.json();
       
-      if (data.success) {
-        this.displayNewToken(data.token);
+      if (response.success) {
+        this.displayNewToken(response.token);
         form.reset();
       } else {
-        alert('Error: ' + data.message);
+        alert('Error: ' + response.message);
       }
     } catch (error) {
       console.error('Token creation error:', error);

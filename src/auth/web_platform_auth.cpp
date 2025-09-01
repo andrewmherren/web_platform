@@ -4,10 +4,6 @@
 #include "../../include/interface/auth_types.h"
 #include <functional>
 
-// External debug function declaration
-extern void debugCsrfTokenValidation(const String &token,
-                                     const String &clientIp, bool isValid);
-
 // Initialize authentication system
 void WebPlatform::initializeAuth() {
   // Initialize the auth storage
@@ -29,11 +25,8 @@ bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
   AuthContext authContext;
   authContext.clear();
 
-  // Get client IP for validation
-  String clientIp = req.getHeader("X-Forwarded-For");
-  if (clientIp.isEmpty()) {
-    clientIp = req.getClientIp();
-  }
+  // Get client IP for validation - prioritize req.getClientIp() for consistency
+  String clientIp = req.getClientIp();
 
   // Track if any auth method succeeded
   bool authSuccess = false; // Check each allowed auth type
@@ -99,7 +92,6 @@ bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
       if (!csrfToken.isEmpty()) {
         // Use validation and debug the process
         bool isValid = AuthStorage::validatePageToken(csrfToken, clientIp);
-        debugCsrfTokenValidation(csrfToken, clientIp, isValid);
 
         if (isValid) {
           authSuccess = true;
@@ -108,13 +100,13 @@ bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
         } else {
           Serial.printf(
               "PAGE_TOKEN validation failed for %s %s - Token invalid\n",
-              httpMethodToString(req.getMethod()).c_str(),
+              wmMethodToString(req.getMethod()).c_str(),
               req.getPath().c_str());
         }
       } else {
         // Log the missing token for debugging
         Serial.printf("PAGE_TOKEN auth failed for %s %s - No token found\n",
-                      httpMethodToString(req.getMethod()).c_str(),
+                      wmMethodToString(req.getMethod()).c_str(),
                       req.getPath().c_str());
 
         // Print available headers for debugging

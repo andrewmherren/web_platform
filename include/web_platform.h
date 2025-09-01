@@ -61,7 +61,7 @@ typedef std::function<void()> WiFiSetupCompleteCallback;
  * - Module registration system for connected mode
  * - Automatic certificate detection without build flags
  */
-class WebPlatform : public IWebModule {
+class WebPlatform : public IWebModule, public IPlatformService {
 public:
   WebPlatform();
   ~WebPlatform();
@@ -81,6 +81,7 @@ public:
                      WebModule::Method method = WebModule::WM_GET);
   void disableRoute(const String &path,
                     WebModule::Method method = WebModule::WM_GET);
+  void clearRouteRegistry();
 
   // Handle all web requests and WiFi operations
   void handle();
@@ -91,12 +92,10 @@ public:
   PlatformMode getCurrentMode() const { return currentMode; }
 
   // Server capabilities
-  bool isHttpsEnabled() const { return httpsEnabled; }
   String getBaseUrl() const;
   int getPort() const { return serverPort; }
 
   // Device information
-  const char *getDeviceName() const { return deviceName; }
   const char *getAPName() const { return apSSIDBuffer; }
   String getHostname() const { return String(deviceName) + ".local"; }
 
@@ -116,9 +115,11 @@ public:
   void printUnifiedRoutes(const String* moduleBasePath = nullptr, IWebModule* module = nullptr) const;
   void validateRoutes() const;
 
-  // Debug and monitoring helpers (defined in web_platform_debug.cpp)
-  void debugAuthState() const; // Print current authentication state
-  void cleanExpiredTokens();   // Clean expired tokens and sessions
+  // IPlatformService implementation
+  String getDeviceName() const override { return deviceName; }
+  bool isHttpsEnabled() const override { return httpsEnabled; }
+
+  String prepareHtml(String html, WebRequest req, const String& csrfToken = "") override;
 
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
@@ -130,11 +131,10 @@ private:                            // Core server components
   void registerAuthRoutes();
 
   // CSRF token processing
-  String injectCsrfToken(const String &html, const String &clientIp);
   void addCsrfCookie(WebResponse &res, const String &token);
   void processCsrfForResponse(WebRequest &req, WebResponse &res);
 
-  // Controllers
+  // Handlers
   void rootPageHandler(WebRequest &req, WebResponse &res);
   void statusPageHandler(WebRequest &req, WebResponse &res);
   void wifiPageHandler(WebRequest &req, WebResponse &res);
@@ -156,6 +156,7 @@ private:                            // Core server components
   void webPlatformJSAssetHandler(WebRequest &req, WebResponse &res);
   void wifiManagementJSAssetHandler(WebRequest &req, WebResponse &res);
   void styleCSSAssetHandler(WebRequest &req, WebResponse &res);
+  void webPlatformFaviconHandler(WebRequest &req, WebResponse &res);
 
   // Platform state
   PlatformMode currentMode;
@@ -210,7 +211,7 @@ private:                            // Core server components
   void registerConnectedModeRoutes();
   void registerModuleRoutesForModule(const String &basePath,
                                      IWebModule *module);
-  void registerUnifiedRoutes();
+  void bindRegisteredRoutes();
 
 #if defined(ESP32)
   void registerUnifiedHttpsRoutes();

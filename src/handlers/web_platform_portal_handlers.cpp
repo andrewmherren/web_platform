@@ -16,25 +16,7 @@ void WebPlatform::configPortalPageHandler(WebRequest &req, WebResponse &res) {
   // Enhanced WiFi configuration page with security notice
   String html = FPSTR(CONFIG_PORTAL_HTML);
 
-  // Replace placeholder with device name
-  html.replace("{{DEVICE_NAME}}", deviceName);
-
-  // Add appropriate security notice based on protocol
-  String securityNotice;
-  if (httpsEnabled) {
-    securityNotice = R"(
-    <div class="security-notice https">
-        <h4><span class="security-icon-large">🔒</span> Secure Connection</h4>
-        <p>This connection is secured with HTTPS encryption. Your WiFi password will be transmitted securely.</p>
-    </div>)";
-  } else {
-    securityNotice = R"(
-    <div class="security-notice">
-        <h4><span class="security-icon-large">ℹ️</span> Connection Notice</h4>
-        <p>This is a direct device connection. Only enter WiFi credentials on your trusted private network.</p>
-    </div>)";
-  }
-  html.replace("{{SECURITY_NOTICE}}", securityNotice);
+  html = g_platformService->prepareHtml(html, req);
 
   res.setContent(IWebModule::injectNavigationMenu(html), "text/html");
 };
@@ -54,7 +36,6 @@ void WebPlatform::configPortalSavePageHandler(WebRequest &req, WebResponse &res)
 
     // Create success page with device restart countdown
     String html = FPSTR(CONFIG_PORTAL_SUCCESS_HTML);
-    html.replace("{{DEVICE_NAME}}", deviceName);
     html.replace("{{NETWORK_SSID}}", ssid);
 
     // Reset and re-save credentials
@@ -68,6 +49,8 @@ void WebPlatform::configPortalSavePageHandler(WebRequest &req, WebResponse &res)
     Serial.printf("WebPlatform: Credential verification %s - SSID match: %s\n",
                   credentialsValid ? "passed" : "failed",
                   checkSsid == ssid ? "yes" : "no");
+
+    html = g_platformService->prepareHtml(html, req);
 
     res.setContent(html, "text/html");
 

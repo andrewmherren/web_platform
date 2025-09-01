@@ -5,7 +5,7 @@
 
 // Common JavaScript utilities shared across all pages
 const char WEB_PLATFORM_UTILS_JS[] PROGMEM = R"rawliteral(
-// TickerTape Shared JavaScript Utilities
+// Web-platform Shared JavaScript Utilities
 
 // Authentication utilities
 const AuthUtils = {
@@ -18,9 +18,13 @@ const AuthUtils = {
   async fetch(url, options = {}) {
     const csrfToken = this.getCsrfToken();
     const headers = {
-      'Content-Type': 'application/x-www-form-urlencoded',
       ...options.headers
     };
+    
+    // Only set Content-Type for non-FormData requests
+    if (options.body && !(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    }
     
     if (csrfToken) {
       headers['X-CSRF-Token'] = csrfToken;
@@ -35,7 +39,21 @@ const AuthUtils = {
 
   // Make authenticated JSON fetch request
   async fetchJSON(url, options = {}) {
-    const response = await this.fetch(url, options);
+    const csrfToken = this.getCsrfToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+    
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'same-origin'
+    });
     return response.json();
   }
 };

@@ -22,15 +22,13 @@ void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
   }
 
   // Create a CSRF token for the form
-  String clientIp = req.getHeader("X-Forwarded-For");
-  if (clientIp.isEmpty()) {
-    clientIp = req.getClientIp();
-  }
+  String clientIp = req.getClientIp();
   String csrfToken = AuthStorage::createPageToken(clientIp);
 
   if (req.getMethod() == WebModule::WM_POST) {
     // Verify CSRF token
     String formToken = req.getParam("_csrf");
+
     if (formToken.isEmpty() ||
         !AuthStorage::validatePageToken(formToken, clientIp)) {
       res.setStatus(403);
@@ -41,10 +39,11 @@ void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
     // Process login form
     String username = req.getParam("username");
     String password = req.getParam("password");
-
     if (AuthStorage::validateCredentials(username, password)) {
       // Create session
       String sessionId = AuthStorage::createSession(username);
+
+      Serial.println("--> Good login! Created sessionId: " + sessionId);
 
       // Set session cookie - HTTP only for security
       res.setHeader("Set-Cookie",
@@ -58,9 +57,8 @@ void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
     } else {
       // Invalid credentials, show login form with error
       String loginHtml = String(LOGIN_PAGE_ERROR_HTML);
-      loginHtml.replace("{{csrfToken}}", csrfToken);
       loginHtml.replace("{{redirectUrl}}", redirectUrl);
-      loginHtml.replace("{{username}}", username);
+      loginHtml = g_platformService->prepareHtml(loginHtml, req, csrfToken);
 
       res.setContent(loginHtml);
       res.setStatus(401);
@@ -69,7 +67,7 @@ void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
   } else {
     // Show login form
     String loginHtml = String(LOGIN_PAGE_HTML);
-    loginHtml.replace("{{csrfToken}}", csrfToken);
+    loginHtml = g_platformService->prepareHtml(loginHtml, req, csrfToken);
     loginHtml.replace("{{redirectUrl}}", redirectUrl);
 
     res.setContent(loginHtml);
@@ -109,12 +107,7 @@ void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
 
-  // Get client IP for CSRF token
-  String clientIp = req.getHeader("X-Forwarded-For");
-  if (clientIp.isEmpty()) {
-    clientIp = req.getClientIp();
-  }
-  String csrfToken = AuthStorage::createPageToken(clientIp);
+  String csrfToken = AuthStorage::createPageToken(req.getClientIp());
 
   // Create API tokens
   std::vector<ApiToken> userTokens = AuthStorage::getUserTokens(username);
@@ -150,11 +143,10 @@ void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {
   }
 
   String accountHtml = String(ACCOUNT_PAGE_HTML);
-  accountHtml.replace("{{csrfToken}}", csrfToken);
-  accountHtml.replace("{{username}}", username);
+  accountHtml = g_platformService->prepareHtml(accountHtml, req, csrfToken);
   accountHtml.replace("{{tokensHtml}}", tokensHtml);
 
-  res.setContent(accountHtml);
+  res.setContent(IWebModule::injectNavigationMenu(accountHtml));
 
   // Set HttpOnly cookie with page token (CSRF protection)
   res.setHeader("Set-Cookie",
@@ -179,7 +171,7 @@ void WebPlatform::updatePasswordApiHandler(WebRequest &req, WebResponse &res) {
 
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
-  String password = req.getParam("password");
+  String password = req.getJsonParam("password");
 
   if (password.length() < 4) {
     res.setStatus(400);
@@ -207,11 +199,16 @@ void WebPlatform::createTokenApiHandler(WebRequest &req, WebResponse &res) {
     res.setHeader("Content-Type", "application/json");
     res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
     return;
-  }
-
-  const AuthContext &auth = req.getAuthContext();
+  }const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
-  String tokenName = req.getParam("name");
+  
+  // Try to get token name from JSON body first
+  String tokenName = req.getJsonParam("name");
+  
+  // Fallback to form parameter for backward compatibility
+  if (tokenName.isEmpty()) {
+    tokenName = req.getParam("name");
+  }
 
   if (tokenName.isEmpty()) {
     res.setStatus(400);

@@ -2,12 +2,39 @@
 #include "../../include/interface/web_module_interface.h"
 
 void WebPlatform::registerConnectedModeRoutes() {
-  Serial.println(
-      "WebPlatform: Registering core platform routes with unified system");
+  registerRoute(
+      "/assets/favicon.svg",
+      std::bind(&WebPlatform::webPlatformFaviconHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+
+  registerRoute(
+      "/assets/favicon.ico",
+      std::bind(&WebPlatform::webPlatformFaviconHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   registerRoute(
       "/assets/style.css",
       std::bind(&WebPlatform::styleCSSAssetHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+
+  registerRoute(
+      "/assets/web-platform-style.css",
+      std::bind(&WebPlatform::webPlatformCSSAssetHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+
+  registerRoute(
+      "/assets/web-platform-utils.js",
+      std::bind(&WebPlatform::webPlatformJSAssetHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+
+  registerRoute(
+      "/assets/wifi-management.js",
+      std::bind(&WebPlatform::wifiManagementJSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
       {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 

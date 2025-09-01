@@ -13,6 +13,11 @@
 // Define the global vector
 std::vector<RouteEntry> routeRegistry;
 
+void WebPlatform::clearRouteRegistry() {
+  Serial.printf("WebPlatform: Clearing route registry (%d routes)\n", routeRegistry.size());
+  routeRegistry.clear();
+}
+
 void WebPlatform::registerRoute(const String &path,
                                 WebModule::UnifiedRouteHandler handler,
                                 const AuthRequirements &auth,
@@ -23,12 +28,12 @@ void WebPlatform::registerRoute(const String &path,
       if (route.isOverride) {
         Serial.printf("WebPlatform: Route %s %s already overridden, ignoring "
                       "normal registration\n",
-                      httpMethodToString(method).c_str(), path.c_str());
+                      wmMethodToString(method).c_str(), path.c_str());
         return;
       }
 
       Serial.printf("WebPlatform: Route %s %s already exists, replacing\n",
-                    httpMethodToString(method).c_str(), path.c_str());
+                    wmMethodToString(method).c_str(), path.c_str());
       route.handler = handler;
       route.disabled = false;
       return;
@@ -51,7 +56,7 @@ void WebPlatform::overrideRoute(const String &path,
       route.isOverride = true;
 
       Serial.printf("WebPlatform: Overrode existing route %s %s\n",
-                    httpMethodToString(method).c_str(), path.c_str());
+                    wmMethodToString(method).c_str(), path.c_str());
       return;
     }
   }
@@ -61,7 +66,7 @@ void WebPlatform::overrideRoute(const String &path,
   routeRegistry.push_back(RouteEntry(path, method, handler, auth, true));
 
   Serial.printf("WebPlatform: Added preemptive override route %s %s\n",
-                httpMethodToString(method).c_str(), path.c_str());
+                wmMethodToString(method).c_str(), path.c_str());
 }
 
 void WebPlatform::disableRoute(const String &path, WebModule::Method method) {
@@ -71,7 +76,7 @@ void WebPlatform::disableRoute(const String &path, WebModule::Method method) {
       route.disabled = true;
 
       Serial.printf("WebPlatform: Disabled route %s %s\n",
-                    httpMethodToString(method).c_str(), path.c_str());
+                    wmMethodToString(method).c_str(), path.c_str());
       return;
     }
   }
@@ -84,7 +89,7 @@ void WebPlatform::disableRoute(const String &path, WebModule::Method method) {
   routeRegistry.push_back(disabledRoute);
 
   Serial.printf("WebPlatform: Pre-disabled route %s %s\n",
-                httpMethodToString(method).c_str(), path.c_str());
+                wmMethodToString(method).c_str(), path.c_str());
 }
 
 // Helper function to check if route should be skipped (shared logic)
@@ -92,7 +97,7 @@ bool WebPlatform::shouldSkipRoute(const RouteEntry& route, const String& serverT
   if (route.disabled) {
     Serial.printf("WebPlatform: Skipping disabled %s route %s %s\n",
                   serverType.c_str(),
-                  httpMethodToString(route.method).c_str(),
+                  wmMethodToString(route.method).c_str(),
                   route.path.c_str());
     return true;
   }
@@ -100,7 +105,7 @@ bool WebPlatform::shouldSkipRoute(const RouteEntry& route, const String& serverT
   if (!route.handler) {
     Serial.printf("WebPlatform: Skipping %s route with null handler %s %s\n",
                   serverType.c_str(),
-                  httpMethodToString(route.method).c_str(),
+                  wmMethodToString(route.method).c_str(),
                   route.path.c_str());
     return true;
   }
@@ -110,7 +115,7 @@ bool WebPlatform::shouldSkipRoute(const RouteEntry& route, const String& serverT
 
 // Helper function to execute route with authentication and CSRF processing (shared logic)
 void WebPlatform::executeRouteWithAuth(const RouteEntry& route, WebRequest& request, WebResponse& response, const String& serverType) {
-  Serial.printf("--> %s handling request: %s\n",
+  Serial.printf("%s handling request: %s\n",
                 serverType.c_str(), request.getPath().c_str());
 
   // Check authentication requirements
@@ -125,13 +130,14 @@ void WebPlatform::executeRouteWithAuth(const RouteEntry& route, WebRequest& requ
                     serverType.c_str(),
                     request.getPath().c_str(),
                     response.getContent().length());
+      Serial.printf("Client IP from request.getClientIp(): %s\n", request.getClientIp().c_str());
       this->processCsrfForResponse(request, response);
     }
   }
 }
 
 // Internal method to register unified routes with actual server
-void WebPlatform::registerUnifiedRoutes() {
+void WebPlatform::bindRegisteredRoutes() {
   if (!server) {
     Serial.println("WebPlatform: No HTTP server to register unified routes on");
     return;
@@ -160,13 +166,7 @@ void WebPlatform::registerUnifiedRoutes() {
       continue;
     }
 
-    // Convert method to HTTP method
-    HTTPMethod httpMethod = (route.method == WebModule::WM_GET)    ? HTTP_GET
-                            : (route.method == WebModule::WM_POST) ? HTTP_POST
-                            : (route.method == WebModule::WM_PUT)  ? HTTP_PUT
-                            : (route.method == WebModule::WM_DELETE)
-                                ? HTTP_DELETE
-                                : HTTP_GET;
+    HTTPMethod httpMethod = wmMethodToHttpMethod(route.method);
 
     // Create wrapper function that converts Arduino WebServer calls to unified handlers
     auto wrapperHandler = [route, this]() {
@@ -206,12 +206,7 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
     }
 
     // Convert method to ESP-IDF HTTP method
-    httpd_method_t httpdMethod =
-        (route.method == WebModule::WM_GET)      ? HTTP_GET
-        : (route.method == WebModule::WM_POST)   ? HTTP_POST
-        : (route.method == WebModule::WM_PUT)    ? HTTP_PUT
-        : (route.method == WebModule::WM_DELETE) ? HTTP_DELETE
-                                                 : HTTP_GET;
+    httpd_method_t httpdMethod = wmMethodToHttpMethod(route.method);
 
     // Store the path permanently for ESP-IDF
     httpsRoutePaths.push_back(route.path);
@@ -228,21 +223,20 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
             .c_str();
     uri_config.method = httpdMethod;
     uri_config.handler = [](httpd_req_t *req) -> esp_err_t {
-      // Find the route in our registry by comparing URI
-      String requestUri(req->uri);
+      // Create WebRequest first to get properly parsed path
+      WebRequest request(req);
+      WebResponse response;
+      String requestPath = request.getPath();
 
-      Serial.printf("HTTPS handling request: %s\n", requestUri.c_str());
+      Serial.printf("HTTPS handling request: %s\n", req->uri);
       for (const auto &route : routeRegistry) {
-        bool pathMatches = (route.path == requestUri ||
-                            (route.path + "/" == requestUri &&
+        bool pathMatches = (route.path == requestPath ||
+                            (route.path + "/" == requestPath &&
                              !route.path.endsWith("/") && route.path != "/"));
 
         if (pathMatches && !route.disabled && route.handler) {
           Serial.printf("HTTPS found matching route: %s (override: %s)\n",
                         route.path.c_str(), route.isOverride ? "yes" : "no");
-
-          WebRequest request(req);
-          WebResponse response;
 
           // Use shared execution logic with authentication and CSRF
           WebPlatform::httpsInstance->executeRouteWithAuth(route, request, response, "HTTPS");
@@ -251,8 +245,8 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
         }
       }
 
-      Serial.printf("HTTPS no matching route found for: %s\n",
-                    requestUri.c_str());
+      Serial.printf("HTTPS no matching route found for: %s (path: %s)\n",
+                    req->uri, requestPath.c_str());
       return ESP_FAIL;
     };
     uri_config.user_ctx = nullptr;

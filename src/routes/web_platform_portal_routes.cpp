@@ -2,14 +2,34 @@
 #include <ArduinoJson.h>
 
 void WebPlatform::registerConfigPortalRoutes() {
-  Serial.println("WebPlatform: Registering config portal routes using unified "
-                 "system"); // Main configuration page - register at both / and
+  registerRoute(
+      "/assets/favicon.svg",
+      std::bind(&WebPlatform::webPlatformFaviconHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+
+  registerRoute(
+      "/assets/favicon.ico",
+      std::bind(&WebPlatform::webPlatformFaviconHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   registerRoute(
       "/assets/style.css",
       std::bind(&WebPlatform::styleCSSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
       {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+
+  registerRoute(
+      "/assets/web-platform-utils.js",
+      std::bind(&WebPlatform::webPlatformJSAssetHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+
+  registerRoute("/assets/config-portal.js",
+                std::bind(&WebPlatform::configPortalJSAssetHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+                {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   // Register static assets first
   registerRoute("/assets/config-portal.js",

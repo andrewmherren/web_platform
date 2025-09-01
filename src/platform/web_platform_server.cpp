@@ -1,4 +1,5 @@
 #include "../../include/web_platform.h"
+#include "../../include/interface/web_request.h"
 
 #if defined(ESP32)
 #include <WebServer.h>
@@ -28,6 +29,8 @@ void WebPlatform::startServer() {
         return;
       }
 
+      server->collectHeaders(COMMON_HTTP_HEADERS, COMMON_HTTP_HEADERS_COUNT);
+
       server->begin();
       running = true;
       Serial.printf(
@@ -50,6 +53,8 @@ void WebPlatform::startServer() {
             "WebPlatform: ERROR - Failed to create HTTP redirect server!");
         return;
       }
+
+      server->collectHeaders(COMMON_HTTP_HEADERS, COMMON_HTTP_HEADERS_COUNT);
 
       // Clear any existing routes from the server
       // and set up a single catch-all handler for HTTP→HTTPS redirection
@@ -106,6 +111,8 @@ void WebPlatform::startServer() {
       Serial.println("WebPlatform: ERROR - Failed to create web server!");
       return;
     }
+
+    server->collectHeaders(COMMON_HTTP_HEADERS, COMMON_HTTP_HEADERS_COUNT);
 
     server->begin();
     running = true;

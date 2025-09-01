@@ -1,4 +1,5 @@
 #include "../../include/web_platform.h"
+#include "../../include/interface/platform_service.h"
 
 #if defined(ESP32)
 #include <WebServer.h>
@@ -13,6 +14,12 @@
 // Static instance pointer for ESP-IDF callbacks
 WebPlatform *WebPlatform::httpsInstance = nullptr;
 #endif
+
+IPlatformService* g_platformService = nullptr;
+
+IPlatformService* getPlatformService() {
+    return g_platformService;
+}
 
 WebPlatform::WebPlatform()
     : currentMode(CONFIG_PORTAL), connectionState(WIFI_CONFIG_PORTAL),
@@ -50,6 +57,9 @@ WebPlatform::~WebPlatform() {
 
 void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
   Serial.println("WebPlatform: Starting initialization...");
+
+  // Set up the global service reference
+  g_platformService = this;
 
   this->deviceName = deviceName;
 
@@ -145,12 +155,12 @@ bool WebPlatform::isCaptivePortalRequest(const String &host) {
 void WebPlatform::setupRoutes() {
   initializeAuth(); // Initialize the auth system
 
-  // First register connected mode routes (lower priority)
-  setupConnectedMode();
-
   // If in config portal mode, add/override with portal routes
   if (currentMode == CONFIG_PORTAL) {
     setupConfigPortalMode();
+  } else {
+    // register connected mode routes
+    setupConnectedMode();
   }
 
   // Print final route registry for debugging (web platform routes only)
@@ -182,11 +192,18 @@ void WebPlatform::setupRoutes() {
 void WebPlatform::setupConfigPortalMode() {
   Serial.println("WebPlatform: Setting up config portal routes");
 
+  // Someday this could be optional but for now the config portal is assumed
+  // to be a simple setup interface that shouldn't be cluttered with additional routes
+  //
+  // TODO: this breaks the overriding of the static assets like style.css and faveicon
+  // which is a problem as the portal should still allow this.
+  clearRouteRegistry();
+
   // Register main portal routes
   registerConfigPortalRoutes();
 
   // Register unified routes with the server
-  registerUnifiedRoutes();
+  bindRegisteredRoutes();
 
   // Setup captive portal
   dnsServer.start(53, "*", WiFi.softAPIP());
@@ -200,7 +217,7 @@ void WebPlatform::setupConnectedMode() {
   registerConnectedModeRoutes();
 
   // Register all unified routes with servers (this processes overrides)
-  registerUnifiedRoutes();
+  bindRegisteredRoutes();
 
 #if defined(ESP32)
   if (httpsEnabled && httpsServerHandle) {
@@ -255,7 +272,7 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *module) {
   registerModuleRoutesForModule(basePath, module);
 
   // Re-register with the server
-  registerUnifiedRoutes();
+  bindRegisteredRoutes();
 #if defined(ESP32)
   if (httpsEnabled && httpsServerHandle) {
     registerUnifiedHttpsRoutes();

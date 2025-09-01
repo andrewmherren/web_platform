@@ -11,6 +11,10 @@
 #include <Arduino.h>
 #include <map>
 
+// Common HTTP headers that should be collected by web servers
+extern const char* COMMON_HTTP_HEADERS[];
+extern const size_t COMMON_HTTP_HEADERS_COUNT;
+
 // Forward declarations to avoid circular dependencies
 #if defined(ESP32) || defined(ESP8266)
 class WebServerClass;
@@ -36,6 +40,7 @@ private:
   String clientIp;
   std::map<String, String> params;
   std::map<String, String> headers;
+  std::map<String, String> jsonParams;
   AuthContext authContext; // Authentication information
 
 public:
@@ -69,6 +74,10 @@ public:
   String getContentType() const;
   size_t getContentLength() const;
 
+  // JSON parameter access
+  String getJsonParam(const String &name) const;
+  bool hasJsonParam(const String &name) const;
+
   // Authentication context
   const AuthContext &getAuthContext() const { return authContext; }
   void setAuthContext(const AuthContext &context) { authContext = context; }
@@ -76,6 +85,8 @@ public:
 private:
   void parseQueryParams(const String &query);
   void parseFormData(const String &formData);
+  void parseJsonData(const String &jsonData);
+  void parseRequestBody(const String &body, const String &contentType);
   void parseHeaders();
 #if defined(ESP32)
   void parseClientIp(httpd_req *req);

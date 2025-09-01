@@ -12,6 +12,8 @@ const char CONNECTED_HOME_HTML[] PROGMEM = R"HTML(
     <meta name="csrf-token" content="{{csrfToken}}">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="/assets/style.css">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/assets/favicon.ico" sizes="any">
 </head>
 <body>
     <div class="container">
