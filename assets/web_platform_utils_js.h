@@ -206,6 +206,185 @@ const UIUtils = {
     if (selectedElement) {
       selectedElement.classList.add('selected');
     }
+  },
+
+  // Modal system
+  createModal() {
+    // Remove any existing modal
+    this.destroyModal();
+    
+    const modalOverlay = document.createElement('div');
+    modalOverlay.id = 'modal-overlay';
+    modalOverlay.className = 'modal-overlay';
+    
+    const modalContainer = document.createElement('div');
+    modalContainer.className = 'modal-container';
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    
+    const modalHeader = document.createElement('div');
+    modalHeader.className = 'modal-header';
+    
+    const modalTitle = document.createElement('h3');
+    modalTitle.className = 'modal-title';
+    
+    const modalClose = document.createElement('button');
+    modalClose.className = 'modal-close';
+    modalClose.innerHTML = '&times;';
+    modalClose.onclick = () => this.destroyModal();
+    
+    const modalBody = document.createElement('div');
+    modalBody.className = 'modal-body';
+    
+    const modalFooter = document.createElement('div');
+    modalFooter.className = 'modal-footer';
+    
+    modalHeader.appendChild(modalTitle);
+    modalHeader.appendChild(modalClose);
+    modalContent.appendChild(modalHeader);
+    modalContent.appendChild(modalBody);
+    modalContent.appendChild(modalFooter);
+    modalContainer.appendChild(modalContent);
+    modalOverlay.appendChild(modalContainer);
+    
+    // Close on overlay click
+    modalOverlay.onclick = (e) => {
+      if (e.target === modalOverlay) {
+        this.destroyModal();
+      }
+    };
+    
+    // Close on Escape key
+    const escapeHandler = (e) => {
+      if (e.key === 'Escape') {
+        this.destroyModal();
+        document.removeEventListener('keydown', escapeHandler);
+      }
+    };
+    document.addEventListener('keydown', escapeHandler);
+    
+    document.body.appendChild(modalOverlay);
+    
+    return {
+      overlay: modalOverlay,
+      title: modalTitle,
+      body: modalBody,
+      footer: modalFooter,
+      close: () => this.destroyModal()
+    };
+  },
+
+  destroyModal() {
+    const existingModal = document.getElementById('modal-overlay');
+    if (existingModal) {
+      existingModal.remove();
+    }
+  },
+
+  showAlert(title, message, type = 'info') {
+    const modal = this.createModal();
+    modal.title.textContent = title;
+    modal.body.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    
+    const okButton = document.createElement('button');
+    okButton.className = 'btn btn-primary';
+    okButton.textContent = 'OK';
+    okButton.onclick = () => modal.close();
+    
+    modal.footer.appendChild(okButton);
+    
+    // Auto-focus OK button
+    setTimeout(() => okButton.focus(), 100);
+    
+    return modal;
+  },
+
+  showConfirm(title, message, onConfirm, onCancel) {
+    const modal = this.createModal();
+    modal.title.textContent = title;
+    modal.body.innerHTML = `<div class="alert alert-warning">${message}</div>`;
+    
+    const cancelButton = document.createElement('button');
+    cancelButton.className = 'btn btn-secondary';
+    cancelButton.textContent = 'Cancel';
+    cancelButton.onclick = () => {
+      if (onCancel) onCancel();
+      modal.close();
+    };
+    
+    const confirmButton = document.createElement('button');
+    confirmButton.className = 'btn btn-danger';
+    confirmButton.textContent = 'Confirm';
+    confirmButton.onclick = () => {
+      if (onConfirm) onConfirm();
+      modal.close();
+    };
+    
+    modal.footer.appendChild(cancelButton);
+    modal.footer.appendChild(confirmButton);
+    
+    // Auto-focus cancel button for safety
+    setTimeout(() => cancelButton.focus(), 100);
+    
+    return modal;
+  },
+
+  showTokenModal(token) {
+    const modal = this.createModal();
+    modal.title.textContent = 'API Token Created';
+    
+    modal.body.innerHTML = `
+      <div class="alert alert-success">
+        <p><strong>Your new API token has been created successfully!</strong></p>
+        <p class="token-warning">⚠️ <strong>Important:</strong> This token will only be shown once. Please copy and save it securely.</p>
+      </div>
+      <div class="token-container">
+        <label for="new-token">API Token:</label>
+        <div class="token-display-box">
+          <input type="text" id="new-token" class="token-input" value="${token}" readonly>
+          <button class="btn btn-copy" onclick="UIUtils.copyToken()">Copy</button>
+        </div>
+      </div>
+    `;
+    
+    const closeButton = document.createElement('button');
+    closeButton.className = 'btn btn-primary';
+    closeButton.textContent = 'I\'ve Saved My Token';
+    closeButton.onclick = () => modal.close();
+    
+    modal.footer.appendChild(closeButton);
+    
+    // Auto-select the token text
+    setTimeout(() => {
+      const tokenInput = document.getElementById('new-token');
+      if (tokenInput) {
+        tokenInput.select();
+        tokenInput.focus();
+      }
+    }, 100);
+    
+    return modal;
+  },
+
+  copyToken() {
+    const tokenInput = document.getElementById('new-token');
+    if (tokenInput) {
+      tokenInput.select();
+      document.execCommand('copy');
+      
+      // Show feedback
+      const copyBtn = document.querySelector('.btn-copy');
+      if (copyBtn) {
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('btn-success');
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+          copyBtn.classList.remove('btn-success');
+        }, 2000);
+      }
+    }
   }
 };
 

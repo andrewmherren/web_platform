@@ -86,17 +86,19 @@ class WiFiManager {
   }
 
   resetWiFi() {
-    if (!confirm('This will reset all WiFi settings and restart the device. Continue?')) {
-      return;
-    }
-    
-    AuthUtils.fetch('/api/reset', { method: 'POST' })
-      .then(() => {
-        alert('WiFi settings reset. Device will restart in configuration mode.');
-      })
-      .catch(() => {
-        // Ignore errors as device may restart quickly
-      });
+    UIUtils.showConfirm(
+      'Reset WiFi Settings',
+      'This will reset all WiFi settings and restart the device in configuration mode. This action cannot be undone.',
+      () => {
+        AuthUtils.fetch('/api/reset', { method: 'POST' })
+          .then(() => {
+            UIUtils.showAlert('WiFi Reset', 'WiFi settings have been reset. The device will restart in configuration mode.', 'info');
+          })
+          .catch(() => {
+            // Ignore errors as device may restart quickly
+          });
+      }
+    );
   }
 
   async connectToNetwork(event) {
@@ -107,7 +109,7 @@ class WiFiManager {
     const ssid = ssidInput ? ssidInput.value.trim() : '';
     
     if (!ssid) {
-      alert('Please enter a network name');
+      UIUtils.showAlert('Network Name Required', 'Please enter a network name to connect to.', 'warning');
       return;
     }
     
@@ -127,9 +129,9 @@ class WiFiManager {
       const data = await response.json();
       
       if (data.status === 'restarting') {
-        alert('Connecting to network: ' + ssid + '. Device will restart.');
+        UIUtils.showAlert('Connecting', 'Connecting to network: ' + ssid + '. The device will restart to apply the new settings.', 'info');
       } else {
-        alert('Error: ' + data.message);
+        UIUtils.showAlert('Connection Failed', 'Error: ' + data.message, 'error');
       }
     } catch (error) {
       console.error('Connection error:', error);

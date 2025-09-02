@@ -32,7 +32,16 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
                 </div>
                 <div class="form-group">
                     <label>Free Heap:</label>
-                    <div class="status-value">{{FREE_HEAP}} bytes</div>
+                    <div class="status-value with-gauge">
+                        <span>{{FREE_HEAP}} bytes ({{FREE_HEAP_PERCENT}}% free)</span>
+                        <div class="gauge-inline">
+                            <svg class="gauge-svg" viewBox="0 0 120 60" data-percent="{{FREE_HEAP_PERCENT}}" data-color="{{FREE_HEAP_COLOR}}">
+                                <path class="gauge-bg" d="M 20 50 A 40 40 0 0 1 100 50" stroke-width="15" fill="none"/>
+                                <path class="gauge-arc" d="M 20 50 A 40 40 0 0 1 100 50" stroke-width="15" fill="none"/>
+                            </svg>
+                            <div class="gauge-label">{{FREE_HEAP_PERCENT}}%</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Platform Mode:</label>
@@ -97,10 +106,69 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
             </table>
         </div>
         
+        <div class="status-card">
+            <h3>Storage Information</h3>
+            <div class="form-group">
+                <label>Flash Size:</label>
+                <div class="status-value">{{FLASH_SIZE}} MB</div>
+            </div>
+            <div class="form-group">
+                <label>Used Space:</label><div class="status-value with-gauge">
+                        <span>{{USED_SPACE}} MB ({{USED_SPACE_PERCENT}}% used)</span>
+                        <div class="gauge-inline">
+                            <svg class="gauge-svg" viewBox="0 0 120 60" data-percent="{{USED_SPACE_PERCENT}}" data-color="{{USED_SPACE_COLOR}}">
+                                <path class="gauge-bg" d="M 20 50 A 40 40 0 0 1 100 50" stroke-width="15" fill="none"/>
+                                <path class="gauge-arc" d="M 20 50 A 40 40 0 0 1 100 50" stroke-width="15" fill="none"/>
+                            </svg>
+                            <div class="gauge-label">{{USED_SPACE_PERCENT}}%</div>
+                        </div>
+                    </div>
+            </div>
+            <div class="form-group">
+                <label>Available Space:</label>
+                <div class="status-value">{{AVAILABLE_SPACE}} MB</div>
+            </div>
+        </div>
+        
         <div class="button-group mt-3">
             <a href="/" class="btn btn-secondary">Back to Home</a>
         </div>
     </div>
+    
+    <script>
+        // Initialize SVG gauges with accurate percentage rendering
+        document.addEventListener('DOMContentLoaded', function() {
+            const gauges = document.querySelectorAll('.gauge-svg');
+            gauges.forEach(svg => {
+                const percent = parseFloat(svg.getAttribute('data-percent')) || 0;
+                const colorType = svg.getAttribute('data-color');
+                const arc = svg.querySelector('.gauge-arc');
+                
+                // Define colors
+                let strokeColor = '#4CAF50'; // good (green)
+                if (colorType === 'warning') {
+                    strokeColor = '#FF9800'; // warning (orange)
+                } else if (colorType === 'danger') {
+                    strokeColor = '#f44336'; // danger (red)
+                }
+                
+                // Calculate arc path length (semicircle)
+                const radius = 40;
+                const circumference = Math.PI * radius; // Half circle
+                const strokeLength = (percent / 100) * circumference;
+                const remainingLength = circumference - strokeLength;
+                
+                // Set up the arc
+                arc.style.stroke = strokeColor;
+                arc.style.strokeDasharray = `${strokeLength} ${remainingLength}`;
+                arc.style.strokeDashoffset = '0';
+                arc.style.strokeLinecap = 'round';
+                
+                // Add subtle glow effect for the colored part
+                arc.style.filter = `drop-shadow(0 0 3px ${strokeColor})`;
+            });
+        });
+    </script>
 </body>
 </html>
 )HTML";

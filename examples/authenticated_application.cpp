@@ -26,8 +26,9 @@ void setup() {
     std::vector<NavigationItem> navItems = {
         NavigationItem("Dashboard", "/"),
         NavigationItem("Device Control", "/control"),
-        NavigationItem("API Tokens", "/tokens"),
+        NavigationItem("Examples", "/examples"),
         NavigationItem("Account", "/account"),
+        NavigationItem("Status", "/status"),
         NavigationItem("Logout", "/logout")
     };
     IWebModule::setNavigationMenu(navItems);
@@ -48,7 +49,7 @@ void setup() {
                     <h1>Welcome, )" + auth.username + R"(!</h1>
                     <p>You are successfully logged into the secure dashboard.</p>
                     <!-- Navigation menu will be auto-injected here -->
-                    
+                    <p></p>
                     <div class="status-grid">
                         <div class="status-card">
                             <h3>Authentication</h3>
@@ -90,7 +91,8 @@ void setup() {
             </head><body>
                 <div class="container">
                     <h1>Device Control Panel</h1>
-                    
+                    <!-- Navigation menu will be auto-injected here -->
+                    <p></p>
                     <div class="card">
                         <h2>System Controls</h2>
                         <form id="control-form" method="post" action="/api/control">
@@ -116,11 +118,6 @@ void setup() {
                                 <label for="device-name">Device Name:</label>
                                 <input type="text" id="device-name" name="device-name" 
                                         class="form-control" value=")" + String(webPlatform.getDeviceName()) + R"(">
-                            </div>
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" name="enable-debug"> Enable Debug Mode
-                                </label>
                             </div>
                             <button type="submit" class="btn btn-secondary">Save Configuration</button>
                         </form>
@@ -172,134 +169,185 @@ void setup() {
                                 method: 'POST',
                                 body: formData,
                                 credentials: 'same-origin'
-                            });
-                            
-                            const result = await response.json();
-                            alert(result.success ? 'Configuration saved!' : 'Error: ' + result.error);
-                        } catch (error) {
-                            alert('Error: ' + error.message);
+                            });const result = await response.json();
+                        if (result.success) {
+                            UIUtils.showAlert('Configuration Saved', 'Configuration has been saved successfully!', 'success');
+                        } else {
+                            UIUtils.showAlert('Save Failed', 'Error: ' + result.error, 'error');
+                        }
+                    } catch (error) {
+                        UIUtils.showAlert('Network Error', 'Error: ' + error.message, 'error');
                         }
                     });
                 </script>
             </body></html>
         )";
-        res.setContent(html, "text/html");
-    }, {AuthType::SESSION});
-
-    // API Token management page
-    webPlatform.registerRoute("/tokens", [](WebRequest& req, WebResponse& res) {
+        res.setContent(IWebModule::injectNavigationMenu(html), "text/html");
+    }, {AuthType::SESSION});// API Examples and Documentation page
+    webPlatform.registerRoute("/examples", [](WebRequest& req, WebResponse& res) {
         String html = R"(
             <!DOCTYPE html>
             <html><head>
-                <title>API Token Management</title>
-                <meta name="csrf-token" content="{{csrfToken}}">
+                <title>API Examples & Documentation</title>
                 <link rel="stylesheet" href="/assets/style.css">
             </head><body>
                 <div class="container">
-                    <h1>API Token Management</h1>
-                    
+                    <h1>API Examples & Documentation</h1>
+                    <!-- Navigation menu will be auto-injected here -->
+                    <p></p>
                     <div class="card">
-                        <h2>Create New Token</h2>
-                        <div class="form-group">
-                            <label for="token-description">Description:</label>
-                            <input type="text" id="token-description" class="form-control" 
-                                    placeholder="Home Assistant Integration">
-                        </div>
-                        <button onclick='createToken()' class="btn btn-primary">Create Token</button>
-                        <div id="token-result"></div>
+                        <h2>Getting Started</h2>
+                        <p>To use the API endpoints, you'll need an API token. Follow these steps:</p>
+                        <ol>
+                            <li>Go to the <strong>Account</strong> page</li>
+                            <li>Navigate to the <strong>API Tokens</strong> section</li>
+                            <li>Click <strong>"Create New Token"</strong></li>
+                            <li>Enter a description (e.g., "Home Assistant Integration")</li>
+                            <li>Copy and save your token securely - it won't be shown again!</li>
+                        </ol>
                     </div>
                     
                     <div class="card">
-                        <h2>API Usage Examples</h2>
-                        <p>Use your API tokens with these endpoints:</p>
+                        <h2>cURL Examples</h2>
+                        <p>Use your API token with these endpoints:</p>
                         <pre class="code-block">
 # Get device status
 curl -H "Authorization: Bearer YOUR_TOKEN" )" + webPlatform.getBaseUrl() + R"(/api/status
 
-# Execute command  
+# Execute a command  
 curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"command":"status"}' \
   )" + webPlatform.getBaseUrl() + R"(/api/control
 
-# Using URL parameter (alternative)
+# Alternative: Using URL parameter
 curl ")" + webPlatform.getBaseUrl() + R"(/api/status?access_token=YOUR_TOKEN"
                         </pre>
                     </div>
                     
                     <div class="card">
-                        <h2>JavaScript Example</h2>
+                        <h2>JavaScript/Fetch Example</h2>
                         <pre class="code-block">
-const token = 'YOUR_TOKEN';
+const token = 'YOUR_API_TOKEN_HERE';
 const baseUrl = ')" + webPlatform.getBaseUrl() + R"(';
 
-// Get status
+// Get device status
 fetch(baseUrl + '/api/status', {
-headers: {'Authorization': 'Bearer ' + token}
+    headers: {
+        'Authorization': 'Bearer ' + token
+    }
 })
 .then(response => response.json())
-.then(data => console.log(data));
+.then(data => {
+    console.log('Device Status:', data);
+    console.log('Uptime:', data.uptime + ' seconds');
+    console.log('Free Memory:', data.free_memory + ' bytes');
+});
 
-// Send command
+// Send a command
 fetch(baseUrl + '/api/control', {
-method: 'POST',
-headers: {
-    'Authorization': 'Bearer ' + token,
-    'Content-Type': 'application/json'
-},
-body: JSON.stringify({command: 'status'})
+    method: 'POST',
+    headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        command: 'status'
+    })
 })
 .then(response => response.json())
-.then(data => console.log(data));
+.then(data => console.log('Command result:', data));
                         </pre>
                     </div>
-                </div>
+                    
+                    <div class="card">
+                        <h2>Python Example</h2>
+                        <pre class="code-block">
+import requests
+import json
 
-                <script>
-                    async function createToken() {
-                        const description = document.getElementById('token-description').value;
-                        if (!description.trim()) {
-                            alert('Please enter a description for the token');
-                            return;
-                        }
-                        
-                        const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-                        
-                        try {
-                            const response = await fetch('/api/tokens', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-Token': csrf
-                                },
-                                credentials: 'same-origin',
-                                body: JSON.stringify({description: description})
-                            });
-                            
-                            const result = await response.json();
-                            
-                            if (result.success) {
-                                document.getElementById('token-result').innerHTML = 
-                                    '<div class="card warning mt-3">' +
-                                    '<h3>Token Created Successfully!</h3>' +
-                                    '<p><strong>Your API Token:</strong></p>' +
-                                    '<code style="background: #f0f0f0; padding: 10px; display: block; margin: 10px 0; word-break: break-all;">' + 
-                                    result.token + '</code>' +
-                                    '<p class="error"><strong>Important:</strong> Save this token now! ' +
-                                    'It will not be shown again for security reasons.</p>' +
-                                    '</div>';
-                                document.getElementById('token-description').value = '';
-                            } else {
-                                alert('Error creating token: ' + result.error);
-                            }
-                        } catch (error) {
-                            alert('Error: ' + error.message);
-                        }
-                    }
-                </script>
+# Your API token from the Account page
+token = 'YOUR_API_TOKEN_HERE'
+base_url = ')" + webPlatform.getBaseUrl() + R"('
+headers = {'Authorization': f'Bearer {token}'}
+
+# Get device status
+response = requests.get(f'{base_url}/api/status', headers=headers)
+if response.status_code == 200:
+    data = response.json()
+    print(f"Device: {data['device']}")
+    print(f"Uptime: {data['uptime']} seconds")
+    print(f"Free Memory: {data['free_memory']} bytes")
+else:
+    print(f"Error: {response.status_code}")
+
+# Send a command
+command_data = {'command': 'status'}
+response = requests.post(
+    f'{base_url}/api/control',
+    headers={**headers, 'Content-Type': 'application/json'},
+    data=json.dumps(command_data)
+)
+
+if response.status_code == 200:
+    result = response.json()
+    print(f"Success: {result['success']}")
+    print(f"Message: {result.get('message', 'No message')}")
+else:
+    print(f"Error: {response.status_code}")
+                        </pre>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Available Endpoints</h2>
+                        <table class="info-table">
+                            <tr>
+                                <th>Endpoint</th>
+                                <th>Method</th>
+                                <th>Description</th>
+                            </tr>
+                            <tr>
+                                <td><code>/api/status</code></td>
+                                <td>GET</td>
+                                <td>Get device status information</td>
+                            </tr>
+                            <tr>
+                                <td><code>/api/control</code></td>
+                                <td>POST</td>
+                                <td>Send commands to the device</td>
+                            </tr>
+                            <tr>
+                                <td><code>/api/configure</code></td>
+                                <td>POST</td>
+                                <td>Update device configuration</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Available Commands</h2>
+                        <table class="info-table">
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                            </tr>
+                            <tr>
+                                <td><code>status</code></td>
+                                <td>Check if device is operational</td>
+                            </tr>
+                            <tr>
+                                <td><code>restart</code></td>
+                                <td>Restart the device</td>
+                            </tr>
+                            <tr>
+                                <td><code>reset-wifi</code></td>
+                                <td>Clear WiFi credentials and restart</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
             </body></html>
-        )";
-        res.setContent(html, "text/html");
+        )";        res.setContent(IWebModule::injectNavigationMenu(html), "text/html");
     }, {AuthType::SESSION});
 
     // API Endpoints - accessible via both session and token auth

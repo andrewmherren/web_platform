@@ -11,6 +11,15 @@
 #include <ESP8266WebServer.h>
 #endif
 
+// Define min and max functions if not already defined (for ESP8266 compatibility)
+#ifndef min
+#define min(a,b) ((a)<(b)?(a):(b))
+#endif
+
+#ifndef max
+#define max(a,b) ((a)>(b)?(a):(b))
+#endif
+
 void WebPlatform::rootPageHandler(WebRequest &req, WebResponse &res) {
   IWebModule::setCurrentPath("/");
 
@@ -58,11 +67,69 @@ void WebPlatform::rootPageHandler(WebRequest &req, WebResponse &res) {
 
 void WebPlatform::statusPageHandler(WebRequest &req, WebResponse &res) {
   IWebModule::setCurrentPath("/status");
-  String html = FPSTR(SYSTEM_STATUS_HTML);
+  String html = FPSTR(SYSTEM_STATUS_HTML);// Replace template variables with actual values
+  html.replace("{{UPTIME}}", String(millis() / 1000));// Memory information with gauge - cross-platform compatible
+  uint32_t freeHeap = ESP.getFreeHeap();
+  int freeHeapPercent = 0;
+  
+#if defined(ESP32)
+  // ESP32 has getHeapSize() function
+  uint32_t totalHeap = ESP.getHeapSize();
+  if (totalHeap > 0) {
+    freeHeapPercent = (int)((float)freeHeap / totalHeap * 100.0);
+  }
+#else
+  // ESP8266 doesn't have direct totalHeap - use approximation
+  // Typical ESP8266 has ~80KB of RAM total
+  uint32_t estimatedTotalHeap = 80 * 1024; // 80KB approximation for ESP8266
+  freeHeapPercent = (int)((float)freeHeap / estimatedTotalHeap * 100.0);
+#endif
+  
+  // Cap percentage to 0-100 range to ensure proper display
+  freeHeapPercent = min(100, max(0, freeHeapPercent));
+  
+  html.replace("{{FREE_HEAP}}", String(freeHeap));
+  html.replace("{{FREE_HEAP_PERCENT}}", String(freeHeapPercent));
+  
+  // Determine color based on available memory (higher % is better for free memory)
+  String heapColor = "good";
+  if (freeHeapPercent < 20) {
+    heapColor = "danger";
+  } else if (freeHeapPercent < 40) {
+    heapColor = "warning";
+  }
+  html.replace("{{FREE_HEAP_COLOR}}", heapColor);// Storage information with gauge - cross-platform compatible
+  uint32_t flashSize = ESP.getFlashChipSize() / (1024 * 1024); // MB
+  uint32_t sketchSize = 0;
+  
+#if defined(ESP32)
+  sketchSize = ESP.getSketchSize(); // ESP32 function
+#else
+  sketchSize = ESP.getSketchSize(); // Also available on ESP8266
+#endif
 
-  // Replace template variables with actual values
-  html.replace("{{UPTIME}}", String(millis() / 1000));
-  html.replace("{{FREE_HEAP}}", String(ESP.getFreeHeap()));
+  uint32_t usedSpace = sketchSize / (1024 * 1024); // Convert to MB
+  // Ensure we don't calculate negative available space
+  uint32_t availableSpace = (flashSize > usedSpace) ? (flashSize - usedSpace) : 0;
+  int usedSpacePercent = (flashSize > 0) ? (int)((float)usedSpace / flashSize * 100.0) : 0;
+  
+  // Cap percentage to 0-100 range to ensure proper display
+  usedSpacePercent = min(100, max(0, usedSpacePercent));
+  
+  html.replace("{{FLASH_SIZE}}", String(flashSize));
+  html.replace("{{USED_SPACE}}", String(usedSpace));
+  html.replace("{{AVAILABLE_SPACE}}", String(availableSpace));
+  html.replace("{{USED_SPACE_PERCENT}}", String(usedSpacePercent));
+  
+  // Determine color based on used space (lower % is better for used space)
+  String spaceColor = "good";
+  if (usedSpacePercent > 80) {
+    spaceColor = "danger";
+  } else if (usedSpacePercent > 60) {
+    spaceColor = "warning";
+  }
+  html.replace("{{USED_SPACE_COLOR}}", spaceColor);
+  
   html.replace(
       "{{PLATFORM_MODE}}",
       String(currentMode == CONNECTED ? "Connected" : "Config Portal"));

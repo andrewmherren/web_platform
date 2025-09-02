@@ -458,12 +458,356 @@ label {
   .error-actions {
     flex-direction: column;
     align-items: center;
-  }
-  
-  .error-actions .btn {
+  }.error-actions .btn {
     width: 100%;
     max-width: 300px;
   }
+}
+
+/* Modal System */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-container {
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-content {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 15px;
+  max-width: 500px;
+  width: 90vw;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.modal-header {
+  padding: 20px 25px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  color: #fff;
+  font-size: 1.4em;
+  margin: 0;
+  font-weight: 500;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.modal-body {
+  padding: 20px 25px;
+  color: #fff;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  padding: 15px 25px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Alert styles within modals */
+.alert {
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  border: 1px solid transparent;
+}
+
+.alert-success {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: rgba(76, 175, 80, 0.4);
+  color: #c8e6c9;
+}
+
+.alert-info {
+  background: rgba(33, 150, 243, 0.2);
+  border-color: rgba(33, 150, 243, 0.4);
+  color: #bbdefb;
+}
+
+.alert-warning {
+  background: rgba(255, 152, 0, 0.2);
+  border-color: rgba(255, 152, 0, 0.4);
+  color: #ffe0b2;
+}
+
+.alert-danger {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.4);
+  color: #ffcdd2;
+}
+
+/* Token display styles */
+.token-container {
+  margin-top: 15px;
+}
+
+.token-container label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.token-display-box {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.token-input {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  padding: 10px;
+  border-radius: 5px;
+  word-break: break-all;
+}
+
+.token-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-copy {
+  background: rgba(33, 150, 243, 0.8);
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-copy:hover {
+  background: rgba(33, 150, 243, 1);
+}
+
+.btn-copy.btn-success {
+  background: rgba(76, 175, 80, 0.8);
+}
+
+.token-warning {
+  font-size: 0.9em;
+  margin-top: 10px;
+}
+
+/* Responsive modal */
+@media (max-width: 600px) {
+  .modal-content {
+    width: 95vw;
+    margin: 10px;
+  }
+  
+  .modal-header {
+    padding: 15px 20px 10px;
+  }
+  
+  .modal-title {
+    font-size: 1.2em;
+  }
+  
+  .modal-body {
+    padding: 15px 20px;
+  }
+  
+  .modal-footer {
+    padding: 10px 20px 15px;
+    flex-direction: column;
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
+    margin: 5px 0;
+  }
+  
+  .token-display-box {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .btn-copy {width: 100%;
+  }
+}
+
+/* Fuel Gauge Indicators */
+.gauge-container {
+  margin: 15px 0;
+}.gauge {
+  position: relative;
+  width: 120px;
+  height: 60px;
+  margin: 0 auto 10px;
+  overflow: hidden;
+}
+
+.gauge .gauge-svg {
+  width: 120px;
+  height: 60px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.gauge .gauge-arc {
+  stroke: #4CAF50;
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: round;
+  transform-origin: center;
+}
+
+.gauge-label {
+  position: absolute;
+  top: 35px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  font-weight: bold;
+  font-size: 14px;
+  color: #fff;
+}
+
+.gauge-text {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 5px;
+}
+
+/* Status value styling */
+.status-value {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  padding: 5px 0;
+}
+
+.status-value.with-gauge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}.gauge-inline {
+  width: 60px;
+  height: 30px;
+  position: relative;
+  margin-left: 15px;
+}
+
+.gauge-svg {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}.gauge-bg {
+  stroke: rgba(255, 255, 255, 0.2);
+  fill: none;
+  stroke-width: 15;
+  stroke-linecap: round;
+}
+
+.gauge-arc {
+  stroke: #4CAF50;
+  fill: none;
+  stroke-width: 15;
+  stroke-linecap: round;
+  transform-origin: center;
+}
+
+.gauge-inline .gauge-label {
+  top: 18px;
+  font-size: 10px;
+}
+
+/* Table improvements */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+th {
+  font-weight: bold;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+tr:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 )css";
 

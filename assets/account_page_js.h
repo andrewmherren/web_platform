@@ -44,26 +44,28 @@ class AccountManager {
   }
 
   async deleteToken(token) {
-    if (!confirm('Are you sure you want to delete this token?')) {
-      return;
-    }
+    UIUtils.showConfirm(
+      'Delete API Token',
+      'Are you sure you want to delete this token? This action cannot be undone.',
+      async () => {
+        try {
+          const response = await AuthUtils.fetch('/api/token/' + token, {
+            method: 'DELETE'
+          });
 
-    try {
-      const response = await AuthUtils.fetch('/api/token/' + token, {
-        method: 'DELETE'
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        window.location.reload();
-      } else {
-        alert('Error: ' + data.message);
+          const data = await response.json();
+          
+          if (data.success) {
+            window.location.reload();
+          } else {
+            UIUtils.showAlert('Error', 'Failed to delete token: ' + data.message, 'error');
+          }
+        } catch (error) {
+          console.error('Delete token error:', error);
+          UIUtils.showAlert('Error', 'Failed to delete token due to network error.', 'error');
+        }
       }
-    } catch (error) {
-      console.error('Delete token error:', error);
-      alert('Failed to delete token');
-    }
+    );
   }
 
   async updatePassword(event) {
@@ -74,7 +76,7 @@ class AccountManager {
     const confirmPassword = form.confirmPassword.value;
     
     if (password !== confirmPassword) {
-      alert('Passwords do not match');
+      UIUtils.showAlert('Password Mismatch', 'The passwords you entered do not match. Please try again.', 'warning');
       return;
     }
     
@@ -91,14 +93,14 @@ class AccountManager {
       });
 
       if (response.success) {
-        alert('Password updated successfully');
+        UIUtils.showAlert('Success', 'Password updated successfully!', 'success');
         form.reset();
       } else {
-        alert('Error: ' + response.message);
+        UIUtils.showAlert('Update Failed', 'Error: ' + response.message, 'error');
       }
     } catch (error) {
       console.error('Password update error:', error);
-      alert('Failed to update password');
+      UIUtils.showAlert('Network Error', 'Failed to update password. Please check your connection and try again.', 'error');
     } finally {
       UIUtils.updateButtonState(submitBtn, false, 'Update Password');
     }
@@ -111,7 +113,7 @@ class AccountManager {
     const tokenName = form.tokenName.value;
     
     if (!tokenName.trim()) {
-      alert('Please enter a token name');
+      UIUtils.showAlert('Missing Information', 'Please enter a token name to identify this API token.', 'warning');
       return;
     }
     
@@ -127,28 +129,29 @@ class AccountManager {
       if (response.success) {
         this.displayNewToken(response.token);
         form.reset();
+        form.style.display = 'none';
+        const showBtn = document.getElementById('show-token-form');
+        if (showBtn) showBtn.style.display = 'block';
       } else {
-        alert('Error: ' + response.message);
+        UIUtils.showAlert('Creation Failed', 'Error: ' + response.message, 'error');
       }
     } catch (error) {
       console.error('Token creation error:', error);
-      alert('Failed to create token');
+      UIUtils.showAlert('Network Error', 'Failed to create token. Please check your connection and try again.', 'error');
     } finally {
       UIUtils.updateButtonState(submitBtn, false, 'Create Token');
     }
   }
 
   displayNewToken(token) {
+    // Use the new modal system to display the token
+    UIUtils.showTokenModal(token);
+    
+    // Hide the old display element if it exists
     const tokenDisplay = document.getElementById('token-display');
     if (tokenDisplay) {
-      tokenDisplay.textContent = token;
-      tokenDisplay.style.display = 'block';
-      
-      // Auto-hide after 30 seconds for security
-      setTimeout(() => {
-        tokenDisplay.style.display = 'none';
-        tokenDisplay.textContent = '';
-      }, 30000);
+      tokenDisplay.style.display = 'none';
+      tokenDisplay.textContent = '';
     }
   }
 }

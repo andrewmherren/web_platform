@@ -95,7 +95,7 @@ class ConfigPortal {
     
     if (!ssid) {
       event.preventDefault();
-      alert('Please select a network or enter a network name.');
+      UIUtils.showAlert('Network Required', 'Please select a network or enter a network name to continue.', 'warning');
       return false;
     }
     
