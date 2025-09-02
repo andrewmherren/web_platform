@@ -49,12 +49,8 @@ class AccountManager {
     }
 
     try {
-      const formData = new FormData();
-      formData.append('token', token);
-      
-      const response = await AuthUtils.fetch('/api/tokens/delete', {
-        method: 'POST',
-        body: formData
+      const response = await AuthUtils.fetch('/api/token/' + token, {
+        method: 'DELETE'
       });
 
       const data = await response.json();
@@ -89,8 +85,8 @@ class AccountManager {
       const formData = new FormData();
       formData.append('password', password);
 
-      const response = await AuthUtils.fetchJSON('/api/account/password', {
-        method: 'POST',
+      const response = await AuthUtils.fetchJSON('/api/user', {
+        method: 'PUT',
         body: JSON.stringify({ password: password })
       });
 

@@ -160,9 +160,8 @@ void WebPlatform::accountPageJSAssetHandler(WebRequest &req, WebResponse &res) {
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 
-
-void WebPlatform::updatePasswordApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_POST) {
+void WebPlatform::updateUserApiHandler(WebRequest &req, WebResponse &res) {
+  if (req.getMethod() != WebModule::WM_PUT) {
     res.setStatus(405);
     res.setHeader("Content-Type", "application/json");
     res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
@@ -172,6 +171,15 @@ void WebPlatform::updatePasswordApiHandler(WebRequest &req, WebResponse &res) {
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
   String password = req.getJsonParam("password");
+
+  // Currently only password updates are supported
+  if (password.isEmpty()) {
+    Serial.println("--> password empty");
+    res.setStatus(400);
+    res.setHeader("Content-Type", "application/json");
+    res.setContent("{\"success\":false,\"message\":\"Password is required\"}");
+    return;
+  }
 
   if (password.length() < 4) {
     res.setStatus(400);
@@ -185,11 +193,11 @@ void WebPlatform::updatePasswordApiHandler(WebRequest &req, WebResponse &res) {
 
   res.setHeader("Content-Type", "application/json");
   if (success) {
-    res.setContent("{\"success\":true,\"message\":\"Password updated\"}");
+    res.setContent("{\"success\":true,\"message\":\"User updated\"}");
   } else {
     res.setStatus(500);
     res.setContent(
-        "{\"success\":false,\"message\":\"Failed to update password\"}");
+        "{\"success\":false,\"message\":\"Failed to update user\"}");
   }
 }
 
@@ -225,16 +233,15 @@ void WebPlatform::createTokenApiHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_POST) {
+  if (req.getMethod() != WebModule::WM_DELETE) {
     res.setStatus(405);
     res.setHeader("Content-Type", "application/json");
     res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
     return;
-  }
-
-  const AuthContext &auth = req.getAuthContext();
+  }const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
-  String token = req.getParam("token");
+  // Extract token from URL path (e.g., /api/token/abc123)
+  String token = req.getRouteParameter("tokenId");
 
   if (token.isEmpty()) {
     res.setStatus(400);

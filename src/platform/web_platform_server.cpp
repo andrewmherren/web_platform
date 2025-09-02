@@ -166,11 +166,43 @@ void WebPlatform::configureHttpsServer() {
   Serial.println("WebPlatform: HTTPS server started successfully");
 
   registerUnifiedHttpsRoutes();
-
+  
   httpd_register_err_handler(
       httpsServerHandle, HTTPD_404_NOT_FOUND,
       [](httpd_req_t *req, httpd_err_code_t err) -> esp_err_t {
-        // Try to render custom 404 page
+        // First, check if this is actually a wildcard route match before showing 404
+        WebRequest request(req);
+        String requestPath = request.getPath();
+        
+        // Convert ESP-IDF method back to our WebModule method for comparison
+        WebModule::Method wmMethod = WebModule::WM_GET; // default
+        if (req->method == HTTP_POST) wmMethod = WebModule::WM_POST;
+        else if (req->method == HTTP_PUT) wmMethod = WebModule::WM_PUT;
+        else if (req->method == HTTP_DELETE) wmMethod = WebModule::WM_DELETE;
+        else if (req->method == HTTP_PATCH) wmMethod = WebModule::WM_PATCH;
+        
+        // Check all routes including wildcard ones
+        for (const auto &route : routeRegistry) {
+          if (route.method != wmMethod || route.disabled || !route.handler) {
+            continue;
+          }
+          
+          // Check both exact and wildcard routes
+          bool pathMatches = WebPlatform::httpsInstance->pathMatchesRoute(route.path, requestPath);
+          if (pathMatches) {
+
+            // Set the matched route pattern on the request for parameter extraction
+            request.setMatchedRoute(route.path);
+            
+            WebResponse response;
+            // Use shared execution logic with authentication and CSRF
+            WebPlatform::httpsInstance->executeRouteWithAuth(route, request, response, "HTTPS");
+
+            return response.sendTo(req);
+          }
+        }
+        
+        // No wildcard match found, show actual 404 page
         String errorPage = IWebModule::getErrorPage(404);
         if (errorPage.length() > 0) {
           // Set navigation context and inject menu

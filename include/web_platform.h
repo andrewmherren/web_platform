@@ -146,7 +146,7 @@ private:                            // Core server components
   void logoutPageHandler(WebRequest &req, WebResponse &res);
   void accountPageHandler(WebRequest &req, WebResponse &res);
   void accountPageJSAssetHandler(WebRequest &req, WebResponse &res);
-  void updatePasswordApiHandler(WebRequest &req, WebResponse &res);
+  void updateUserApiHandler(WebRequest &req, WebResponse &res);
   void createTokenApiHandler(WebRequest &req, WebResponse &res);
   void deleteTokenApiHandler(WebRequest &req, WebResponse &res);
   void configPortalSavePageHandler(WebRequest &req, WebResponse &res);
@@ -220,6 +220,7 @@ private:                            // Core server components
   // Route registration helper methods (shared between HTTP and HTTPS)
   bool shouldSkipRoute(const RouteEntry& route, const String& serverType);
   void executeRouteWithAuth(const RouteEntry& route, WebRequest& request, WebResponse& response, const String& serverType);
+  bool pathMatchesRoute(const String& routePath, const String& requestPath);
 
   // Certificate detection and HTTPS setup
   bool areCertificatesAvailable();

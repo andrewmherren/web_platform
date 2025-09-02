@@ -42,6 +42,7 @@ private:
   std::map<String, String> headers;
   std::map<String, String> jsonParams;
   AuthContext authContext; // Authentication information
+  String matchedRoutePattern; // Route pattern that matched this request
 
 public:
   // Constructor for HTTP server (Arduino WebServer)
@@ -59,6 +60,13 @@ public:
   WebModule::Method getMethod() const { return method; }
   String getBody() const { return body; }
   String getClientIp() const { return clientIp; }
+
+  // Path parameter helpers
+  String getPathSegment(int index) const;
+  String getLastPathSegment() const;
+  String getPathParameter(const String &routePattern) const;
+  String getPathParameter(const String &routePattern, const String &paramName) const;
+  String getRouteParameter(const String &paramName) const; // Uses matched route pattern
 
   // URL parameters (query string and POST form data)
   String getParam(const String &name) const;
@@ -81,6 +89,10 @@ public:
   // Authentication context
   const AuthContext &getAuthContext() const { return authContext; }
   void setAuthContext(const AuthContext &context) { authContext = context; }
+
+  // Route matching (used by routing system)
+  void setMatchedRoute(const String& routePattern) { matchedRoutePattern = routePattern; }
+  String getMatchedRoute() const { return matchedRoutePattern; }
 
 private:
   void parseQueryParams(const String &query);

@@ -41,7 +41,7 @@ WebRequest::WebRequest(WebServerClass *server) {
   method = httpMethodToWMMethod(server->method());
 
   // Get request body for POST requests
-  if (server->method() == HTTP_POST) {
+  if (server->method() == HTTP_POST || server->method() == HTTP_PUT || server->method() == HTTP_PATCH) {
     body = server->arg("plain");
     // Parse request body based on content type
     String contentType = getHeader("Content-Type");
@@ -101,7 +101,7 @@ WebRequest::WebRequest(httpd_req *req) {
   }
 
   // Get request body for POST requests
-  if (req->method == HTTP_POST && req->content_len > 0) {
+  if ((req->method == HTTP_POST || req->method == HTTP_PUT || req->method == HTTP_PATCH) && req->content_len > 0) {
     char *content = new char[req->content_len + 1];
     int received = httpd_req_recv(req, content, req->content_len);
     if (received > 0) {
@@ -304,3 +304,157 @@ void WebRequest::parseClientIp(httpd_req *req) {
   }
 }
 #endif
+
+// Path parameter extraction helpers
+String WebRequest::getPathSegment(int index) const {
+  if (index < 0) return String();
+  
+  String pathCopy = path;
+  // Remove leading slash if present
+  if (pathCopy.startsWith("/")) {
+    pathCopy = pathCopy.substring(1);
+  }
+  
+  int currentIndex = 0;
+  int start = 0;
+  int slashPos = pathCopy.indexOf('/');
+  
+  while (currentIndex < index && slashPos >= 0) {
+    start = slashPos + 1;
+    slashPos = pathCopy.indexOf('/', start);
+    currentIndex++;
+  }
+  
+  if (currentIndex == index) {
+    if (slashPos >= 0) {
+      return pathCopy.substring(start, slashPos);
+    } else {
+      return pathCopy.substring(start);
+    }
+  }
+  
+  return String();
+}
+
+String WebRequest::getLastPathSegment() const {
+  int lastSlash = path.lastIndexOf('/');
+  if (lastSlash >= 0 && lastSlash < (int)path.length() - 1) {
+    return path.substring(lastSlash + 1);
+  }
+  return String();
+}
+
+String WebRequest::getPathParameter(const String &routePattern) const {
+  // Simple single parameter extraction for patterns like "/api/token/*" 
+  // where we want the parameter after the last fixed segment
+  
+  // Find the position of the wildcard or parameter marker
+  int wildcardPos = routePattern.indexOf('*');
+  if (wildcardPos < 0) {
+    // No wildcard found, try to match exact pattern
+    return String();
+  }
+  
+  // Extract the fixed prefix (everything before the wildcard)
+  String prefix = routePattern.substring(0, wildcardPos);
+  
+  // Check if our path starts with this prefix
+  if (path.startsWith(prefix)) {
+    // Return everything after the prefix
+    String param = path.substring(prefix.length());
+    // Remove leading slash if present
+    if (param.startsWith("/")) {
+      param = param.substring(1);
+    }
+    return param;
+  }
+  
+  return String();
+}
+
+String WebRequest::getPathParameter(const String &routePattern, const String &paramName) const {
+  // More advanced parameter extraction for patterns like "/api/user/{userId}/token/{tokenId}"
+  // This is a simplified implementation - could be expanded for more complex routing
+  
+  String pattern = routePattern;
+  String pathCopy = path;
+  
+  // Replace parameter placeholders with wildcards for simple matching
+  String paramPlaceholder = "{" + paramName + "}";
+  int paramPos = pattern.indexOf(paramPlaceholder);
+  
+  if (paramPos < 0) {
+    return String(); // Parameter not found in pattern
+  }
+  
+  // Find the segment that contains our parameter
+  String beforeParam = pattern.substring(0, paramPos);
+  String afterParam = pattern.substring(paramPos + paramPlaceholder.length());
+  
+  // Simple extraction - find the parameter value between the before and after parts
+  if (pathCopy.startsWith(beforeParam)) {
+    int valueStart = beforeParam.length();
+    int valueEnd = pathCopy.length();
+    
+    if (afterParam.length() > 0) {
+      int afterPos = pathCopy.indexOf(afterParam, valueStart);
+      if (afterPos >= 0) {
+        valueEnd = afterPos;
+      }
+    }
+    
+    if (valueEnd > valueStart) {
+      return pathCopy.substring(valueStart, valueEnd);
+    }
+  }
+  
+  return String();
+}
+
+// Convenience method that uses the matched route pattern
+String WebRequest::getRouteParameter(const String &paramName) const {
+  if (matchedRoutePattern.isEmpty()) {
+    return String(); // No matched route pattern available
+  }
+  
+  // Simple Laravel-style parameter extraction by comparing route pattern with actual path
+  // Example: pattern "/api/token/{tokenId}" with path "/api/token/abc123" should extract "abc123"
+  
+  // Split both pattern and path into segments separated by '/'
+  int patternStart = matchedRoutePattern.startsWith("/") ? 1 : 0;
+  int pathStart = path.startsWith("/") ? 1 : 0;
+  
+  String pattern = matchedRoutePattern.substring(patternStart);
+  String actualPath = path.substring(pathStart);
+  
+  // Simple approach: split by '/' and compare segment by segment
+  int patternPos = 0, pathPos = 0;
+  int patternLen = pattern.length(), pathLen = actualPath.length();
+  
+  while (patternPos < patternLen && pathPos < pathLen) {
+    // Find next segment in pattern
+    int patternSegmentEnd = pattern.indexOf('/', patternPos);
+    if (patternSegmentEnd == -1) patternSegmentEnd = patternLen;
+    
+    // Find next segment in path  
+    int pathSegmentEnd = actualPath.indexOf('/', pathPos);
+    if (pathSegmentEnd == -1) pathSegmentEnd = pathLen;
+    
+    String patternSegment = pattern.substring(patternPos, patternSegmentEnd);
+    String pathSegment = actualPath.substring(pathPos, pathSegmentEnd);
+    
+    // Check if this segment is a parameter (enclosed in braces)
+    if (patternSegment.startsWith("{") && patternSegment.endsWith("}")) {
+      String segmentParamName = patternSegment.substring(1, patternSegment.length() - 1);
+      if (segmentParamName == paramName) {
+        return pathSegment; // Found the matching parameter
+      }
+    }
+    
+    // Move to next segment
+    patternPos = patternSegmentEnd + 1;
+    pathPos = pathSegmentEnd + 1;
+  }
+  
+  return String(); // Parameter not found
+}

@@ -35,12 +35,12 @@ void WebPlatform::registerAuthRoutes() {// Login page - accessible without auth 
                 std::bind(&WebPlatform::accountPageHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::SESSION});
-
-  // API endpoints for account management
-  registerRoute("/api/account/password",
-                std::bind(&WebPlatform::updatePasswordApiHandler, this,
+  
+  // API endpoints for user management
+  registerRoute("/api/user",
+                std::bind(&WebPlatform::updateUserApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::SESSION}, WebModule::WM_POST);
+                {AuthType::SESSION}, WebModule::WM_PUT);
 
   // API endpoints for token management
   registerRoute("/api/token",
@@ -48,8 +48,8 @@ void WebPlatform::registerAuthRoutes() {// Login page - accessible without auth 
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::SESSION}, WebModule::WM_POST);
 
-  registerRoute("/api/token/delete", //TODO: should be /api/token/<id> of type WM_DELETE
+  registerRoute("/api/token/{tokenId}",
                 std::bind(&WebPlatform::deleteTokenApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::SESSION}, WebModule::WM_POST);
+                {AuthType::SESSION}, WebModule::WM_DELETE);
 }
