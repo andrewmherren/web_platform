@@ -118,11 +118,31 @@ void WebPlatform::handleNotFound() {
     return;
 
   if (currentMode == CONFIG_PORTAL) {
-    if (isCaptivePortalRequest(server->hostHeader())) {
-      // Redirect to configuration page for captive portal
-      server->sendHeader("Location",
-                         "http://" + WiFi.softAPIP().toString() + "/");
-      server->send(302, "text/html", "");
+    // In captive portal mode, redirect ALL requests to the config page
+    // This ensures PC browsers will navigate to the portal regardless of what URL was entered
+    String portalUrl = "http://" + WiFi.softAPIP().toString() + "/";
+    
+    // Check if this is already a request to the portal URL to avoid redirect loops
+    String requestHost = server->hostHeader();
+    String requestUri = server->uri();
+    String softAPIP = WiFi.softAPIP().toString();
+    
+    // Don't redirect if already requesting the portal directly
+    bool isPortalRequest = (requestHost == softAPIP || requestHost.startsWith(softAPIP + ":"));
+    bool isRootRequest = (requestUri == "/" || requestUri.isEmpty());
+    
+    if (!isPortalRequest || !isRootRequest) {
+      Serial.printf("WebPlatform: Captive portal redirect: %s%s -> %s\n", 
+                    requestHost.c_str(), requestUri.c_str(), portalUrl.c_str());
+      server->sendHeader("Location", portalUrl);
+      server->sendHeader("Connection", "close");
+      server->send(302, "text/html", 
+        "<html><head><title>WiFi Setup</title></head><body>"
+        "<h1>WiFi Configuration Required</h1>"
+        "<p>Redirecting to setup page...</p>"
+        "<p><a href='" + portalUrl + "'>Click here if not redirected automatically</a></p>"
+        "<script>window.location.href='" + portalUrl + "';</script>"
+        "</body></html>");
       return;
     }
   }
@@ -205,9 +225,11 @@ void WebPlatform::setupConfigPortalMode() {
   // Register unified routes with the server
   bindRegisteredRoutes();
 
-  // Setup captive portal
+  // Setup captive portal DNS server to redirect all DNS queries to our AP IP
+  // This makes PC browsers navigate to the portal when any domain is entered
   dnsServer.start(53, "*", WiFi.softAPIP());
-  Serial.println("WebPlatform: Captive portal DNS started");
+  Serial.printf("WebPlatform: Captive portal DNS started - all domains redirect to %s\n", 
+                WiFi.softAPIP().toString().c_str());
 }
 
 void WebPlatform::setupConnectedMode() {

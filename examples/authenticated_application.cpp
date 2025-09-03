@@ -365,7 +365,7 @@ else:
         })";
         res.setContent(json, "application/json");
     }, {AuthType::SESSION, AuthType::TOKEN});
-
+    
     // Control API with CSRF protection for web forms
     webPlatform.registerRoute("/api/control", [](WebRequest& req, WebResponse& res) {
         if (req.getMethod() != WebModule::WM_POST) {
@@ -381,11 +381,19 @@ else:
             result = R"({"success":true,"message":"Device is operational"})";
         } else if (command == "restart") {
             result = R"({"success":true,"message":"Device will restart in 3 seconds"})";
-            // Schedule restart
-            // Note: In real implementation, use a timer or task
+            res.setContent(result, "application/json");
+            // Send response first, then restart after delay
+            delay(3000);
+            ESP.restart();
+            return;
         } else if (command == "reset-wifi") {
             webPlatform.resetWiFiCredentials();
             result = R"({"success":true,"message":"WiFi credentials cleared. Device will restart."})";
+            res.setContent(result, "application/json");
+            // Send response first, then restart after delay
+            delay(1000);
+            ESP.restart();
+            return;
         } else {
             res.setStatus(400);
             result = R"({"success":false,"error":"Unknown command"})";
