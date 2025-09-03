@@ -102,6 +102,48 @@ String AuthUtils::generateSalt(size_t length) {
   return bytesToHex(saltBytes, length);
 }
 
+// Generate a unique user ID (UUID v4 format)
+String AuthUtils::generateUserId() {
+  uint8_t uuid[16];
+  
+#ifdef ESP32
+  esp_fill_random(uuid, 16);
+#elif defined(ESP8266)
+  for (size_t i = 0; i < 16; i++) {
+    uint32_t rand = esp_random();
+    uuid[i] = rand & 0xFF;
+  }
+#else
+  // Fallback for other platforms
+  randomSeed(micros() ^ millis());
+  for (size_t i = 0; i < 16; i++) {
+    uuid[i] = random(256);
+  }
+#endif
+
+  // Set version (4) and variant bits for UUID v4
+  uuid[6] = (uuid[6] & 0x0F) | 0x40;  // Version 4
+  uuid[8] = (uuid[8] & 0x3F) | 0x80;  // Variant bits
+  
+  // Format as UUID string: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+  String uuidStr = "";
+  uuidStr.reserve(36);
+  
+  for (int i = 0; i < 16; i++) {
+    if (i == 4 || i == 6 || i == 8 || i == 10) {
+      uuidStr += "-";
+    }
+    
+    if (uuid[i] < 16) {
+      uuidStr += "0";
+    }
+    uuidStr += String(uuid[i], HEX);
+  }
+  
+  uuidStr.toLowerCase();
+  return uuidStr;
+}
+
 // Convert hex string to bytes
 bool AuthUtils::hexToBytes(const String &hex, uint8_t *bytes, size_t maxLen) {
   if (hex.length() % 2 != 0 || hex.length() / 2 > maxLen) {

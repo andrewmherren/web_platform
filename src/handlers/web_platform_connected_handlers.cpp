@@ -1,7 +1,7 @@
 #include "../../assets/connected_home_html.h"
 #include "../../assets/system_status_html.h"
 #include "../../assets/wifi_management_html.h"
-#include "../../include/auth/auth_storage.h"
+#include "../../include/storage/auth_storage.h"
 #include "../../include/web_platform.h"
 #include "../../include/interface/web_module_interface.h"
 

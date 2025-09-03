@@ -1,5 +1,5 @@
 #include "../../include/web_platform.h"
-#include "../../include/auth/auth_storage.h"
+#include "../../include/storage/auth_storage.h"
 #include "../../include/auth/auth_utils.h"
 #include "../../include/interface/auth_types.h"
 #include <functional>
@@ -47,15 +47,14 @@ bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
           end = sessionCookie.length();
         String sessionId =
             sessionCookie.substring(start, end); // Validate session
-        if (AuthStorage::validateSession(sessionId)) {
-          AuthSession *session = AuthStorage::findSession(sessionId);
-          if (session != nullptr) {
+        if (AuthStorage::validateSession(sessionId)) {AuthSession session = AuthStorage::findSession(sessionId);
+          if (session.isValid()) {
             authSuccess = true;
             authContext.isAuthenticated = true;
             authContext.authenticatedVia = AuthType::SESSION;
             authContext.sessionId = sessionId;
-            authContext.username = session->username;
-            authContext.authenticatedAt = session->createdAt;
+            authContext.username = session.username;
+            authContext.authenticatedAt = session.createdAt;
           }
         }
       }
@@ -71,15 +70,14 @@ bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
         token = req.getParam("access_token");
       }
 
-      if (!token.isEmpty() && AuthStorage::validateApiToken(token)) {
-        ApiToken *apiToken = AuthStorage::findApiToken(token);
-        if (apiToken != nullptr) {
+      if (!token.isEmpty() && AuthStorage::validateApiToken(token)) {AuthApiToken apiToken = AuthStorage::findApiToken(token);
+        if (apiToken.isValid()) {
           authSuccess = true;
           authContext.isAuthenticated = true;
           authContext.authenticatedVia = AuthType::TOKEN;
           authContext.token = token;
-          authContext.username = apiToken->username;
-          authContext.authenticatedAt = apiToken->createdAt;
+          authContext.username = apiToken.username;
+          authContext.authenticatedAt = apiToken.createdAt;
         }
       }
     } else if (authType == AuthType::PAGE_TOKEN) {

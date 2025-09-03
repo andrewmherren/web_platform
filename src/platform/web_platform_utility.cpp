@@ -1,5 +1,5 @@
 #include "../../include/web_platform.h"
-#include "../../include/auth/auth_storage.h"
+#include "../../include/storage/auth_storage.h"
 
 String WebPlatform::prepareHtml(String html, WebRequest req, const String& csrfToken) {
     // csrf token injection

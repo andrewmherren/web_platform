@@ -1,7 +1,7 @@
 #include "../../assets/account_page_html.h"
 #include "../../assets/login_page_html.h"
 #include "../../include/auth/auth_constants.h"
-#include "../../include/auth/auth_storage.h"
+#include "../../include/storage/auth_storage.h"
 #include "../../include/web_platform.h"
 #include "../../include/interface/auth_types.h"
 #include <functional>

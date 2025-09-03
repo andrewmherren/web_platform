@@ -20,6 +20,9 @@ namespace AuthUtils {
   // Generate a cryptographically secure random salt
   String generateSalt(size_t length = 16);
   
+  // Generate a unique user ID (UUID v4 format)
+  String generateUserId();
+  
   // Convert hex string to bytes
   bool hexToBytes(const String &hex, uint8_t *bytes, size_t maxLen);
   

@@ -3,7 +3,7 @@
 #include "../../assets/account_page_js.h"
 #include "../../assets/login_page_html.h"
 #include "../../include/auth/auth_constants.h"
-#include "../../include/auth/auth_storage.h"
+#include "../../include/storage/auth_storage.h"
 #include "../../include/web_platform.h"
 #include "../../include/interface/auth_types.h"
 #include <functional>
@@ -107,10 +107,8 @@ void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
 
-  String csrfToken = AuthStorage::createPageToken(req.getClientIp());
-
-  // Create API tokens
-  std::vector<ApiToken> userTokens = AuthStorage::getUserTokens(username);
+  String csrfToken = AuthStorage::createPageToken(req.getClientIp());// Create API tokens
+  std::vector<AuthApiToken> userTokens = AuthStorage::getUserApiTokens(username);
 
   // Generate token list HTML
   String tokensHtml = "";
@@ -119,7 +117,7 @@ void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {
   } else {
     tokensHtml = "<table class=\"token-table\">";
     tokensHtml += "<tr><th>Name</th><th>Created</th><th>Actions</th></tr>";
-    for (const ApiToken &token : userTokens) {
+    for (const AuthApiToken &token : userTokens) {
       tokensHtml += "<tr>";
       tokensHtml += "<td>" + token.name + "</td>";
       // Format timestamp
@@ -248,11 +246,9 @@ void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
     res.setHeader("Content-Type", "application/json");
     res.setContent("{\"success\":false,\"message\":\"Token is required\"}");
     return;
-  }
-
-  // Verify token belongs to user
-  ApiToken *apiToken = AuthStorage::findApiToken(token);
-  if (apiToken == nullptr || apiToken->username != username) {
+  }// Verify token belongs to user
+  AuthApiToken apiToken = AuthStorage::findApiToken(token);
+  if (!apiToken.isValid() || apiToken.username != username) {
     res.setStatus(403);
     res.setHeader("Content-Type", "application/json");
     res.setContent("{\"success\":false,\"message\":\"Token not found or "
