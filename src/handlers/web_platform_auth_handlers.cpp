@@ -39,9 +39,10 @@ void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
     // Process login form
     String username = req.getParam("username");
     String password = req.getParam("password");
-    if (AuthStorage::validateCredentials(username, password)) {
+    String userId = AuthStorage::validateCredentials(username, password);
+    if (!userId.isEmpty()) {
       // Create session
-      String sessionId = AuthStorage::createSession(username);
+      String sessionId = AuthStorage::createSession(userId);
 
       Serial.println("--> Good login! Created sessionId: " + sessionId);
 
@@ -103,12 +104,14 @@ void WebPlatform::logoutPageHandler(WebRequest &req, WebResponse &res) {
   res.redirect("/login");
 }
 
-void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {
-  const AuthContext &auth = req.getAuthContext();
+void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
 
-  String csrfToken = AuthStorage::createPageToken(req.getClientIp());// Create API tokens
-  std::vector<AuthApiToken> userTokens = AuthStorage::getUserApiTokens(username);
+  String csrfToken = AuthStorage::createPageToken(req.getClientIp());
+  
+  // Get user by username to obtain user ID
+  AuthUser user = AuthStorage::findUserByUsername(username);
+  std::vector<AuthApiToken> userTokens = AuthStorage::getUserApiTokens(user.id);
 
   // Generate token list HTML
   String tokensHtml = "";
@@ -165,7 +168,7 @@ void WebPlatform::updateUserApiHandler(WebRequest &req, WebResponse &res) {
     res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
     return;
   }
-
+  
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
   String password = req.getJsonParam("password");
@@ -187,7 +190,9 @@ void WebPlatform::updateUserApiHandler(WebRequest &req, WebResponse &res) {
     return;
   }
 
-  bool success = AuthStorage::updateUserPassword(username, password);
+  // Get user by username to obtain user ID
+  AuthUser user = AuthStorage::findUserByUsername(username);
+  bool success = AuthStorage::updateUserPassword(user.id, password);
 
   res.setHeader("Content-Type", "application/json");
   if (success) {
@@ -205,7 +210,9 @@ void WebPlatform::createTokenApiHandler(WebRequest &req, WebResponse &res) {
     res.setHeader("Content-Type", "application/json");
     res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
     return;
-  }const AuthContext &auth = req.getAuthContext();
+  }
+  
+  const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
   
   // Try to get token name from JSON body first
@@ -224,7 +231,9 @@ void WebPlatform::createTokenApiHandler(WebRequest &req, WebResponse &res) {
     return;
   }
 
-  String token = AuthStorage::createApiToken(username, tokenName);
+  // Get user by username to obtain user ID
+  AuthUser user = AuthStorage::findUserByUsername(username);
+  String token = AuthStorage::createApiToken(user.id, tokenName);
 
   res.setHeader("Content-Type", "application/json");
   res.setContent("{\"success\":true,\"token\":\"" + token + "\"}");
