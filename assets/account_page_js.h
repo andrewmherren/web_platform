@@ -9,6 +9,8 @@ const char ACCOUNT_PAGE_JS[] PROGMEM = R"rawliteral(
 class AccountManager {
   constructor() {
     this.init();
+    this.userId = null;
+    this.fetchCurrentUser();
   }
 
   init() {
@@ -35,6 +37,20 @@ class AccountManager {
     }
   }
 
+  async fetchCurrentUser() {
+    try {
+      const response = await AuthUtils.fetchJSON('/api/user', {
+        method: 'GET'
+      });
+      
+      if (response.success && response.user) {
+        this.userId = response.user.id;
+      }
+    } catch (error) {
+      console.error('Error fetching user:', error);
+    }
+  }
+
   showTokenForm() {
     const tokenForm = document.getElementById('token-form');
     const showBtn = document.getElementById('show-token-form');
@@ -49,7 +65,7 @@ class AccountManager {
       'Are you sure you want to delete this token? This action cannot be undone.',
       async () => {
         try {
-          const response = await AuthUtils.fetch('/api/token/' + token, {
+          const response = await AuthUtils.fetch('/api/tokens/' + token, {
             method: 'DELETE'
           });
 
@@ -109,6 +125,11 @@ class AccountManager {
   async createToken(event) {
     event.preventDefault();
     
+    if (!this.userId) {
+      UIUtils.showAlert('Error', 'User ID not available. Please refresh the page.', 'error');
+      return;
+    }
+    
     const form = event.target;
     const tokenName = form.tokenName.value;
     
@@ -121,7 +142,8 @@ class AccountManager {
     UIUtils.updateButtonState(submitBtn, true, 'Creating...');
     
     try {
-      const response = await AuthUtils.fetchJSON('/api/token', {
+      // Use RESTful endpoint
+      const response = await AuthUtils.fetchJSON(`/api/users/${this.userId}/tokens`, {
         method: 'POST',
         body: JSON.stringify({ name: tokenName })
       });

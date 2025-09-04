@@ -146,9 +146,6 @@ private:                            // Core server components
   void logoutPageHandler(WebRequest &req, WebResponse &res);
   void accountPageHandler(WebRequest &req, WebResponse &res);
   void accountPageJSAssetHandler(WebRequest &req, WebResponse &res);
-  void updateUserApiHandler(WebRequest &req, WebResponse &res);
-  void createTokenApiHandler(WebRequest &req, WebResponse &res);
-  void deleteTokenApiHandler(WebRequest &req, WebResponse &res);
   void configPortalSavePageHandler(WebRequest &req, WebResponse &res);
   void configPortalPageHandler(WebRequest &req, WebResponse &res);
   void configPortalJSAssetHandler(WebRequest &req, WebResponse &res);
@@ -157,6 +154,26 @@ private:                            // Core server components
   void wifiManagementJSAssetHandler(WebRequest &req, WebResponse &res);
   void styleCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformFaviconHandler(WebRequest &req, WebResponse &res);
+  
+  // RESTful API handlers - User management
+  void getUsersApiHandler(WebRequest &req, WebResponse &res);
+  void createUserApiHandler(WebRequest &req, WebResponse &res);
+  void getUserByIdApiHandler(WebRequest &req, WebResponse &res);
+  void updateUserByIdApiHandler(WebRequest &req, WebResponse &res);
+  void deleteUserByIdApiHandler(WebRequest &req, WebResponse &res);
+  
+  // Current user convenience handlers
+  void getCurrentUserApiHandler(WebRequest &req, WebResponse &res);
+  void updateCurrentUserApiHandler(WebRequest &req, WebResponse &res);
+  
+  // Token management handlers
+  void getUserTokensApiHandler(WebRequest &req, WebResponse &res);
+  void createUserTokenApiHandler(WebRequest &req, WebResponse &res);
+  void deleteTokenApiHandler(WebRequest &req, WebResponse &res);
+  
+  // Legacy handlers (for compatibility with account page)
+  void updateUserApiHandler(WebRequest &req, WebResponse &res);
+  void createTokenApiHandler(WebRequest &req, WebResponse &res);
 
   // Platform state
   PlatformMode currentMode;

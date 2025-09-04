@@ -1,10 +1,10 @@
-# WebPlatform Authentication Guide
+# WebPlatform Authentication System
 
-This document explains how to implement and use the authentication system in WebPlatform applications.
+This guide explains how to implement and use WebPlatform's built-in authentication system for securing embedded web applications.
 
 ## Overview
 
-WebPlatform provides a comprehensive authentication system that supports multiple authentication methods and can be applied at the route level. This allows for flexible security implementations ranging from simple login systems to complex API access controls.
+WebPlatform provides a comprehensive authentication system with multiple authentication methods that can be applied at the route level. This enables flexible security implementations from simple login systems to enterprise-grade API access controls with token-based authentication.
 
 ## Authentication Types
 
@@ -24,7 +24,7 @@ Protect your entire application behind a login screen:
 
 ```cpp
 #include <web_platform.h>
-#include <my_device_module.h>
+// #include <device_module.h>  // Your web modules
 
 void setup() {
     Serial.begin(115200);
@@ -34,6 +34,7 @@ void setup() {
         NavigationItem("Dashboard", "/"),
         NavigationItem("Device Control", "/device/"),
         NavigationItem("Settings", "/settings"),
+        NavigationItem("Account", "/account"),
         NavigationItem("Logout", "/logout")
     };
     IWebModule::setNavigationMenu(navItems);
@@ -41,15 +42,18 @@ void setup() {
     webPlatform.begin("SecureDevice");
     
     if (webPlatform.isConnected()) {
-        // Register your modules
-        webPlatform.registerModule("/device", &myDeviceModule);
+        // Register your modules (they inherit authentication from WebPlatform)
+        // webPlatform.registerModule("/device", &deviceModule);
         
-        // Protect the main dashboard
+        // Create protected dashboard
         webPlatform.registerRoute("/", [](WebRequest& req, WebResponse& res) {
+            const AuthContext& auth = req.getAuthContext();
             String html = R"(
+                <!DOCTYPE html>
                 <html><head><title>Dashboard</title></head><body>
-                <h1>Welcome, )" + req.getAuthContext().username + R"(!</h1>
-                <p>You are successfully logged in.</p>
+                <h1>Welcome, )" + auth.username + R"(!</h1>
+                <p>You are logged in via )" + 
+                (auth.authenticatedVia == AuthType::SESSION ? "web interface" : "API token") + R"(</p>
                 <ul>
                     <li><a href="/device/">Device Control</a></li>
                     <li><a href="/settings">Settings</a></li>
@@ -58,10 +62,10 @@ void setup() {
                 </body></html>
             )";
             res.setContent(html, "text/html");
-        }, {AuthType::SESSION});
+        }, {AuthType::SESSION, AuthType::TOKEN});  // Allow both web and API access
         
-        // Override module routes to add authentication
-        webPlatform.overrideRoute("/device/", deviceDashboardHandler, {AuthType::SESSION});
+        // Override module routes to add authentication if needed
+        // webPlatform.overrideRoute("/device/", protectedHandler, {AuthType::SESSION});
     }
 }
 ```
@@ -87,13 +91,14 @@ void setup() {
                             const description = document.getElementById('description').value;
                             const csrf = document.querySelector('meta[name="csrf-token"]').content;
                             
-                            const response = await fetch('/api/tokens', {
+                            // Use WebPlatform's RESTful API
+                            const response = await fetch('/api/user/tokens', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                     'X-CSRF-Token': csrf
                                 },
-                                body: JSON.stringify({description: description})
+                                body: JSON.stringify({name: description})
                             });
                             
                             const result = await response.json();
@@ -119,21 +124,26 @@ void setup() {
         // API endpoints that accept both session and token auth
         webPlatform.registerRoute("/api/device/status", [](WebRequest& req, WebResponse& res) {
             // This route can be accessed via web interface OR API token
-            res.setContent(myDeviceModule.getStatusJSON(), "application/json");
+            String status = "{\"status\":\"online\",\"uptime\":" + String(millis()) + "}";
+            res.setContent(status, "application/json");
         }, {AuthType::SESSION, AuthType::TOKEN});
         
         webPlatform.registerRoute("/api/device/control", [](WebRequest& req, WebResponse& res) {
             if (req.getMethod() != WebModule::WM_POST) {
                 res.setStatus(405);
+                res.setContent("{\"error\":\"Method not allowed\"}", "application/json");
                 return;
             }
             
             String command = req.getParam("command");
-            bool success = myDeviceModule.executeCommand(command);
+            Serial.println("Received command: " + command);
+            
+            // Execute your device command logic here
+            bool success = (command == "restart" || command == "status");
             
             String result = success ? 
-                "{\"success\":true}" : 
-                "{\"success\":false,\"error\":\"Command failed\"}";
+                "{\"success\":true,\"command\":\"" + command + "\"}" : 
+                "{\"success\":false,\"error\":\"Unknown command\"}";
             res.setContent(result, "application/json");
         }, {AuthType::SESSION, AuthType::TOKEN}, WebModule::WM_POST);
     }
@@ -452,6 +462,73 @@ void apiHandler(WebRequest& req, WebResponse& res) {
 }
 ```
 
+## RESTful API Endpoints
+
+WebPlatform provides built-in RESTful API endpoints for user and token management:
+
+### User Management
+```bash
+# List all users (admin only)
+GET /api/users
+
+# Create new user (admin only)
+POST /api/users
+{"username": "newuser", "password": "password123"}
+
+# Get specific user by ID
+GET /api/users/{userId}
+
+# Update user password
+PUT /api/users/{userId}
+{"password": "newpassword"}
+
+# Delete user (admin only)
+DELETE /api/users/{userId}
+```
+
+### Current User (Convenience Endpoints)
+```bash
+# Get current user info
+GET /api/user
+
+# Update current user password
+PUT /api/user
+{"password": "newpassword"}
+```
+
+### Token Management
+```bash
+# Get user's API tokens
+GET /api/users/{userId}/tokens
+
+# Create new token for user
+POST /api/users/{userId}/tokens
+{"name": "My API Token"}
+
+# Delete specific token
+DELETE /api/tokens/{tokenId}
+```
+
+## Storage Integration
+
+WebPlatform's authentication system uses the built-in storage system with UUID-based user identification:
+
+```cpp
+// Authentication storage uses the storage manager
+#include "storage/auth_storage.h"
+
+// Create user with automatic UUID assignment
+String userId = AuthStorage::createUser("username", "password");
+
+// Find user by ID or username
+AuthUser user = AuthStorage::findUserById(userId);
+AuthUser user = AuthStorage::findUserByUsername("admin");
+
+// Token management with user IDs
+String token = AuthStorage::createApiToken(userId, "Token Name");
+std::vector<AuthApiToken> tokens = AuthStorage::getUserApiTokens(userId);
+```
+
 ## Default Credentials
 
 WebPlatform creates a default admin account on first boot:
@@ -459,6 +536,14 @@ WebPlatform creates a default admin account on first boot:
 - **Username**: `admin`
 - **Password**: `admin`
 
-**Important**: Change these credentials in production deployments!
+**Important**: Change these credentials in production deployments through the `/account` page or API endpoints!
+
+## Security Considerations
+
+- Self-signed certificates will show browser warnings - use proper CA-signed certificates for production
+- API tokens are shown only once during creation - save them securely
+- Sessions expire automatically for security
+- CSRF protection is built-in for form submissions
+- All user data is stored using UUID primary keys for better security and scalability
 
 The authentication system provides comprehensive security features while remaining flexible enough for various use cases. Application developers can choose the level of security appropriate for their needs, while module developers can suggest reasonable defaults that can be overridden when necessary.

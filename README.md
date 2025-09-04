@@ -4,14 +4,23 @@ A comprehensive web development platform for ESP32/ESP8266 that provides a unifi
 
 ## Overview
 
-WebPlatform combines multiple components into a single, easy-to-use library:
+WebPlatform is a complete web development framework that transforms ESP32/ESP8266 devices into sophisticated web-enabled applications. It combines multiple components into a single, easy-to-use library:
 
-- **Web Module Interface**: Abstract base class for creating reusable web modules
+- **Modular Architecture**: Build reusable web modules using the IWebModule interface
 - **Unified HTTP/HTTPS Server**: Single server instance with automatic HTTPS detection
 - **WiFi Management**: Captive portal for configuration and automatic connection handling
-- **Authentication System**: Session-based and token-based authentication with CSRF protection
+- **Advanced Authentication**: Session-based and token-based authentication with CSRF protection
+- **Storage System**: Flexible database drivers with Laravel-inspired query builder
 - **Route Management**: Advanced route handling with override and disable capabilities
-- **Asset Management**: Static asset serving with CSS/JS framework
+- **Asset Management**: Static asset serving with built-in CSS/JS framework
+
+## Target Audiences
+
+### Application Developers
+Build complete embedded web applications by leveraging the WebPlatform and optional web modules. The platform handles WiFi setup, authentication, HTTPS, and provides a solid foundation for your device's web interface.
+
+### Module Developers
+Create reusable web modules using the IWebModule interface that can be shared across projects. Modules can define their own routes, authentication requirements, and UI components while integrating seamlessly with any WebPlatform application.
 
 ## Quick Start
 
@@ -19,9 +28,11 @@ WebPlatform combines multiple components into a single, easy-to-use library:
 
 ```cpp
 #include <web_platform.h>
-//#include <some_module.h> //optional module includes
+// #include <some_module.h>  // Include your web modules
 
 void setup() {
+    Serial.begin(115200);
+    
     // Set up navigation menu
     std::vector<NavigationItem> navItems = {
         NavigationItem("Home", "/"),
@@ -30,17 +41,18 @@ void setup() {
     };
     IWebModule::setNavigationMenu(navItems);
 
-    // Initialize WebPlatform
+    // Initialize WebPlatform (auto-detects HTTPS capability)
     webPlatform.begin("MyDevice");
     
     if (webPlatform.isConnected()) {
-        // Register your modules
-        //webPlatform.registerModule("/route_prefix/", &someModule);
+        // Register web modules
+        // webPlatform.registerModule("/device", &deviceModule);
         
-        // Add custom routes
+        // Add custom application routes
         webPlatform.registerRoute("/about", [](WebRequest& req, WebResponse& res) {
-            res.setContent("<h1>About My Device</h1>", "text/html");
-        });
+            String html = "<h1>About My Device</h1><p>Built with WebPlatform</p>";
+            res.setContent(html, "text/html");
+        }, {AuthType::SESSION});  // Protect with login
         
         // Override module routes if needed
         webPlatform.overrideRoute("/", customHomeHandler, {AuthType::SESSION});
@@ -50,10 +62,10 @@ void setup() {
 void loop() {
     webPlatform.handle();
     
-    // if (webPlatform.isConnected()) {
-    //     // call any registered modules handle method
-    //     someModule.handle();
-    // }
+    if (webPlatform.isConnected()) {
+        // Handle registered modules
+        // deviceModule.handle();
+    }
 }
 ```
 
@@ -291,22 +303,141 @@ void protectedHandler(WebRequest& req, WebResponse& res) {
 - **Asset Caching**: Built-in caching headers for static assets
 - **Memory Management**: Careful string handling and minimal heap fragmentation
 
+## Storage System
+
+WebPlatform includes a flexible storage system inspired by Laravel's database architecture:
+
+### Multiple Storage Drivers
+- **JsonDatabaseDriver**: Default driver using ESP32 Preferences or ESP8266 EEPROM
+- **Extensible Architecture**: Support for additional drivers (LittleFS, cloud databases)
+- **Query Builder**: Laravel-inspired fluent API for data operations
+
+### Usage Example
+```cpp
+// Store user data
+StorageManager::query("users")
+  ->store("user1", userObject.toJson());
+
+// Query with conditions
+String userData = StorageManager::query("users")
+  ->where("username", "admin")
+  ->get();
+
+// Use different storage drivers
+StorageManager::driver("cloud")
+  ->query("audit_logs")
+  ->store("log1", logData);
+```
+
+### Data Models
+Built-in models with automatic JSON serialization:
+- `AuthUser`: User accounts with UUID primary keys
+- `AuthSession`: Session management
+- `AuthApiToken`: API token authentication
+- `ConfigItem`: Configuration storage
+
 ## Certificate Support
 
-WebPlatform automatically detects HTTPS certificates at runtime without requiring build-time configuration:
+WebPlatform provides both HTTP and HTTPS support with automatic certificate detection:
 
-1. **Runtime Detection**: Scans for embedded certificates during initialization
-2. **Automatic HTTPS**: Enables secure communication when certificates available  
-3. **HTTP Fallback**: Graceful degradation when certificates not present
-4. **No Build Flags**: Eliminates platformio.ini certificate configuration requirements
+### How HTTPS Works
+
+WebPlatform uses ESP-IDF's native HTTPS server implementation (`esp_https_server.h`) which provides:
+- Secure TLS/SSL connections
+- Efficient memory usage  
+- Hardware-accelerated cryptography
+- Automatic HTTP to HTTPS redirection
+
+### Certificate Configuration
+
+**HTTPS is not automatically detected** - it requires manual configuration in both `platformio.ini` and certificate files.
+
+#### To Enable HTTPS:
+1. Generate or obtain SSL certificate files (see instructions below)
+2. Place certificate files in the `src` directory:
+   - `server_cert.pem` - Server certificate
+   - `server_key.pem` - Private key
+3. Ensure the following lines are **uncommented** in `platformio.ini` for ESP32 builds:
+   ```ini
+   board_build.embed_txtfiles =
+     src/server_cert.pem
+     src/server_key.pem
+   ```
+
+#### To Disable HTTPS (HTTP-only mode):
+1. **Comment out or remove** the `board_build.embed_txtfiles` lines in `platformio.ini`:
+   ```ini
+   ; board_build.embed_txtfiles =
+   ;   src/server_cert.pem
+   ;   src/server_key.pem
+   ```
+2. Certificate files in `src` directory are not required when HTTPS is disabled
+
+**Important**: If the `board_build.embed_txtfiles` lines are present in `platformio.ini` but the certificate files don't exist, the build will fail.
+
+### Generating SSL Certificates
+
+```bash
+# Generate private key
+openssl genrsa -out src/server_key.pem 2048
+
+# Generate certificate signing request (follow prompts for certificate details)
+openssl req -new -key src/server_key.pem -out src/server_csr.pem
+
+# Generate self-signed certificate (valid for 365 days)
+openssl x509 -req -days 365 -in src/server_csr.pem -signkey src/server_key.pem -out src/server_cert.pem
+
+# Clean up temporary CSR file (optional)
+rm src/server_csr.pem
+```
+
+**After generating certificates**, ensure the `board_build.embed_txtfiles` lines are uncommented in `platformio.ini` as described above.
+
+### Build Notes
+- If you get build errors related to missing certificate files, check that the `board_build.embed_txtfiles` lines in `platformio.ini` match your setup (commented out for HTTP-only, uncommented with existing certificate files for HTTPS)
+- For HTTP-only builds, ensure the certificate embedding lines are commented out or removed from `platformio.ini`
+- ESP8266 builds use HTTP only and do not require certificate configuration
 
 ## Development Workflow
 
-1. **Create Your Module**: Implement `IWebModule` interface
-2. **Define Routes**: Specify HTTP routes with appropriate authentication
-3. **Set Up Application**: Initialize WebPlatform and register modules  
-4. **Customize**: Add navigation, error pages, redirects as needed
-5. **Test**: Use built-in WiFi configuration and authentication features
-6. **Deploy**: Single binary with automatic HTTPS detection
+### For Module Developers
+1. **Implement IWebModule**: Create routes and handlers for your module
+2. **Define Authentication**: Specify appropriate security requirements
+3. **Build Assets**: Create HTML/CSS/JS for your module's interface
+4. **Test Integration**: Verify compatibility with WebPlatform
+5. **Package Module**: Prepare for distribution as a library
 
-This comprehensive platform enables rapid development of sophisticated embedded web applications while maintaining security and performance standards.
+### For Application Developers
+1. **Initialize Platform**: Set up WebPlatform with device configuration
+2. **Register Modules**: Add web modules for specific functionality
+3. **Customize Routes**: Override or extend module behavior
+4. **Configure Security**: Set up authentication and user management
+5. **Deploy**: Single binary with automatic HTTPS detection
+
+## Platform Dependencies
+
+Add to your `platformio.ini`:
+
+```ini
+[env:esp32-s3-devkitc-1]
+platform = espressif32
+board = esp32-s3-devkitc-1
+framework = arduino
+lib_deps = 
+  bblanchon/ArduinoJson@^6.20.0
+  # Add web modules as needed
+  
+# Optional HTTPS certificate embedding
+# board_build.embed_txtfiles = src/server_cert.pem, src/server_key.pem
+
+[env:nodemcuv2]
+platform = espressif8266
+board = nodemcuv2
+framework = arduino
+lib_deps = 
+  ${env:esp32-s3-devkitc-1.lib_deps}
+  https://github.com/rweaver/arduinolibs.git
+  marvinroger/ESP8266TrueRandom@^1.0.0
+```
+
+This comprehensive platform enables rapid development of sophisticated embedded web applications while maintaining security and performance standards. Whether you're building a simple device interface or a complex IoT system, WebPlatform provides the foundation you need.
