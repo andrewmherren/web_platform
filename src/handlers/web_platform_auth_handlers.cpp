@@ -1,11 +1,10 @@
-
 #include "../../assets/account_page_html.h"
 #include "../../assets/account_page_js.h"
 #include "../../assets/login_page_html.h"
 #include "../../include/auth/auth_constants.h"
+#include "../../include/interface/auth_types.h"
 #include "../../include/storage/auth_storage.h"
 #include "../../include/web_platform.h"
-#include "../../include/interface/auth_types.h"
 #include <functional>
 
 void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
@@ -44,8 +43,6 @@ void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
       // Create session
       String sessionId = AuthStorage::createSession(userId);
 
-      Serial.println("--> Good login! Created sessionId: " + sessionId);
-
       // Set session cookie - HTTP only for security
       res.setHeader("Set-Cookie",
                     "session=" + sessionId + "; Path=/; Max-Age=" +
@@ -59,7 +56,6 @@ void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
       // Invalid credentials, show login form with error
       String loginHtml = String(LOGIN_PAGE_ERROR_HTML);
       loginHtml.replace("{{redirectUrl}}", redirectUrl);
-      loginHtml = g_platformService->prepareHtml(loginHtml, req, csrfToken);
 
       res.setContent(loginHtml);
       res.setStatus(401);
@@ -68,7 +64,6 @@ void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
   } else {
     // Show login form
     String loginHtml = String(LOGIN_PAGE_HTML);
-    loginHtml = g_platformService->prepareHtml(loginHtml, req, csrfToken);
     loginHtml.replace("{{redirectUrl}}", redirectUrl);
 
     res.setContent(loginHtml);
@@ -104,50 +99,13 @@ void WebPlatform::logoutPageHandler(WebRequest &req, WebResponse &res) {
   res.redirect("/login");
 }
 
-void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {const AuthContext &auth = req.getAuthContext();
-  String username = auth.username;
-
+void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {
+  const AuthContext &auth = req.getAuthContext();
   String csrfToken = AuthStorage::createPageToken(req.getClientIp());
-  
-  // Get user by username to obtain user ID
-  AuthUser user = AuthStorage::findUserByUsername(username);
-  std::vector<AuthApiToken> userTokens = AuthStorage::getUserApiTokens(user.id);
-
-  // Generate token list HTML
-  String tokensHtml = "";
-  if (userTokens.empty()) {
-    tokensHtml = "<p>No API tokens have been created yet.</p>";
-  } else {
-    tokensHtml = "<table class=\"token-table\">";
-    tokensHtml += "<tr><th>Name</th><th>Created</th><th>Actions</th></tr>";
-    for (const AuthApiToken &token : userTokens) {
-      tokensHtml += "<tr>";
-      tokensHtml += "<td>" + token.name + "</td>";
-      // Format timestamp
-      unsigned long ago =
-          (millis() - token.createdAt) / 1000 / 60; // minutes ago
-      String timeStr;
-      if (ago < 60) {
-        timeStr = String(ago) + " minutes ago";
-      } else if (ago < 1440) {
-        timeStr = String(ago / 60) + " hours ago";
-      } else {
-        timeStr = String(ago / 1440) + " days ago";
-      }
-      tokensHtml += "<td>" + timeStr + "</td>";
-      tokensHtml += "<td><button class=\"btn btn-danger btn-sm\" "
-                    "onclick=\"deleteToken('" +
-                    token.token + "')\">Delete</button></td>";
-      tokensHtml += "</tr>";
-    }
-    tokensHtml += "</table>";
-  }
 
   String accountHtml = String(ACCOUNT_PAGE_HTML);
-  accountHtml = g_platformService->prepareHtml(accountHtml, req, csrfToken);
-  accountHtml.replace("{{tokensHtml}}", tokensHtml);
 
-  res.setContent(IWebModule::injectNavigationMenu(accountHtml));
+  res.setContent(accountHtml);
 
   // Set HttpOnly cookie with page token (CSRF protection)
   res.setHeader("Set-Cookie",
@@ -168,14 +126,13 @@ void WebPlatform::updateUserApiHandler(WebRequest &req, WebResponse &res) {
     res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
     return;
   }
-  
+
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
   String password = req.getJsonParam("password");
 
   // Currently only password updates are supported
   if (password.isEmpty()) {
-    Serial.println("--> password empty");
     res.setStatus(400);
     res.setHeader("Content-Type", "application/json");
     res.setContent("{\"success\":false,\"message\":\"Password is required\"}");
@@ -199,8 +156,7 @@ void WebPlatform::updateUserApiHandler(WebRequest &req, WebResponse &res) {
     res.setContent("{\"success\":true,\"message\":\"User updated\"}");
   } else {
     res.setStatus(500);
-    res.setContent(
-        "{\"success\":false,\"message\":\"Failed to update user\"}");
+    res.setContent("{\"success\":false,\"message\":\"Failed to update user\"}");
   }
 }
 
@@ -211,13 +167,13 @@ void WebPlatform::createTokenApiHandler(WebRequest &req, WebResponse &res) {
     res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
     return;
   }
-  
+
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
-  
+
   // Try to get token name from JSON body first
   String tokenName = req.getJsonParam("name");
-  
+
   // Fallback to form parameter for backward compatibility
   if (tokenName.isEmpty()) {
     tokenName = req.getParam("name");
@@ -245,8 +201,11 @@ void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
     res.setHeader("Content-Type", "application/json");
     res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
     return;
-  }const AuthContext &auth = req.getAuthContext();
+  }
+
+  const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
+
   // Extract token from URL path (e.g., /api/token/abc123)
   String token = req.getRouteParameter("tokenId");
 
@@ -255,7 +214,9 @@ void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
     res.setHeader("Content-Type", "application/json");
     res.setContent("{\"success\":false,\"message\":\"Token is required\"}");
     return;
-  }// Verify token belongs to user
+  }
+
+  // Verify token belongs to user
   AuthApiToken apiToken = AuthStorage::findApiToken(token);
   if (!apiToken.isValid() || apiToken.username != username) {
     res.setStatus(403);

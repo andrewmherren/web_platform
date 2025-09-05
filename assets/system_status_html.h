@@ -14,9 +14,11 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/assets/favicon.ico" sizes="any">
+    <script src="/assets/system-status.js"></script>
 </head>
 <body>
     <div class="container">
+        {{NAV_MENU}}
         <h1>System Status</h1>
         
         <div class="status-grid">
@@ -28,24 +30,22 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
                 </div>
                 <div class="form-group">
                     <label>Uptime:</label>
-                    <div class="status-value">{{UPTIME}} seconds</div>
+                    <div class="status-value" id="uptimeValue">Loading...</div>
                 </div>
                 <div class="form-group">
                     <label>Free Heap:</label>
                     <div class="status-value with-gauge">
-                        <span>{{FREE_HEAP}} bytes ({{FREE_HEAP_PERCENT}}% free)</span>
+                        <span><span id="freeHeap">-</span> bytes (<span id="freeHeapPercent">-</span>% free)</span>
                         <div class="gauge-inline">
-                            <svg class="gauge-svg" viewBox="0 0 120 60" data-percent="{{FREE_HEAP_PERCENT}}" data-color="{{FREE_HEAP_COLOR}}">
-                                <path class="gauge-bg" d="M 20 50 A 40 40 0 0 1 100 50" stroke-width="15" fill="none"/>
-                                <path class="gauge-arc" d="M 20 50 A 40 40 0 0 1 100 50" stroke-width="15" fill="none"/>
-                            </svg>
-                            <div class="gauge-label">{{FREE_HEAP_PERCENT}}%</div>
+                            <div id="memory-gauge" class="gauge">
+                                <div id="memory-gauge-fill" class="gauge-fill"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Platform Mode:</label>
-                    <div class="status-value">{{PLATFORM_MODE}}</div>
+                    <div class="status-value" id="platformMode">Loading...</div>
                 </div>
             </div>
             
@@ -53,23 +53,23 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
                 <h3>Network Information</h3>
                 <div class="form-group">
                     <label>WiFi SSID:</label>
-                    <div class="status-value">{{WIFI_SSID}}</div>
+                    <div class="status-value" id="wifiSsid">Loading...</div>
                 </div>
                 <div class="form-group">
                     <label>IP Address:</label>
-                    <div class="status-value">{{IP_ADDRESS}}</div>
+                    <div class="status-value" id="ipAddress">Loading...</div>
                 </div>
                 <div class="form-group">
                     <label>Hostname:</label>
-                    <div class="status-value">{{HOSTNAME}}</div>
+                    <div class="status-value" id="hostname">Loading...</div>
                 </div>
                 <div class="form-group">
                     <label>MAC Address:</label>
-                    <div class="status-value">{{MAC_ADDRESS}}</div>
+                    <div class="status-value" id="macAddress">Loading...</div>
                 </div>
                 <div class="form-group">
                     <label>Signal Strength:</label>
-                    <div class="status-value">{{SIGNAL_STRENGTH}} dBm</div>
+                    <div class="status-value" id="signalStrength">Loading...</div>
                 </div>
             </div>
         </div>
@@ -78,19 +78,19 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
             <h3>Web Server Status</h3>
             <div class="form-group">
                 <label>Server Port:</label>
-                <div class="status-value">{{SERVER_PORT}}</div>
+                <div class="status-value" id="serverPort">Loading...</div>
             </div>
             <div class="form-group">
                 <label>HTTPS:</label>
-                <div class="status-value">{{HTTPS_STATUS}}</div>
+                <div class="status-value" id="httpsStatus">Loading...</div>
             </div>
             <div class="form-group">
                 <label>Registered Modules:</label>
-                <div class="status-value">{{MODULE_COUNT}}</div>
+                <div class="status-value" id="moduleCount">Loading...</div>
             </div>
             <div class="form-group">
                 <label>Registered Routes:</label>
-                <div class="status-value">{{ROUTE_COUNT}}</div>
+                <div class="status-value" id="routeCount">Loading...</div>
             </div>
         </div>
         
@@ -102,7 +102,11 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
                     <th style="text-align: left">Version</th>
                     <th style="text-align: left">Path</th>
                 </tr>
-                {{MODULE_TABLE}}
+                <tbody id="modulesTableBody">
+                    <tr>
+                        <td colspan="3">Loading...</td>
+                    </tr>
+                </tbody>
             </table>
         </div>
         
@@ -110,23 +114,22 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
             <h3>Storage Information</h3>
             <div class="form-group">
                 <label>Flash Size:</label>
-                <div class="status-value">{{FLASH_SIZE}} MB</div>
+                <div class="status-value" id="flashSize">Loading...</div>
             </div>
             <div class="form-group">
-                <label>Used Space:</label><div class="status-value with-gauge">
-                        <span>{{USED_SPACE}} MB ({{USED_SPACE_PERCENT}}% used)</span>
-                        <div class="gauge-inline">
-                            <svg class="gauge-svg" viewBox="0 0 120 60" data-percent="{{USED_SPACE_PERCENT}}" data-color="{{USED_SPACE_COLOR}}">
-                                <path class="gauge-bg" d="M 20 50 A 40 40 0 0 1 100 50" stroke-width="15" fill="none"/>
-                                <path class="gauge-arc" d="M 20 50 A 40 40 0 0 1 100 50" stroke-width="15" fill="none"/>
-                            </svg>
-                            <div class="gauge-label">{{USED_SPACE_PERCENT}}%</div>
+                <label>Used Space:</label>
+                <div class="status-value with-gauge">
+                    <span><span id="usedSpace">-</span> MB (<span id="usedSpacePercent">-</span>% used)</span>
+                    <div class="gauge-inline">
+                        <div id="storage-gauge" class="gauge">
+                            <div id="storage-gauge-fill" class="gauge-fill"></div>
                         </div>
                     </div>
+                </div>
             </div>
             <div class="form-group">
                 <label>Available Space:</label>
-                <div class="status-value">{{AVAILABLE_SPACE}} MB</div>
+                <div class="status-value" id="availableSpace">Loading...</div>
             </div>
         </div>
         
@@ -135,40 +138,39 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
         </div>
     </div>
     
-    <script>
-        // Initialize SVG gauges with accurate percentage rendering
-        document.addEventListener('DOMContentLoaded', function() {
-            const gauges = document.querySelectorAll('.gauge-svg');
-            gauges.forEach(svg => {
-                const percent = parseFloat(svg.getAttribute('data-percent')) || 0;
-                const colorType = svg.getAttribute('data-color');
-                const arc = svg.querySelector('.gauge-arc');
-                
-                // Define colors
-                let strokeColor = '#4CAF50'; // good (green)
-                if (colorType === 'warning') {
-                    strokeColor = '#FF9800'; // warning (orange)
-                } else if (colorType === 'danger') {
-                    strokeColor = '#f44336'; // danger (red)
-                }
-                
-                // Calculate arc path length (semicircle)
-                const radius = 40;
-                const circumference = Math.PI * radius; // Half circle
-                const strokeLength = (percent / 100) * circumference;
-                const remainingLength = circumference - strokeLength;
-                
-                // Set up the arc
-                arc.style.stroke = strokeColor;
-                arc.style.strokeDasharray = `${strokeLength} ${remainingLength}`;
-                arc.style.strokeDashoffset = '0';
-                arc.style.strokeLinecap = 'round';
-                
-                // Add subtle glow effect for the colored part
-                arc.style.filter = `drop-shadow(0 0 3px ${strokeColor})`;
-            });
-        });
-    </script>
+    <style>
+        /* Additional styles for the gauges */
+        .gauge {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .gauge-fill {
+            height: 100%;
+            width: 0%; /* Will be set by JavaScript */
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        
+        .gauge-good .gauge-fill {
+            background-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+        }
+        
+        .gauge-warning .gauge-fill {
+            background-color: #FF9800;
+            box-shadow: 0 0 5px rgba(255, 152, 0, 0.5);
+        }
+        
+        .gauge-danger .gauge-fill {
+            background-color: #f44336;
+            box-shadow: 0 0 5px rgba(244, 67, 54, 0.5);
+        }
+    </style>
 </body>
 </html>
 )HTML";

@@ -264,6 +264,42 @@ IWebModule::addRedirect("/old-path", "/new-path");
 IWebModule::addRedirect("/settings", "/config/");
 ```
 
+### Template System with Bookmarks
+WebPlatform includes an automatic template processing system that replaces bookmarks in HTML content. This happens automatically for HTML responses and requires no manual processing.
+
+```cpp
+// Define a handler that uses bookmarks
+webPlatform.registerRoute("/example", [](WebRequest& req, WebResponse& res) {
+    String html = R"(
+      <!DOCTYPE html>
+      <html><head><title>Example</title></head>
+      <body>
+        <div class="container">
+          {{NAV_MENU}}
+          <h1>Welcome, {{username}}!</h1>
+          <p>Device: {{DEVICE_NAME}}</p>
+        </div>
+      </body></html>
+    )";
+    
+    res.setContent(html, "text/html");  // Bookmarks processed automatically!
+}, {AuthType::SESSION});
+```
+
+Supported bookmarks:
+- `{{NAV_MENU}}` - Injects the navigation menu (replaces the old comment-based system)
+- `{{csrfToken}}` - Generates and injects a CSRF token for form protection
+- `{{SECURITY_NOTICE}}` - Displays HTTPS status notice for sensitive forms
+- `{{username}}` - Shows the authenticated user's username
+- `{{DEVICE_NAME}}` - Shows the device name set during initialization
+
+### Opt-Out of Template Processing
+```cpp
+// Disable template processing for a specific response
+res.setHeader("X-Skip-Template-Processing", "true");
+res.setContent(html, "text/html");
+```
+
 ### Navigation Menu
 ```cpp
 std::vector<NavigationItem> navItems = {

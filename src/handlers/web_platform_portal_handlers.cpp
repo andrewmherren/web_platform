@@ -1,27 +1,24 @@
 
-#include "../../include/web_platform.h"
 #include "../../assets/config_portal_html.h"
 #include "../../assets/config_portal_js.h"
 #include "../../assets/config_portal_success_html.h"
+#include "../../include/web_platform.h"
 #include <ArduinoJson.h>
 
-void WebPlatform::configPortalJSAssetHandler(WebRequest &req, WebResponse &res) {
+
+void WebPlatform::configPortalJSAssetHandler(WebRequest &req,
+                                             WebResponse &res) {
   res.setContent(FPSTR(CONFIG_PORTAL_JS), "application/javascript");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 
 void WebPlatform::configPortalPageHandler(WebRequest &req, WebResponse &res) {
   IWebModule::setCurrentPath("/");
-
-  // Enhanced WiFi configuration page with security notice
-  String html = FPSTR(CONFIG_PORTAL_HTML);
-
-  html = g_platformService->prepareHtml(html, req);
-
-  res.setContent(IWebModule::injectNavigationMenu(html), "text/html");
+  res.setContent(FPSTR(CONFIG_PORTAL_HTML), "text/html");
 };
 
-void WebPlatform::configPortalSavePageHandler(WebRequest &req, WebResponse &res) {
+void WebPlatform::configPortalSavePageHandler(WebRequest &req,
+                                              WebResponse &res) {
   Serial.println("WebPlatform: Received WiFi save request");
 
   auto params = req.getAllParams();
@@ -49,8 +46,6 @@ void WebPlatform::configPortalSavePageHandler(WebRequest &req, WebResponse &res)
     Serial.printf("WebPlatform: Credential verification %s - SSID match: %s\n",
                   credentialsValid ? "passed" : "failed",
                   checkSsid == ssid ? "yes" : "no");
-
-    html = g_platformService->prepareHtml(html, req);
 
     res.setContent(html, "text/html");
 

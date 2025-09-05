@@ -1,5 +1,6 @@
 #include "../../include/interface/web_response.h"
 #include "../../include/interface/webserver_typedefs.h"
+#include "../../include/web_platform.h"
 
 #if defined(ESP32)
 #include <WebServer.h>

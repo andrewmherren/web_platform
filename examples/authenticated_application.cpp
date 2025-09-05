@@ -1,8 +1,8 @@
 /**
  * Authenticated WebPlatform Application Example
- * 
- * This example demonstrates how to create a secure web application with user authentication.
- * It shows:
+ *
+ * This example demonstrates how to create a secure web application with user
+ * authentication. It shows:
  * - Session-based authentication for web interface
  * - API token authentication for programmatic access
  * - CSRF protection for forms
@@ -19,34 +19,37 @@
 // SecureDeviceModule secureModule;
 
 void setup() {
-    Serial.begin(115200);
-    Serial.println("Starting Authenticated WebPlatform Application...");
+  Serial.begin(115200);
+  Serial.println("Starting Authenticated WebPlatform Application...");
 
-    // Set up navigation menu with authentication-aware items
-    std::vector<NavigationItem> navItems = {
-        NavigationItem("Dashboard", "/"),
-        NavigationItem("Device Control", "/control"),
-        NavigationItem("Examples", "/examples"),
-        NavigationItem("Account", "/account"),
-        NavigationItem("Status", "/status"),
-        NavigationItem("Logout", "/logout")
-    };
-    IWebModule::setNavigationMenu(navItems);
+  // Set up navigation menu with authentication-aware items
+  std::vector<NavigationItem> navItems = {
+      NavigationItem("Dashboard", "/"),
+      NavigationItem("Device Control", "/control"),
+      NavigationItem("Examples", "/examples"),
+      NavigationItem("Account", "/account"),
+      NavigationItem("Status", "/status"),
+      NavigationItem("Logout", "/logout")};
+  IWebModule::setNavigationMenu(navItems);
 
-    // Register all routes prior to calling webPlatform.begin()
+  // Register all routes prior to calling webPlatform.begin()
 
-    // Protected dashboard (requires login)
-    webPlatform.overrideRoute("/", [](WebRequest& req, WebResponse& res) {
-        const AuthContext& auth = req.getAuthContext();
-        
-        String html = R"(
+  // Protected dashboard (requires login)
+  webPlatform.overrideRoute(
+      "/",
+      [](WebRequest &req, WebResponse &res) {
+        const AuthContext &auth = req.getAuthContext();
+
+        String html =
+            R"(
             <!DOCTYPE html>
             <html><head>
                 <title>Secure Dashboard</title>
                 <link rel="stylesheet" href="/assets/style.css">
             </head><body>
                 <div class="container">
-                    <h1>Welcome, )" + auth.username + R"(!</h1>
+                    <h1>Welcome, )" +
+            auth.username + R"(!</h1>
                     <p>You are successfully logged into the secure dashboard.</p>
                     <!-- Navigation menu will be auto-injected here -->
                     <p></p>
@@ -57,31 +60,44 @@ void setup() {
                         </div>
                         <div class="status-card">
                             <h3>Session Type</h3>
-                            <p>)" + String(auth.authenticatedVia == AuthType::SESSION ? "Web Session" : "API Token") + R"(</p>
+                            <p>)" +
+            String(auth.authenticatedVia == AuthType::SESSION ? "Web Session"
+                                                              : "API Token") +
+            R"(</p>
                         </div>
                         <div class="status-card">
                             <h3>Access Level</h3>
-                            <p>)" + String(auth.username == "admin" ? "Administrator" : "User") + R"(</p>
+                            <p>)" +
+            String(auth.username == "admin" ? "Administrator" : "User") +
+            R"(</p>
                         </div>
                     </div>
                     
                     <div class="card">
                         <h2>System Information</h2>
                         <table class="info-table">
-                            <tr><td>Device:</td><td>)" + String(webPlatform.getDeviceName()) + R"(</td></tr>
-                            <tr><td>Uptime:</td><td>)" + String(millis() / 1000) + R"( seconds</td></tr>
-                            <tr><td>Free Memory:</td><td>)" + String(ESP.getFreeHeap()) + R"( bytes</td></tr>
-                            <tr><td>HTTPS:</td><td>)" + String(webPlatform.isHttpsEnabled() ? "Enabled" : "Disabled") + R"(</td></tr>
+                            <tr><td>Device:</td><td>)" +
+            String(webPlatform.getDeviceName()) + R"(</td></tr>
+                            <tr><td>Uptime:</td><td>)" +
+            String(millis() / 1000) + R"( seconds</td></tr>
+                            <tr><td>Free Memory:</td><td>)" +
+            String(ESP.getFreeHeap()) + R"( bytes</td></tr>
+                            <tr><td>HTTPS:</td><td>)" +
+            String(webPlatform.isHttpsEnabled() ? "Enabled" : "Disabled") +
+            R"(</td></tr>
                         </table>
                     </div>
                 </div>
             </body></html>
         )";
-        res.setContent(IWebModule::injectNavigationMenu(html), "text/html");
-    }, {AuthType::SESSION});
+        res.setContent(html, "text/html");
+      },
+      {AuthType::SESSION});
 
-    // Device control page with CSRF-protected forms
-    webPlatform.registerRoute("/control", [](WebRequest& req, WebResponse& res) {
+  // Device control page with CSRF-protected forms
+  webPlatform.registerRoute(
+      "/control",
+      [](WebRequest &req, WebResponse &res) {
         String html = R"(
             <!DOCTYPE html>
             <html><head>
@@ -117,7 +133,7 @@ void setup() {
                             <div class="form-group">
                                 <label for="device-name">Device Name:</label>
                                 <input type="text" id="device-name" name="device-name" 
-                                        class="form-control" value=")" + String(webPlatform.getDeviceName()) + R"(">
+                                        class="form-control" value="{{DEVICE_NAME}}">
                             </div>
                             <button type="submit" class="btn btn-secondary">Save Configuration</button>
                         </form>
@@ -182,10 +198,12 @@ void setup() {
                 </script>
             </body></html>
         )";
-        res.setContent(IWebModule::injectNavigationMenu(html), "text/html");
-    }, {AuthType::SESSION});// API Examples and Documentation page
-    webPlatform.registerRoute("/examples", [](WebRequest& req, WebResponse& res) {
-        String html = R"(
+        res.setContent(html, "text/html");
+      },
+      {AuthType::SESSION}); // API Examples and Documentation page
+  webPlatform.registerRoute("/examples",
+                            [](WebRequest &req, WebResponse &res) {
+                              String html = R"(
             <!DOCTYPE html>
             <html><head>
                 <title>API Examples & Documentation</title>
@@ -212,7 +230,9 @@ void setup() {
                         <p>Use your API token with these endpoints:</p>
                         <pre class="code-block">
 # Get device status
-curl -H "Authorization: Bearer YOUR_TOKEN" )" + webPlatform.getBaseUrl() + R"(/api/status
+curl -H "Authorization: Bearer YOUR_TOKEN" )" +
+                                            webPlatform.getBaseUrl() +
+                                            R"(/api/status
 
 # Execute a command  
 curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
@@ -229,7 +249,8 @@ curl ")" + webPlatform.getBaseUrl() + R"(/api/status?access_token=YOUR_TOKEN"
                         <h2>JavaScript/Fetch Example</h2>
                         <pre class="code-block">
 const token = 'YOUR_API_TOKEN_HERE';
-const baseUrl = ')" + webPlatform.getBaseUrl() + R"(';
+const baseUrl = ')" + webPlatform.getBaseUrl() +
+                                            R"(';
 
 // Get device status
 fetch(baseUrl + '/api/status', {
@@ -347,116 +368,140 @@ else:
                     </div>
                 </div>
             </body></html>
-        )";        res.setContent(IWebModule::injectNavigationMenu(html), "text/html");
-    }, {AuthType::SESSION});
+        )";
+                              res.setContent(html, "text/html");
+                            },
+                            {AuthType::SESSION});
 
-    // API Endpoints - accessible via both session and token auth
+  // API Endpoints - accessible via both session and token auth
 
-    // Status API (can be called from web interface or via API token)
-    webPlatform.registerRoute("/api/status", [](WebRequest& req, WebResponse& res) {
-        String json = R"({
+  // Status API (can be called from web interface or via API token)
+  webPlatform.registerRoute("/api/status",
+                            [](WebRequest &req, WebResponse &res) {
+                              String json = R"({
             "success": true,
-            "device": ")" + String(webPlatform.getDeviceName()) + R"(",
-            "uptime": )" + String(millis() / 1000) + R"(,
-            "free_memory": )" + String(ESP.getFreeHeap()) + R"(,
+            "device": ")" + String(webPlatform.getDeviceName()) +
+                                            R"(",
+            "uptime": )" + String(millis() / 1000) +
+                                            R"(,
+            "free_memory": )" + String(ESP.getFreeHeap()) +
+                                            R"(,
             "wifi_ssid": ")" + WiFi.SSID() + R"(",
-            "ip_address": ")" + WiFi.localIP().toString() + R"(",
-            "https_enabled": )" + String(webPlatform.isHttpsEnabled() ? "true" : "false") + R"(
+            "ip_address": ")" + WiFi.localIP().toString() +
+                                            R"(",
+            "https_enabled": )" +
+                                            String(webPlatform.isHttpsEnabled()
+                                                       ? "true"
+                                                       : "false") +
+                                            R"(
         })";
-        res.setContent(json, "application/json");
-    }, {AuthType::SESSION, AuthType::TOKEN});
-    
-    // Control API with CSRF protection for web forms
-    webPlatform.registerRoute("/api/control", [](WebRequest& req, WebResponse& res) {
+                              res.setContent(json, "application/json");
+                            },
+                            {AuthType::SESSION, AuthType::TOKEN});
+
+  // Control API with CSRF protection for web forms
+  webPlatform.registerRoute(
+      "/api/control",
+      [](WebRequest &req, WebResponse &res) {
         if (req.getMethod() != WebModule::WM_POST) {
-            res.setStatus(405);
-            res.setContent("{\"error\":\"Method not allowed\"}", "application/json");
-            return;
+          res.setStatus(405);
+          res.setContent("{\"error\":\"Method not allowed\"}",
+                         "application/json");
+          return;
         }
-        
+
         String command = req.getParam("command");
         String result;
-        
-        if (command == "status") {
-            result = R"({"success":true,"message":"Device is operational"})";
-        } else if (command == "restart") {
-            result = R"({"success":true,"message":"Device will restart in 3 seconds"})";
-            res.setContent(result, "application/json");
-            // Send response first, then restart after delay
-            delay(3000);
-            ESP.restart();
-            return;
-        } else if (command == "reset-wifi") {
-            webPlatform.resetWiFiCredentials();
-            result = R"({"success":true,"message":"WiFi credentials cleared. Device will restart."})";
-            res.setContent(result, "application/json");
-            // Send response first, then restart after delay
-            delay(1000);
-            ESP.restart();
-            return;
-        } else {
-            res.setStatus(400);
-            result = R"({"success":false,"error":"Unknown command"})";
-        }
-        
-        res.setContent(result, "application/json");
-    }, {AuthType::SESSION, AuthType::PAGE_TOKEN}, WebModule::WM_POST);
 
-    // Configuration API
-    webPlatform.registerRoute("/api/configure", [](WebRequest& req, WebResponse& res) {
-        if (req.getMethod() != WebModule::WM_POST) {
-            res.setStatus(405);
-            res.setContent("{\"error\":\"Method not allowed\"}", "application/json");
-            return;
+        if (command == "status") {
+          result = R"({"success":true,"message":"Device is operational"})";
+        } else if (command == "restart") {
+          result =
+              R"({"success":true,"message":"Device will restart in 3 seconds"})";
+          res.setContent(result, "application/json");
+          // Send response first, then restart after delay
+          delay(3000);
+          ESP.restart();
+          return;
+        } else if (command == "reset-wifi") {
+          webPlatform.resetWiFiCredentials();
+          result =
+              R"({"success":true,"message":"WiFi credentials cleared. Device will restart."})";
+          res.setContent(result, "application/json");
+          // Send response first, then restart after delay
+          delay(1000);
+          ESP.restart();
+          return;
+        } else {
+          res.setStatus(400);
+          result = R"({"success":false,"error":"Unknown command"})";
         }
-        
+
+        res.setContent(result, "application/json");
+      },
+      {AuthType::SESSION, AuthType::PAGE_TOKEN}, WebModule::WM_POST);
+
+  // Configuration API
+  webPlatform.registerRoute(
+      "/api/configure",
+      [](WebRequest &req, WebResponse &res) {
+        if (req.getMethod() != WebModule::WM_POST) {
+          res.setStatus(405);
+          res.setContent("{\"error\":\"Method not allowed\"}",
+                         "application/json");
+          return;
+        }
+
         String deviceName = req.getParam("device-name");
         bool enableDebug = req.getParam("enable-debug") == "on";
-        
+
         // In a real implementation, you would save these settings
         Serial.println("Configuration update:");
         Serial.println("Device Name: " + deviceName);
-        Serial.println("Debug Mode: " + String(enableDebug ? "Enabled" : "Disabled"));
-        
-        res.setContent("{\"success\":true,\"message\":\"Configuration saved\"}", "application/json");
-    }, {AuthType::SESSION, AuthType::PAGE_TOKEN}, WebModule::WM_POST);
+        Serial.println("Debug Mode: " +
+                       String(enableDebug ? "Enabled" : "Disabled"));
 
-    // Register secure modules
-    // webPlatform.registerModule("/secure", &secureModule);
-    
-    // Override module routes to add authentication if needed
-    // webPlatform.overrideRoute("/secure/admin", adminHandler, {AuthType::SESSION});
+        res.setContent("{\"success\":true,\"message\":\"Configuration saved\"}",
+                       "application/json");
+      },
+      {AuthType::SESSION, AuthType::PAGE_TOKEN}, WebModule::WM_POST);
 
+  // Register secure modules
+  // webPlatform.registerModule("/secure", &secureModule);
 
-    // Initialize WebPlatform
-    webPlatform.begin("SecureDevice");
+  // Override module routes to add authentication if needed
+  // webPlatform.overrideRoute("/secure/admin", adminHandler,
+  // {AuthType::SESSION});
 
-    if (webPlatform.isConnected()) {
-        Serial.println("Secure application ready!");
-        Serial.println("Default login: admin / admin");
-        Serial.print("Access at: ");
-        Serial.println(webPlatform.getBaseUrl());
-    } else {
-        Serial.println("Running in WiFi configuration mode");
-        Serial.print("Connect to: ");
-        Serial.println(webPlatform.getAPName());
-    }
+  // Initialize WebPlatform
+  webPlatform.begin("SecureDevice");
+
+  if (webPlatform.isConnected()) {
+    Serial.println("Secure application ready!");
+    Serial.println("Default login: admin / admin");
+    Serial.print("Access at: ");
+    Serial.println(webPlatform.getBaseUrl());
+  } else {
+    Serial.println("Running in WiFi configuration mode");
+    Serial.print("Connect to: ");
+    Serial.println(webPlatform.getAPName());
+  }
 }
 
 void loop() {
-    webPlatform.handle();
+  webPlatform.handle();
 
-    if (webPlatform.isConnected()) {
-        // Handle your secure modules
-        // secureModule.handle();
-    }
+  if (webPlatform.isConnected()) {
+    // Handle your secure modules
+    // secureModule.handle();
+  }
 
-    // Status LED - slow blink when connected, fast when configuring
-    static unsigned long lastBlink = 0;
-    unsigned long interval = webPlatform.isConnected() ? 2000 : 500;
-    
-    if (millis() - lastBlink > interval) {
-        lastBlink = millis();
-        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-    }
+  // Status LED - slow blink when connected, fast when configuring
+  static unsigned long lastBlink = 0;
+  unsigned long interval = webPlatform.isConnected() ? 2000 : 500;
+
+  if (millis() - lastBlink > interval) {
+    lastBlink = millis();
+    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+  }
 }

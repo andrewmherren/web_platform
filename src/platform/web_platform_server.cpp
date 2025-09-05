@@ -1,5 +1,5 @@
-#include "../../include/web_platform.h"
 #include "../../include/interface/web_request.h"
+#include "../../include/web_platform.h"
 
 #if defined(ESP32)
 #include <WebServer.h>
@@ -10,9 +10,8 @@
 void WebPlatform::startServer() {
   if (httpsEnabled) {
     serverPort = 443;
-    configureHttpsServer(); // TODO: ugly this sets httpsEnabled=false if it
-                            // fails. maybe make it return true/false instead
-                            // (or in addition)
+    configureHttpsServer();
+
     // If HTTPS failed, fall back to HTTP
     if (!httpsEnabled) {
       serverPort = 80;
@@ -166,52 +165,59 @@ void WebPlatform::configureHttpsServer() {
   Serial.println("WebPlatform: HTTPS server started successfully");
 
   registerUnifiedHttpsRoutes();
-  
+
   httpd_register_err_handler(
       httpsServerHandle, HTTPD_404_NOT_FOUND,
       [](httpd_req_t *req, httpd_err_code_t err) -> esp_err_t {
-        // First, check if this is actually a wildcard route match before showing 404
+        // First, check if this is actually a wildcard route match before
+        // showing 404
         WebRequest request(req);
         String requestPath = request.getPath();
-        
+
         // Convert ESP-IDF method back to our WebModule method for comparison
         WebModule::Method wmMethod = WebModule::WM_GET; // default
-        if (req->method == HTTP_POST) wmMethod = WebModule::WM_POST;
-        else if (req->method == HTTP_PUT) wmMethod = WebModule::WM_PUT;
-        else if (req->method == HTTP_DELETE) wmMethod = WebModule::WM_DELETE;
-        else if (req->method == HTTP_PATCH) wmMethod = WebModule::WM_PATCH;
-        
+        if (req->method == HTTP_POST)
+          wmMethod = WebModule::WM_POST;
+        else if (req->method == HTTP_PUT)
+          wmMethod = WebModule::WM_PUT;
+        else if (req->method == HTTP_DELETE)
+          wmMethod = WebModule::WM_DELETE;
+        else if (req->method == HTTP_PATCH)
+          wmMethod = WebModule::WM_PATCH;
+
         // Check all routes including wildcard ones
         for (const auto &route : routeRegistry) {
           if (route.method != wmMethod || route.disabled || !route.handler) {
             continue;
           }
-          
+
           // Check both exact and wildcard routes
-          bool pathMatches = WebPlatform::httpsInstance->pathMatchesRoute(route.path, requestPath);
+          bool pathMatches = WebPlatform::httpsInstance->pathMatchesRoute(
+              route.path, requestPath);
           if (pathMatches) {
 
-            // Set the matched route pattern on the request for parameter extraction
+            // Set the matched route pattern on the request for parameter
+            // extraction
             request.setMatchedRoute(route.path);
-            
+
             WebResponse response;
             // Use shared execution logic with authentication and CSRF
-            WebPlatform::httpsInstance->executeRouteWithAuth(route, request, response, "HTTPS");
+            WebPlatform::httpsInstance->executeRouteWithAuth(route, request,
+                                                             response, "HTTPS");
 
             return response.sendTo(req);
           }
         }
-        
+
         // No wildcard match found, show actual 404 page
         String errorPage = IWebModule::getErrorPage(404);
         if (errorPage.length() > 0) {
           // Set navigation context and inject menu
           IWebModule::setCurrentPath("/404");
-          errorPage = IWebModule::injectNavigationMenu(errorPage);
-
-          httpd_resp_set_status(req, "404 Not Found");
-          httpd_resp_set_type(req, "text/html");
-          httpd_resp_send(req, errorPage.c_str(), errorPage.length());
+          WebResponse response;
+          response.setStatus(404);
+          response.setContent(errorPage, "text/html");
+          return response.sendTo(req);
         } else {
           // Use a simple default response
           httpd_resp_set_status(req, "404 Not Found");

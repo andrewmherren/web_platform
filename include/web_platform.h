@@ -1,15 +1,15 @@
 #ifndef WEB_PLATFORM_H
 #define WEB_PLATFORM_H
 
+#include "interface/auth_types.h"
+#include "interface/web_module_interface.h"
+#include "interface/web_request.h"
+#include "interface/web_response.h"
 #include <DNSServer.h>
 #include <EEPROM.h>
 #include <functional>
 #include <map>
 #include <vector>
-#include "interface/auth_types.h"
-#include "interface/web_module_interface.h"
-#include "interface/web_request.h"
-#include "interface/web_response.h"
 
 #if defined(ESP32)
 #include <EEPROM.h>
@@ -112,14 +112,15 @@ public:
 
   // Debug and monitoring
   size_t getRouteCount() const;
-  void printUnifiedRoutes(const String* moduleBasePath = nullptr, IWebModule* module = nullptr) const;
+  void printUnifiedRoutes(const String *moduleBasePath = nullptr,
+                          IWebModule *module = nullptr) const;
   void validateRoutes() const;
 
   // IPlatformService implementation
   String getDeviceName() const override { return deviceName; }
   bool isHttpsEnabled() const override { return httpsEnabled; }
 
-  String prepareHtml(String html, WebRequest req, const String& csrfToken = "") override;
+  String prepareHtml(String html, WebRequest req, const String &csrfToken = "");
 
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
@@ -154,26 +155,33 @@ private:                            // Core server components
   void wifiManagementJSAssetHandler(WebRequest &req, WebResponse &res);
   void styleCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformFaviconHandler(WebRequest &req, WebResponse &res);
-  
+  void systemStatusJSAssetHandler(WebRequest &req, WebResponse &res);
+  void homePageJSAssetHandler(WebRequest &req, WebResponse &res);
+
   // RESTful API handlers - User management
   void getUsersApiHandler(WebRequest &req, WebResponse &res);
   void createUserApiHandler(WebRequest &req, WebResponse &res);
   void getUserByIdApiHandler(WebRequest &req, WebResponse &res);
   void updateUserByIdApiHandler(WebRequest &req, WebResponse &res);
   void deleteUserByIdApiHandler(WebRequest &req, WebResponse &res);
-  
+
   // Current user convenience handlers
   void getCurrentUserApiHandler(WebRequest &req, WebResponse &res);
   void updateCurrentUserApiHandler(WebRequest &req, WebResponse &res);
-  
+
   // Token management handlers
   void getUserTokensApiHandler(WebRequest &req, WebResponse &res);
   void createUserTokenApiHandler(WebRequest &req, WebResponse &res);
   void deleteTokenApiHandler(WebRequest &req, WebResponse &res);
-  
+
   // Legacy handlers (for compatibility with account page)
   void updateUserApiHandler(WebRequest &req, WebResponse &res);
   void createTokenApiHandler(WebRequest &req, WebResponse &res);
+
+  // System status API handlers
+  void getSystemStatusApiHandler(WebRequest &req, WebResponse &res);
+  void getNetworkStatusApiHandler(WebRequest &req, WebResponse &res);
+  void getModulesApiHandler(WebRequest &req, WebResponse &res);
 
   // Platform state
   PlatformMode currentMode;
@@ -235,9 +243,14 @@ private:                            // Core server components
 #endif
 
   // Route registration helper methods (shared between HTTP and HTTPS)
-  bool shouldSkipRoute(const RouteEntry& route, const String& serverType);
-  void executeRouteWithAuth(const RouteEntry& route, WebRequest& request, WebResponse& response, const String& serverType);
-  bool pathMatchesRoute(const String& routePath, const String& requestPath);
+  bool shouldSkipRoute(const RouteEntry &route, const String &serverType);
+  void executeRouteWithAuth(const RouteEntry &route, WebRequest &request,
+                            WebResponse &response, const String &serverType);
+  bool pathMatchesRoute(const String &routePath, const String &requestPath);
+
+  // Template processing helpers
+  bool shouldProcessResponse(const WebResponse &response);
+  void processResponseTemplates(WebRequest &request, WebResponse &response);
 
   // Certificate detection and HTTPS setup
   bool areCertificatesAvailable();

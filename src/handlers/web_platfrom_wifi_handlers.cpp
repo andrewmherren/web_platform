@@ -1,7 +1,7 @@
-#include "../../include/web_platform.h"
-#include "../../assets/wifi_management_js.h"
 #include "../../include/interface/web_module_interface.h"
+#include "../../include/web_platform.h"
 #include <ArduinoJson.h>
+
 
 void WebPlatform::scanApiHandler(WebRequest &req, WebResponse &res) {
   DynamicJsonDocument doc(2048);
@@ -64,7 +64,7 @@ void WebPlatform::scanApiHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::statusApiHandler(WebRequest &req, WebResponse &res) {
-  
+
   DynamicJsonDocument doc(512);
   doc["connected"] = (WiFi.status() == WL_CONNECTED);
   doc["ssid"] = WiFi.SSID();
@@ -90,9 +90,4 @@ void WebPlatform::resetApiHandler(WebRequest &req, WebResponse &res) {
   ESP.restart();
 
   res.setContent(R"({"status": "restarting"})", "application/json");
-}
-
-void WebPlatform::wifiManagementJSAssetHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(FPSTR(WIFI_MANAGEMENT_JS), "application/javascript");
-  res.setHeader("Cache-Control", "public, max-age=3600");
 }

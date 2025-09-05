@@ -1,6 +1,6 @@
-#include "../../include/web_platform.h"
-#include "../../include/route_entry.h"
 #include "../../include/interface/web_module_interface.h"
+#include "../../include/route_entry.h"
+#include "../../include/web_platform.h"
 
 #if defined(ESP32)
 #include <WebServer.h>
@@ -14,7 +14,8 @@
 std::vector<RouteEntry> routeRegistry;
 
 void WebPlatform::clearRouteRegistry() {
-  Serial.printf("WebPlatform: Clearing route registry (%d routes)\n", routeRegistry.size());
+  Serial.printf("WebPlatform: Clearing route registry (%d routes)\n",
+                routeRegistry.size());
   routeRegistry.clear();
 }
 
@@ -93,78 +94,133 @@ void WebPlatform::disableRoute(const String &path, WebModule::Method method) {
 }
 
 // Helper function to check if a path matches a route pattern with wildcards
-bool WebPlatform::pathMatchesRoute(const String& routePath, const String& requestPath) {
+bool WebPlatform::pathMatchesRoute(const String &routePath,
+                                   const String &requestPath) {
   // Check for exact match first
   if (routePath == requestPath) {
     return true;
+  } // Simple pattern matching instead of regex (ESP32 doesn't fully support
+    // std::regex)
+
+  // First, handle simple wildcards
+  if (routePath.endsWith("/*")) {
+    // Check if path starts with the part before the wildcard
+    String prefix = routePath.substring(0, routePath.length() - 1);
+    return requestPath.startsWith(prefix);
   }
-  
-  // Check for wildcard pattern
-  int wildcardPos = routePath.indexOf('*');
-  if (wildcardPos >= 0) {
-    // Extract prefix before wildcard
-    String prefix = routePath.substring(0, wildcardPos);
-    
-    // Check if request path starts with the prefix
-    if (requestPath.startsWith(prefix)) {
-      // For now, accept any suffix after the prefix
-      // Could be enhanced to support more complex patterns
-      return true;
+
+  // Handle parameter pattern matching {param}
+  if (routePath.indexOf('{') < 0) {
+    // No parameters, return false (already checked for exact match above)
+    return false;
+  }
+
+  // Split both paths by '/'
+  std::vector<String> routeSegments;
+  std::vector<String> requestSegments;
+
+  // Split route path
+  int start = 0;
+  int end = 0;
+  while ((end = routePath.indexOf('/', start)) >= 0) {
+    if (end > start) {
+      routeSegments.push_back(routePath.substring(start, end));
     }
+    start = end + 1;
   }
-  
-  // TODO: couldn't we do simple regex capture match for {}?
-  // Check for named parameter patterns like {param}
-  int braceStart = routePath.indexOf('{');
-  if (braceStart >= 0) {
-    int braceEnd = routePath.indexOf('}', braceStart);
-    if (braceEnd > braceStart) {
-      // This is a simplified implementation
-      // For full Laravel-style routing, this would need more complex parsing
-      String beforeParam = routePath.substring(0, braceStart);
-      String afterParam = routePath.substring(braceEnd + 1);
-      
-      if (requestPath.startsWith(beforeParam)) {
-        if (afterParam.length() == 0) {
-          // Parameter is at the end
-          return requestPath.length() > beforeParam.length();
-        } else {
-          // Check if the part after the parameter matches
-          int afterPos = requestPath.indexOf(afterParam, beforeParam.length());
-          return afterPos > (int)beforeParam.length();
+  if (start < routePath.length()) {
+    routeSegments.push_back(routePath.substring(start));
+  }
+
+  // Split request path
+  start = 0;
+  end = 0;
+  while ((end = requestPath.indexOf('/', start)) >= 0) {
+    if (end > start) {
+      requestSegments.push_back(requestPath.substring(start, end));
+    }
+    start = end + 1;
+  }
+  if (start < requestPath.length()) {
+    requestSegments.push_back(requestPath.substring(start));
+  }
+
+  // If segment counts don't match, paths don't match
+  if (routeSegments.size() != requestSegments.size()) {
+    return false;
+  }
+
+  // Check each segment
+  for (size_t i = 0; i < routeSegments.size(); i++) {
+    String routeSegment = routeSegments[i];
+    String requestSegment = requestSegments[i];
+
+    // If it's a parameter segment {param}, consider it a match
+    if (routeSegment.startsWith("{") && routeSegment.endsWith("}")) {
+      // Parameter segment - validate it's a number or UUID
+      bool validParam = false;
+
+      // Check if it's a number
+      bool isNumber = true;
+      for (unsigned int j = 0; j < requestSegment.length(); j++) {
+        if (!isdigit(requestSegment[j])) {
+          isNumber = false;
+          break;
         }
       }
+
+      if (isNumber) {
+        validParam = true;
+      } else {
+        // Check for UUID format (simplified check)
+        if (requestSegment.length() == 36 && requestSegment.indexOf('-') == 8 &&
+            requestSegment.indexOf('-', 9) == 13 &&
+            requestSegment.indexOf('-', 14) == 18 &&
+            requestSegment.indexOf('-', 19) == 23) {
+          validParam = true;
+        }
+      }
+
+      if (!validParam) {
+        return false;
+      }
+    }
+    // If not a parameter, segments must match exactly
+    else if (routeSegment != requestSegment) {
+      return false;
     }
   }
-  
-  return false;
+
+  // All segments matched
+  return true;
 }
 
 // Helper function to check if route should be skipped (shared logic)
-bool WebPlatform::shouldSkipRoute(const RouteEntry& route, const String& serverType) {
+bool WebPlatform::shouldSkipRoute(const RouteEntry &route,
+                                  const String &serverType) {
   if (route.disabled) {
     Serial.printf("WebPlatform: Skipping disabled %s route %s %s\n",
-                  serverType.c_str(),
-                  wmMethodToString(route.method).c_str(),
+                  serverType.c_str(), wmMethodToString(route.method).c_str(),
                   route.path.c_str());
     return true;
   }
 
   if (!route.handler) {
     Serial.printf("WebPlatform: Skipping %s route with null handler %s %s\n",
-                  serverType.c_str(),
-                  wmMethodToString(route.method).c_str(),
+                  serverType.c_str(), wmMethodToString(route.method).c_str(),
                   route.path.c_str());
     return true;
   }
 
   return false;
-}
-
-// Helper function to execute route with authentication and CSRF processing (shared logic)
-void WebPlatform::executeRouteWithAuth(const RouteEntry& route, WebRequest& request, WebResponse& response, const String& serverType) {
-  Serial.printf("%s handling request: %s\n",
-                serverType.c_str(), request.getPath().c_str());
+} // Helper function to execute route with authentication and CSRF processing
+// (shared logic)
+void WebPlatform::executeRouteWithAuth(const RouteEntry &route,
+                                       WebRequest &request,
+                                       WebResponse &response,
+                                       const String &serverType) {
+  Serial.printf("%s handling request: %s\n", serverType.c_str(),
+                request.getPath().c_str());
 
   // Set the matched route pattern on the request for parameter extraction
   request.setMatchedRoute(route.path);
@@ -174,15 +230,15 @@ void WebPlatform::executeRouteWithAuth(const RouteEntry& route, WebRequest& requ
     // Call the unified handler
     route.handler(request, response);
 
-    // Process CSRF token injection for HTML responses
-    if (!response.isResponseSent() &&
-        response.getMimeType() == "text/html") {
-      Serial.printf("Processing CSRF for %s %s response, content length: %d\n",
-                    serverType.c_str(),
-                    request.getPath().c_str(),
-                    response.getContent().length());
-      Serial.printf("Client IP from request.getClientIp(): %s\n", request.getClientIp().c_str());
-      this->processCsrfForResponse(request, response);
+    // Process templates and CSRF token injection for responses that should be
+    // processed
+    if (!response.isResponseSent() && this->shouldProcessResponse(response)) {
+      Serial.printf(
+          "Processing templates for %s %s response, content length: %d\n",
+          serverType.c_str(), request.getPath().c_str(),
+          response.getContent().length());
+
+      this->processResponseTemplates(request, response);
     }
   }
 }
@@ -219,15 +275,17 @@ void WebPlatform::bindRegisteredRoutes() {
 
     HTTPMethod httpMethod = wmMethodToHttpMethod(route.method);
 
-    // Check if this route has wildcards or parameters - if so, use a generic handler
-    bool hasWildcard = route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
-    
+    // Check if this route has wildcards or parameters - if so, use a generic
+    // handler
+    bool hasWildcard =
+        route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
+
     if (hasWildcard) {
       // Create a generic handler that checks all requests for pattern matching
       auto wrapperHandler = [route, this]() {
         WebRequest request(server);
         String requestPath = request.getPath();
-        
+
         // Check if this request matches our route pattern
         if (pathMatchesRoute(route.path, requestPath)) {
           WebResponse response;
@@ -238,11 +296,12 @@ void WebPlatform::bindRegisteredRoutes() {
           server->send(404, "text/plain", "Not Found");
         }
       };
-      
+
       // For wildcard routes, we need to register a catch-all pattern
-      // This is a limitation of Arduino WebServer - we'll register with the server's notFound handler
-      // For now, we'll store these routes and handle them in a custom way
-      
+      // This is a limitation of Arduino WebServer - we'll register with the
+      // server's notFound handler For now, we'll store these routes and handle
+      // them in a custom way
+
     } else {
       // Regular exact-match route
       auto wrapperHandler = [route, this]() {
@@ -265,27 +324,32 @@ void WebPlatform::bindRegisteredRoutes() {
       }
     }
   }
-  
+
   // Set up a custom notFound handler that checks wildcard routes
   server->onNotFound([this]() {
     WebRequest request(server);
     String requestPath = request.getPath();
     HTTPMethod requestMethod = server->method();
-    
+
     // Convert HTTP method back to our WebModule method
     WebModule::Method wmMethod = WebModule::WM_GET; // default
-    if (requestMethod == HTTP_POST) wmMethod = WebModule::WM_POST;
-    else if (requestMethod == HTTP_PUT) wmMethod = WebModule::WM_PUT;
-    else if (requestMethod == HTTP_DELETE) wmMethod = WebModule::WM_DELETE;
-    else if (requestMethod == HTTP_PATCH) wmMethod = WebModule::WM_PATCH;
-    
+    if (requestMethod == HTTP_POST)
+      wmMethod = WebModule::WM_POST;
+    else if (requestMethod == HTTP_PUT)
+      wmMethod = WebModule::WM_PUT;
+    else if (requestMethod == HTTP_DELETE)
+      wmMethod = WebModule::WM_DELETE;
+    else if (requestMethod == HTTP_PATCH)
+      wmMethod = WebModule::WM_PATCH;
+
     // Check all routes for wildcard matches
     for (const auto &route : routeRegistry) {
       if (route.disabled || !route.handler || route.method != wmMethod) {
         continue;
       }
-      
-      bool hasWildcard = route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
+
+      bool hasWildcard =
+          route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
       if (hasWildcard && this->pathMatchesRoute(route.path, requestPath)) {
         WebResponse response;
         this->executeRouteWithAuth(route, request, response, "HTTP");
@@ -293,7 +357,7 @@ void WebPlatform::bindRegisteredRoutes() {
         return;
       }
     }
-    
+
     // No match found
     server->send(404, "text/plain", "Not Found");
   });
@@ -318,7 +382,8 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
     httpd_method_t httpdMethod = wmMethodToHttpMethod(route.method);
 
     // Check if this route has wildcards or parameters
-    bool hasWildcard = route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
+    bool hasWildcard =
+        route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
 
     // For wildcard/parameterized routes, we need to handle them differently
     // ESP-IDF doesn't support wildcard matching, so we skip registration here
@@ -326,7 +391,7 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
     if (hasWildcard) {
       continue; // Skip registration, handle in catch-all
     }
-    
+
     String registrationPath = route.path;
 
     // Store the path permanently for ESP-IDF
@@ -338,10 +403,12 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
 
     // Register the route
     httpd_uri_t uri_config = {};
-    uri_config.uri =
-        httpsRoutePaths[httpsRoutePaths.size() -
-                        (registrationPath.endsWith("/") || registrationPath == "/" ? 1 : 2)]
-            .c_str();
+    uri_config.uri = httpsRoutePaths[httpsRoutePaths.size() -
+                                     (registrationPath.endsWith("/") ||
+                                              registrationPath == "/"
+                                          ? 1
+                                          : 2)]
+                         .c_str();
     uri_config.method = httpdMethod;
     uri_config.handler = [](httpd_req_t *req) -> esp_err_t {
       // Create WebRequest first to get properly parsed path
@@ -353,25 +420,33 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
       for (const auto &route : routeRegistry) {
         // Convert ESP-IDF method back to our WebModule method for comparison
         WebModule::Method wmMethod = WebModule::WM_GET; // default
-        if (req->method == HTTP_POST) wmMethod = WebModule::WM_POST;
-        else if (req->method == HTTP_PUT) wmMethod = WebModule::WM_PUT;
-        else if (req->method == HTTP_DELETE) wmMethod = WebModule::WM_DELETE;
-        else if (req->method == HTTP_PATCH) wmMethod = WebModule::WM_PATCH;
-        
+        if (req->method == HTTP_POST)
+          wmMethod = WebModule::WM_POST;
+        else if (req->method == HTTP_PUT)
+          wmMethod = WebModule::WM_PUT;
+        else if (req->method == HTTP_DELETE)
+          wmMethod = WebModule::WM_DELETE;
+        else if (req->method == HTTP_PATCH)
+          wmMethod = WebModule::WM_PATCH;
+
         if (route.method != wmMethod || route.disabled || !route.handler) {
           continue;
         }
-        
-        bool pathMatches = WebPlatform::httpsInstance->pathMatchesRoute(route.path, requestPath) ||
-                          (route.path + "/" == requestPath &&
-                           !route.path.endsWith("/") && route.path != "/");
+
+        bool pathMatches = WebPlatform::httpsInstance->pathMatchesRoute(
+                               route.path, requestPath) ||
+                           (route.path + "/" == requestPath &&
+                            !route.path.endsWith("/") && route.path != "/");
 
         if (pathMatches && !route.disabled) {
-          Serial.printf("HTTPS found matching route: %s matches %s (override: %s)\n",
-                        route.path.c_str(), requestPath.c_str(), route.isOverride ? "yes" : "no");
+          Serial.printf(
+              "HTTPS found matching route: %s matches %s (override: %s)\n",
+              route.path.c_str(), requestPath.c_str(),
+              route.isOverride ? "yes" : "no");
 
           // Use shared execution logic with authentication and CSRF
-          WebPlatform::httpsInstance->executeRouteWithAuth(route, request, response, "HTTPS");
+          WebPlatform::httpsInstance->executeRouteWithAuth(route, request,
+                                                           response, "HTTPS");
 
           return response.sendTo(req);
         }
@@ -391,7 +466,8 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
       httpd_register_uri_handler(httpsServerHandle, &uri_config);
     }
   }
-  
-  // No need for catch-all handlers - wildcard routes will be handled in the existing 404 error handler
+
+  // No need for catch-all handlers - wildcard routes will be handled in the
+  // existing 404 error handler
 }
 #endif

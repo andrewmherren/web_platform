@@ -3,59 +3,75 @@
 
 #include <Arduino.h>
 
-const char ACCOUNT_PAGE_HTML[] PROGMEM = R"rawliteral(
+const char ACCOUNT_PAGE_HTML[] PROGMEM = R"HTML(
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Account - {{DEVICE_NAME}}</title>
-  <link rel="stylesheet" href="/assets/style.css">
-  <link rel="stylesheet" href="/assets/web-platform-style.css">
-  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="/assets/favicon.ico" sizes="any">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="csrf-token" content="{{csrfToken}}">
+    <title>{{DEVICE_NAME}} - Account Settings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{csrfToken}}">
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/assets/favicon.ico" sizes="any">
+    <script src="/assets/account-page.js"></script>
 </head>
 <body>
-  <div class="container">
-    <h1>Account Settings</h1>
-    <p>Logged in as: <strong>{{username}}</strong> | <a href="/logout">Logout</a></p>
-    <!-- Navigation menu will be auto-injected here -->
-    
-    <div class="card">
-      <h2>Change Password</h2>
-      <form id="password-form">
-        <div class="form-group">
-          <label for="password">New Password:</label>
-          <input type="password" id="password" name="password" class="form-control" required>
+    <div class="container">
+        {{NAV_MENU}}
+        <h1>Account Settings</h1>
+        
+        <div id="statusMessage" class="alert" style="display: none;"></div>
+        
+        <div class="card">
+            <h3>Update Password</h3>
+            <form id="updatePasswordForm">
+                <div class="form-group">
+                    <label for="password">New Password:</label>
+                    <input type="password" id="password" name="password" class="form-control" required minlength="4">
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">Update Password</button>
+                </div>
+            </form>
         </div>
-        <div class="form-group">
-          <label for="confirmPassword">Confirm Password:</label>
-          <input type="password" id="confirmPassword" name="confirmPassword" class="form-control" required>
+        
+        <div class="card">
+            <h3>API Tokens</h3>
+            <p>Create API tokens to access this device's API from other applications.</p>
+            
+            <form id="createTokenForm">
+                <div class="form-group">
+                    <label for="tokenName">Token Name:</label>
+                    <input type="text" id="tokenName" name="tokenName" class="form-control" required 
+                           placeholder="e.g. 'Home Assistant Integration'">
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">Create Token</button>
+                </div>
+            </form>
+            
+            <div id="newTokenDisplay" style="display: none;" class="mt-3">
+                <h4>New Token Created</h4>
+                <p>Copy this token now. It will not be shown again!</p>
+                <div class="token-display">
+                    <input type="text" id="newToken" class="form-control" readonly>
+                </div>
+            </div>
+            
+            <h4 class="mt-3">Your Tokens</h4>
+            <div id="tokenContainer">
+                <p>Loading tokens...</p>
+            </div>
         </div>
-        <button type="submit" class="btn btn-primary">Update Password</button>
-      </form>
+        
+        <div class="button-group mt-3">
+            <a href="/" class="btn btn-secondary">Back to Home</a>
+            <a href="/logout" class="btn btn-danger">Logout</a>
+        </div>
     </div>
-    
-    <div class="card">
-      <h2>API Tokens</h2>
-      <p>API tokens can be used to authenticate API requests without logging in.</p>
-      {{tokensHtml}}
-      <div id="token-display" class="token-display"></div>
-      <button id="show-token-form" class="btn btn-secondary">Create New Token</button>
-      <form id="token-form" style="display: none;">
-        <div class="form-group">
-          <label for="tokenName">Token Name:</label>
-          <input type="text" id="tokenName" name="tokenName" class="form-control" required>
-        </div>
-        <button type="submit" class="btn btn-primary">Create Token</button>
-      </form>
-    </div>
-  </div>
-  
-  <script src="/assets/web-platform-utils.js"></script>
-  <script src="/assets/account-page.js"></script>
 </body>
 </html>
-)rawliteral";
+)HTML";
 
 #endif // ACCOUNT_PAGE_HTML_H

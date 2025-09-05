@@ -47,50 +47,6 @@ String IWebModule::generateNavigationHtml() {
   return html;
 }
 
-String IWebModule::injectNavigationMenu(const String &htmlContent) {
-  // Generate the navigation HTML
-  String navHtml = generateNavigationHtml();
-  if (navHtml.length() == 0) {
-    return htmlContent; // No navigation menu to inject
-  }
-
-  // Look for the placeholder comment first (most preferred)
-  int placeholderPos = htmlContent.indexOf(
-      "<!-- Navigation menu will be auto-injected here -->");
-  if (placeholderPos == -1) {
-    placeholderPos = htmlContent.indexOf(
-        "<!-- Navigation will be automatically injected here -->");
-  }
-
-  if (placeholderPos != -1) {
-    // Replace the placeholder with navigation HTML
-    int placeholderEnd = htmlContent.indexOf("-->", placeholderPos) + 3;
-    return htmlContent.substring(0, placeholderPos) + navHtml +
-           htmlContent.substring(placeholderEnd);
-  }
-
-  // Try to find container to inject into
-  int containerPos = htmlContent.indexOf("<div class=\"container\">");
-  if (containerPos != -1) {
-    // Find the first div closing tag after the container opening
-    int divClosePos = htmlContent.indexOf(">", containerPos);
-    if (divClosePos != -1) {
-      return htmlContent.substring(0, divClosePos + 1) + "\n" + navHtml +
-             htmlContent.substring(divClosePos + 1);
-    }
-  }
-
-  // Fallback: Try to find the body tag
-  int bodyPos = htmlContent.indexOf("<body>");
-  if (bodyPos != -1) {
-    return htmlContent.substring(0, bodyPos + 6) + "\n" + navHtml +
-           htmlContent.substring(bodyPos + 6);
-  }
-
-  // Last resort: just prepend to the content
-  return navHtml + htmlContent;
-}
-
 // Error Page Customization
 void IWebModule::setErrorPage(int statusCode, const String &html) {
   errorPages[statusCode] = html;
@@ -181,7 +137,7 @@ String IWebModule::generateDefaultErrorPage(int statusCode,
   html += "</head>\n";
   html += "<body>\n";
   html += "  <div class=\"container\">\n";
-  html += "    <!-- Navigation menu will be auto-injected here -->\n";
+  html += "    {{NAV_MENU}}\n";
   html += "    <div class=\"error-page\">\n";
   html += "      <h1 class=\"" + statusClass + "\">" + title + "</h1>\n";
   html += "      <p class=\"error-description\">" + description + "</p>\n";
