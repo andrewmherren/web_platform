@@ -5,6 +5,7 @@
 #include "interface/web_module_interface.h"
 #include "interface/web_request.h"
 #include "interface/web_response.h"
+#include "platform/ntp_client.h"
 #include <DNSServer.h>
 #include <EEPROM.h>
 #include <functional>

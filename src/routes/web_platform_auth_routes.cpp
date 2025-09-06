@@ -94,7 +94,7 @@ void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::SESSION},
                 WebModule::WM_POST); // Delete specific token
-  registerRoute("/api/tokens/{tokenId}",
+  registerRoute("/api/tokens/{id}",
                 std::bind(&WebPlatform::deleteTokenApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::SESSION}, WebModule::WM_DELETE);

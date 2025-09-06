@@ -1,3 +1,4 @@
+#include "../../include/platform/ntp_client.h"
 #include "../../include/web_platform.h"
 
 bool WebPlatform::loadWiFiCredentials(String &ssid, String &password) {
@@ -41,7 +42,7 @@ void WebPlatform::saveWiFiCredentials(const String &ssid,
   // Clear previous data
   for (int i = 0; i < 96; i++) {
     EEPROM.write(WIFI_SSID_ADDR + i, 0);
-  }// Write SSID
+  } // Write SSID
   for (unsigned int i = 0; i < ssid.length() && i < 31; i++) {
     EEPROM.write(WIFI_SSID_ADDR + i, ssid[i]);
   }
@@ -124,11 +125,14 @@ void WebPlatform::determinePlatformMode() {
   if (loadWiFiCredentials(ssid, password) && ssid.length() > 0) {
     Serial.println(
         "WebPlatform: Found stored WiFi credentials, attempting connection...");
-
     if (connectToStoredWiFi(ssid, password)) {
       currentMode = CONNECTED;
       connectionState = WIFI_CONNECTED;
       setupmDNS();
+
+      // Initialize NTP client after WiFi connection
+      NTPClient::begin();
+
       Serial.printf("WebPlatform: Connected to WiFi: %s\n",
                     WiFi.SSID().c_str());
       Serial.printf("WebPlatform: IP address: %s\n",

@@ -348,6 +348,7 @@ void WebPlatform::getUserTokensApiHandler(WebRequest &req, WebResponse &res) {
     if (i > 0)
       json += ",";
     json += "{";
+    json += "\"id\":\"" + tokens[i].id + "\",";
     json += "\"token\":\"" + tokens[i].token + "\",";
     json += "\"name\":\"" + tokens[i].name + "\",";
     json += "\"createdAt\":" + String(tokens[i].createdAt) + ",";

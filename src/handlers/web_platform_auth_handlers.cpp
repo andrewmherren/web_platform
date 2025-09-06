@@ -206,27 +206,46 @@ void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
 
-  // Extract token from URL path (e.g., /api/token/abc123)
-  String token = req.getRouteParameter("tokenId");
+  // Extract token ID from URL path (e.g., /api/tokens/{id})
+  String tokenId = req.getRouteParameter("id");
 
-  if (token.isEmpty()) {
+  if (tokenId.isEmpty()) {
     res.setStatus(400);
     res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Token is required\"}");
+    res.setContent("{\"success\":false,\"message\":\"Token ID is required\"}");
+    return;
+  }
+
+  // Need to update AuthStorage to support findApiTokenById
+  // For now, we'll get all user tokens and find the one with matching ID
+  AuthUser user = AuthStorage::findUserByUsername(username);
+  std::vector<AuthApiToken> userTokens = AuthStorage::getUserApiTokens(user.id);
+
+  AuthApiToken targetToken;
+  for (const AuthApiToken &token : userTokens) {
+    if (token.id == tokenId) {
+      targetToken = token;
+      break;
+    }
+  }
+
+  if (!targetToken.isValid()) {
+    res.setStatus(404);
+    res.setHeader("Content-Type", "application/json");
+    res.setContent("{\"success\":false,\"message\":\"Token not found\"}");
     return;
   }
 
   // Verify token belongs to user
-  AuthApiToken apiToken = AuthStorage::findApiToken(token);
-  if (!apiToken.isValid() || apiToken.username != username) {
+  if (targetToken.username != username) {
     res.setStatus(403);
     res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Token not found or "
-                   "not authorized\"}");
+    res.setContent("{\"success\":false,\"message\":\"Not authorized to delete "
+                   "this token\"}");
     return;
   }
 
-  bool success = AuthStorage::deleteApiToken(token);
+  bool success = AuthStorage::deleteApiToken(targetToken.token);
 
   res.setHeader("Content-Type", "application/json");
   if (success) {

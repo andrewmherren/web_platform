@@ -4,7 +4,6 @@
 #include "../../include/models/data_models.h"
 #include <ArduinoJson.h>
 
-
 // Initialize static members
 bool AuthStorage::initialized = false;
 String AuthStorage::driverName = "";
@@ -364,19 +363,17 @@ String AuthStorage::createApiToken(const String &userId, const String &name,
   if (!user.isValid()) {
     return "";
   }
-
   String token = "tok_" + AuthUtils::generateSecureToken(32);
   AuthApiToken apiToken(token, userId, user.username, name, expireInDays);
 
   IDatabaseDriver *driver = StorageManager::driver(driverName);
 
-  if (driver->store(API_TOKENS_COLLECTION, token, apiToken.toJson())) {
+  if (driver->store(API_TOKENS_COLLECTION, apiToken.id, apiToken.toJson())) {
     return token;
   }
 
   return "";
 }
-
 AuthApiToken AuthStorage::findApiToken(const String &token) {
   ensureInitialized();
 
@@ -384,8 +381,14 @@ AuthApiToken AuthStorage::findApiToken(const String &token) {
     return AuthApiToken();
   }
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
-  String tokenData = driver->retrieve(API_TOKENS_COLLECTION, token);
+  // Using QueryBuilder to find by token value
+  QueryBuilder query = StorageManager::query(API_TOKENS_COLLECTION);
+  if (driverName.length() > 0) {
+    query =
+        QueryBuilder(StorageManager::driver(driverName), API_TOKENS_COLLECTION);
+  }
+
+  String tokenData = query.where("token", token).get();
 
   if (tokenData.length() > 0) {
     return AuthApiToken::fromJson(tokenData);
@@ -408,7 +411,6 @@ String AuthStorage::validateApiToken(const String &token) {
 
   return apiToken.userId;
 }
-
 bool AuthStorage::deleteApiToken(const String &token) {
   ensureInitialized();
 
@@ -416,8 +418,14 @@ bool AuthStorage::deleteApiToken(const String &token) {
     return false;
   }
 
+  // Find the token first to get its ID
+  AuthApiToken apiToken = findApiToken(token);
+  if (!apiToken.isValid()) {
+    return false;
+  }
+
   IDatabaseDriver *driver = StorageManager::driver(driverName);
-  return driver->remove(API_TOKENS_COLLECTION, token);
+  return driver->remove(API_TOKENS_COLLECTION, apiToken.id);
 }
 
 std::vector<AuthApiToken> AuthStorage::getUserApiTokens(const String &userId) {
@@ -475,7 +483,6 @@ int AuthStorage::cleanExpiredApiTokens() {
 }
 
 // Page Token management
-
 String AuthStorage::createPageToken(const String &clientIp) {
   ensureInitialized();
 
@@ -488,13 +495,12 @@ String AuthStorage::createPageToken(const String &clientIp) {
 
   IDatabaseDriver *driver = StorageManager::driver(driverName);
 
-  if (driver->store(PAGE_TOKENS_COLLECTION, token, pageToken.toJson())) {
+  if (driver->store(PAGE_TOKENS_COLLECTION, pageToken.id, pageToken.toJson())) {
     return token;
   }
 
   return "";
 }
-
 bool AuthStorage::validatePageToken(const String &token,
                                     const String &clientIp) {
   ensureInitialized();
@@ -503,8 +509,14 @@ bool AuthStorage::validatePageToken(const String &token,
     return false;
   }
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
-  String tokenData = driver->retrieve(PAGE_TOKENS_COLLECTION, token);
+  // Use QueryBuilder to find by token value
+  QueryBuilder query = StorageManager::query(PAGE_TOKENS_COLLECTION);
+  if (driverName.length() > 0) {
+    query = QueryBuilder(StorageManager::driver(driverName),
+                         PAGE_TOKENS_COLLECTION);
+  }
+
+  String tokenData = query.where("token", token).get();
 
   if (tokenData.length() == 0) {
     Serial.printf("PageToken validation failed: token '%s...' not found\n",
@@ -516,7 +528,8 @@ bool AuthStorage::validatePageToken(const String &token,
   if (!pageToken.isValid()) {
     Serial.printf("PageToken validation failed: token '%s...' expired\n",
                   token.substring(0, 6).c_str());
-    driver->remove(PAGE_TOKENS_COLLECTION, token);
+    IDatabaseDriver *driver = StorageManager::driver(driverName);
+    driver->remove(PAGE_TOKENS_COLLECTION, pageToken.id);
     return false;
   }
 

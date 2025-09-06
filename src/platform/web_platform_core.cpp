@@ -1,5 +1,6 @@
-#include "../../include/web_platform.h"
 #include "../../include/interface/platform_service.h"
+#include "../../include/platform/ntp_client.h"
+#include "../../include/web_platform.h"
 
 #if defined(ESP32)
 #include <WebServer.h>
@@ -15,11 +16,9 @@
 WebPlatform *WebPlatform::httpsInstance = nullptr;
 #endif
 
-IPlatformService* g_platformService = nullptr;
+IPlatformService *g_platformService = nullptr;
 
-IPlatformService* getPlatformService() {
-    return g_platformService;
-}
+IPlatformService *getPlatformService() { return g_platformService; }
 
 WebPlatform::WebPlatform()
     : currentMode(CONFIG_PORTAL), connectionState(WIFI_CONFIG_PORTAL),
@@ -93,7 +92,6 @@ void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
                 httpsEnabled ? "enabled" : "disabled");
   Serial.printf("WebPlatform: Server running on port %d\n", serverPort);
 }
-
 void WebPlatform::handle() {
   if (server) {
     server->handleClient();
@@ -101,6 +99,9 @@ void WebPlatform::handle() {
 
   if (currentMode == CONFIG_PORTAL) {
     dnsServer.processNextRequest();
+  } else if (currentMode == CONNECTED) {
+    // Handle NTP client updates when connected
+    NTPClient::handle();
   }
 
   // Periodic connection state updates
@@ -119,30 +120,37 @@ void WebPlatform::handleNotFound() {
 
   if (currentMode == CONFIG_PORTAL) {
     // In captive portal mode, redirect ALL requests to the config page
-    // This ensures PC browsers will navigate to the portal regardless of what URL was entered
+    // This ensures PC browsers will navigate to the portal regardless of what
+    // URL was entered
     String portalUrl = "http://" + WiFi.softAPIP().toString() + "/";
-    
-    // Check if this is already a request to the portal URL to avoid redirect loops
+
+    // Check if this is already a request to the portal URL to avoid redirect
+    // loops
     String requestHost = server->hostHeader();
     String requestUri = server->uri();
     String softAPIP = WiFi.softAPIP().toString();
-    
+
     // Don't redirect if already requesting the portal directly
-    bool isPortalRequest = (requestHost == softAPIP || requestHost.startsWith(softAPIP + ":"));
+    bool isPortalRequest =
+        (requestHost == softAPIP || requestHost.startsWith(softAPIP + ":"));
     bool isRootRequest = (requestUri == "/" || requestUri.isEmpty());
-    
+
     if (!isPortalRequest || !isRootRequest) {
-      Serial.printf("WebPlatform: Captive portal redirect: %s%s -> %s\n", 
+      Serial.printf("WebPlatform: Captive portal redirect: %s%s -> %s\n",
                     requestHost.c_str(), requestUri.c_str(), portalUrl.c_str());
       server->sendHeader("Location", portalUrl);
       server->sendHeader("Connection", "close");
-      server->send(302, "text/html", 
-        "<html><head><title>WiFi Setup</title></head><body>"
-        "<h1>WiFi Configuration Required</h1>"
-        "<p>Redirecting to setup page...</p>"
-        "<p><a href='" + portalUrl + "'>Click here if not redirected automatically</a></p>"
-        "<script>window.location.href='" + portalUrl + "';</script>"
-        "</body></html>");
+      server->send(302, "text/html",
+                   "<html><head><title>WiFi Setup</title></head><body>"
+                   "<h1>WiFi Configuration Required</h1>"
+                   "<p>Redirecting to setup page...</p>"
+                   "<p><a href='" +
+                       portalUrl +
+                       "'>Click here if not redirected automatically</a></p>"
+                       "<script>window.location.href='" +
+                       portalUrl +
+                       "';</script>"
+                       "</body></html>");
       return;
     }
   }
@@ -213,10 +221,11 @@ void WebPlatform::setupConfigPortalMode() {
   Serial.println("WebPlatform: Setting up config portal routes");
 
   // Someday this could be optional but for now the config portal is assumed
-  // to be a simple setup interface that shouldn't be cluttered with additional routes
+  // to be a simple setup interface that shouldn't be cluttered with additional
+  // routes
   //
-  // TODO: this breaks the overriding of the static assets like style.css and faveicon
-  // which is a problem as the portal should still allow this.
+  // TODO: this breaks the overriding of the static assets like style.css and
+  // faveicon which is a problem as the portal should still allow this.
   clearRouteRegistry();
 
   // Register main portal routes
@@ -228,8 +237,9 @@ void WebPlatform::setupConfigPortalMode() {
   // Setup captive portal DNS server to redirect all DNS queries to our AP IP
   // This makes PC browsers navigate to the portal when any domain is entered
   dnsServer.start(53, "*", WiFi.softAPIP());
-  Serial.printf("WebPlatform: Captive portal DNS started - all domains redirect to %s\n", 
-                WiFi.softAPIP().toString().c_str());
+  Serial.printf(
+      "WebPlatform: Captive portal DNS started - all domains redirect to %s\n",
+      WiFi.softAPIP().toString().c_str());
 }
 
 void WebPlatform::setupConnectedMode() {
@@ -366,7 +376,7 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
       registerRoute(fullPath, unifiedHandler, {AuthType::NONE}, route.method);
     }
   }
-  
+
   // Print only routes for this specific module
   printUnifiedRoutes(&basePath, module);
 
