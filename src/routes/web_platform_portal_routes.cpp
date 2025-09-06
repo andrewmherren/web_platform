@@ -3,29 +3,25 @@
 
 void WebPlatform::registerConfigPortalRoutes() {
   // Static assets - no authentication required for captive portal
-  registerRoute(
-      "/assets/favicon.svg",
-      std::bind(&WebPlatform::webPlatformFaviconHandler, this,
+  registerRoute("/assets/favicon.svg",
+                std::bind(&WebPlatform::webPlatformFaviconHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-      {AuthType::NONE}, WebModule::WM_GET);
+                {AuthType::NONE}, WebModule::WM_GET);
 
-  registerRoute(
-      "/assets/favicon.ico",
-      std::bind(&WebPlatform::webPlatformFaviconHandler, this,
+  registerRoute("/assets/favicon.ico",
+                std::bind(&WebPlatform::webPlatformFaviconHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-      {AuthType::NONE}, WebModule::WM_GET);
+                {AuthType::NONE}, WebModule::WM_GET);
 
-  registerRoute(
-      "/assets/style.css",
-      std::bind(&WebPlatform::styleCSSAssetHandler, this,
+  registerRoute("/assets/style.css",
+                std::bind(&WebPlatform::styleCSSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-      {AuthType::NONE}, WebModule::WM_GET);
+                {AuthType::NONE}, WebModule::WM_GET);
 
-  registerRoute(
-      "/assets/web-platform-utils.js",
-      std::bind(&WebPlatform::webPlatformJSAssetHandler, this,
+  registerRoute("/assets/web-platform-utils.js",
+                std::bind(&WebPlatform::webPlatformJSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-      {AuthType::NONE}, WebModule::WM_GET);
+                {AuthType::NONE}, WebModule::WM_GET);
 
   registerRoute("/assets/config-portal.js",
                 std::bind(&WebPlatform::configPortalJSAssetHandler, this,
@@ -54,23 +50,21 @@ void WebPlatform::registerConfigPortalRoutes() {
                 std::bind(&WebPlatform::configPortalSavePageHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::NONE}, WebModule::WM_POST);
+  // TODO: /save should be an api route with page_token protection
 
   // API endpoints - no authentication required in captive portal mode
-  registerRoute(
-      "/api/status",
-      std::bind(&WebPlatform::statusApiHandler, this,
+  registerRoute("/api/status",
+                std::bind(&WebPlatform::statusApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-      {AuthType::NONE}, WebModule::WM_GET);
+                {AuthType::PAGE_TOKEN}, WebModule::WM_GET);
 
-  registerRoute(
-      "/api/scan",
-      std::bind(&WebPlatform::scanApiHandler, this,
+  registerRoute("/api/scan",
+                std::bind(&WebPlatform::scanApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-      {AuthType::NONE}, WebModule::WM_GET);
+                {AuthType::PAGE_TOKEN}, WebModule::WM_GET);
 
-  registerRoute(
-      "/api/reset",
-      std::bind(&WebPlatform::resetApiHandler, this,
+  registerRoute("/api/reset",
+                std::bind(&WebPlatform::resetApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-      {AuthType::NONE}, WebModule::WM_POST);
+                {AuthType::PAGE_TOKEN}, WebModule::WM_POST);
 }

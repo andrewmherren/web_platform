@@ -128,7 +128,7 @@ bool WebPlatform::pathMatchesRoute(const String &routePath,
     }
     start = end + 1;
   }
-  if (start < routePath.length()) {
+  if (start < (int)routePath.length()) {
     routeSegments.push_back(routePath.substring(start));
   }
 
@@ -141,7 +141,7 @@ bool WebPlatform::pathMatchesRoute(const String &routePath,
     }
     start = end + 1;
   }
-  if (start < requestPath.length()) {
+  if (start < (int)requestPath.length()) {
     requestSegments.push_back(requestPath.substring(start));
   }
 

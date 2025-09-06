@@ -41,14 +41,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Debug token data
-        console.log('Tokens data:', JSON.stringify(tokens));
-        
         let html = '<table class="token-table">';
         html += '<tr><th>Name</th><th>Created</th><th>Actions</th></tr>';
         
         tokens.forEach(token => {
-            console.log('Processing token:', token.name, 'createdAt:', token.createdAt);
             html += '<tr>';
             html += '<td>' + escapeHtml(token.name) + '</td>';
             html += '<td>' + formatTimestamp(token.createdAt) + '</td>';
@@ -64,6 +60,13 @@ document.addEventListener('DOMContentLoaded', function() {
   function updatePassword(e) {
     e.preventDefault();
     const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      showMessage('Passwords do not match', 'error');
+      return;
+    }
 
     fetch('/api/user/', {
       method : 'PUT',
@@ -76,6 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
                       if (data.success) {
                         showMessage('Password updated successfully', 'success');
                         document.getElementById('password').value = '';
+                        document.getElementById('confirmPassword').value = '';
                       } else {
                         showMessage(data.message || 'Failed to update password',
                                     'error');
@@ -107,7 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
           .then(data =>
                       {
                         if (data.success) {
-                          showToken(data.token);
+                          UIUtils.showTokenModal(data.token);
                           document.getElementById('tokenName').value = '';
                           loadUserTokens(); // Refresh token list
                         } else {
@@ -118,32 +122,29 @@ document.addEventListener('DOMContentLoaded', function() {
           .catch(error => { showMessage('An error occurred: ' + error, 'error'); });
     }// Expose the deleteToken function globally
     window.deleteToken = function(tokenId) {
-      if (!confirm(
-              'Are you sure you want to delete this token? This cannot be undone.')) {
-        return;
-      }
-
-      fetch('/api/tokens/' + tokenId, {method: 'DELETE'})
-          .then(response => response.json())
-          .then(data =>
-                      {
-                        if (data.success) {
-                          showMessage('Token deleted successfully', 'success');
-                          loadUserTokens(); // Refresh token list
-                        } else {
-                          showMessage(data.message || 'Failed to delete token',
-                                      'error');
-                        }
-                      })
-          .catch(error => { showMessage('An error occurred: ' + error, 'error'); });
+      UIUtils.showConfirm(
+        'Delete Token',
+        'Are you sure you want to delete this token? This cannot be undone.',
+        function() {
+          fetch('/api/tokens/' + tokenId, {method: 'DELETE'})
+              .then(response => response.json())
+              .then(data =>
+                          {
+                            if (data.success) {
+                              showMessage('Token deleted successfully', 'success');
+                              loadUserTokens(); // Refresh token list
+                            } else {
+                              showMessage(data.message || 'Failed to delete token',
+                                          'error');
+                            }
+                          })
+              .catch(error => { showMessage('An error occurred: ' + error, 'error'); });
+        },
+        null
+      );
     };
 
-    function showToken(token) {
-      const tokenDisplay = document.getElementById('newTokenDisplay');
-      tokenDisplay.style.display = 'block';
-      document.getElementById('newToken').textContent = token;
-      document.getElementById('newToken').select();
-    }
+    
 
     function showMessage(message, type) {
       const messageEl = document.getElementById('statusMessage');
@@ -156,46 +157,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function formatTimestamp(timestamp) {
-      try {
-        console.log('Raw timestamp:', timestamp, typeof timestamp);
-        
-        if (!timestamp) {
-          return 'Unknown date';
-        }
-        
-        // Unix timestamp (seconds since epoch)
-        let created;
-        // Convert the timestamp (in seconds) to milliseconds for JavaScript Date
-        const timestampNum = parseInt(timestamp);
-        created = new Date(timestampNum * 1000);
-        
-        // Check if date is valid
-        if (isNaN(created.getTime())) {
-          console.warn('Invalid timestamp:', timestamp);
-          return 'Invalid date';
-        }
-        
-        const now = new Date();
-        console.log('Now:', now.toISOString(), 'Created:', created.toISOString());
-        
-        const diffMs = now.getTime() - created.getTime();
-        const minutes = Math.floor(diffMs / 60000);
-        
-        if (minutes < 60) {
-          return minutes + ' minutes ago';
-        } else if (minutes < 1440) {
-          return Math.floor(minutes / 60) + ' hours ago';
-        } else {
-          const days = Math.floor(minutes / 1440);
-          if (days > 7) {
-            return created.toLocaleDateString();
-          }
-          return days + ' days ago';
-        }
-      } catch (e) {
-        console.error('Error formatting timestamp:', e, 'for timestamp:', timestamp);
-        return 'Date error';
-      }
+      // Use the platform's TimeUtils for consistent timestamp formatting
+      return TimeUtils.formatRelativeTime(timestamp);
     }
 
     function escapeHtml(text) {

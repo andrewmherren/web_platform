@@ -100,7 +100,6 @@ void WebPlatform::logoutPageHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {
-  const AuthContext &auth = req.getAuthContext();
   String csrfToken = AuthStorage::createPageToken(req.getClientIp());
 
   String accountHtml = String(ACCOUNT_PAGE_HTML);

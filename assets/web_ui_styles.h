@@ -67,13 +67,14 @@ p {
   gap: 20px;
   margin-bottom: 30px;
 }
-
+  
 /* Cards - Primary content containers */
 .status-card {
   background: rgba(255, 255, 255, 0.15);
   padding: 20px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 20px;
 }
 
 .status-card h3 {
@@ -81,11 +82,12 @@ p {
   color: #fff;
   font-size: 1.2em;
 }
-
+  
 /* Status indicator classes */
 .success { 
-  color: #4CAF50; 
+  color: #66D56A; 
   font-weight: bold; 
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 8px rgba(102, 213, 106, 0.3);
 }
 
 .info { 

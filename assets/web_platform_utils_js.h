@@ -408,12 +408,144 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+// Time and date utilities
+const TimeUtils = {
+  // Format a UTC timestamp to local time
+  formatTimestamp(timestamp, options = {}) {
+    try {
+      if (!timestamp) {
+        return 'Unknown date';
+      }
+      
+      // Handle various timestamp formats
+      let date;
+      if (typeof timestamp === 'string') {
+        // ISO string format (e.g., "2025-09-06T12:49:38Z")
+        if (timestamp.includes('T') || timestamp.includes('-')) {
+          date = new Date(timestamp);
+        } else {
+          // Unix timestamp as string
+          const timestampNum = parseInt(timestamp);
+          date = new Date(timestampNum * 1000); // Convert seconds to milliseconds
+        }
+      } else {
+        // Numeric timestamp (assume Unix timestamp in seconds)
+        date = new Date(timestamp * 1000);
+      }
+      
+      // Validate the date
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid timestamp:', timestamp);
+        return 'Invalid date';
+      }
+      
+      // Default formatting options
+      const defaultOptions = {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZoneName: 'short'
+      };
+      
+      const formatOptions = { ...defaultOptions, ...options };
+      return date.toLocaleString(undefined, formatOptions);
+    } catch (error) {
+      console.error('Error formatting timestamp:', error, 'for timestamp:', timestamp);
+      return 'Date error';
+    }
+  },
+
+  // Format timestamp as relative time (e.g., "2 hours ago")
+  formatRelativeTime(timestamp) {
+    try {
+      if (!timestamp) {
+        return 'Unknown time';
+      }
+      
+      // Parse timestamp similar to formatTimestamp
+      let date;
+      if (typeof timestamp === 'string') {
+        if (timestamp.includes('T') || timestamp.includes('-')) {
+          date = new Date(timestamp);
+        } else {
+          const timestampNum = parseInt(timestamp);
+          date = new Date(timestampNum * 1000);
+        }
+      } else {
+        date = new Date(timestamp * 1000);
+      }
+      
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid timestamp for relative time:', timestamp);
+        return 'Invalid date';
+      }
+      
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const minutes = Math.floor(diffMs / 60000);
+      
+      if (minutes < 1) {
+        return 'Just now';
+      } else if (minutes < 60) {
+        return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
+      } else if (minutes < 1440) {
+        const hours = Math.floor(minutes / 60);
+        return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+      } else {
+        const days = Math.floor(minutes / 1440);
+        if (days > 7) {
+          // For older dates, show full date
+          return this.formatTimestamp(timestamp, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          });
+        }
+        return days === 1 ? '1 day ago' : `${days} days ago`;
+      }
+    } catch (error) {
+      console.error('Error formatting relative time:', error, 'for timestamp:', timestamp);
+      return 'Time error';
+    }
+  },
+
+  // Get the user's timezone
+  getTimezone() {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  },
+
+  // Format just the time portion (useful for "Current Time" displays)
+  formatTime(timestamp, options = {}) {
+    const defaultOptions = {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    };
+    return this.formatTimestamp(timestamp, { ...defaultOptions, ...options });
+  },
+
+  // Format just the date portion
+  formatDate(timestamp, options = {}) {
+    const defaultOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    };
+    return this.formatTimestamp(timestamp, { ...defaultOptions, ...options });
+  }
+};
+
 // Global utilities for backward compatibility
 window.escapeHtml = NetworkUtils.escapeHtml;
 window.AuthUtils = AuthUtils;
 window.NetworkUtils = NetworkUtils;
 window.FormUtils = FormUtils;
 window.UIUtils = UIUtils;
+window.TimeUtils = TimeUtils;
 )rawliteral";
 
 #endif // WEB_PLATFORM_UTILS_JS_H

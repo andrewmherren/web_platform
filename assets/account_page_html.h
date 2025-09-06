@@ -14,6 +14,7 @@ const char ACCOUNT_PAGE_HTML[] PROGMEM = R"HTML(
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/assets/favicon.ico" sizes="any">
+    <script src="/assets/web-platform-utils.js"></script>
     <script src="/assets/account-page.js"></script>
 </head>
 <body>
@@ -29,6 +30,10 @@ const char ACCOUNT_PAGE_HTML[] PROGMEM = R"HTML(
                 <div class="form-group">
                     <label for="password">New Password:</label>
                     <input type="password" id="password" name="password" class="form-control" required minlength="4">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password:</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" class="form-control" required minlength="4">
                 </div>
                 <div class="button-group">
                     <button type="submit" class="btn btn-primary">Update Password</button>
@@ -51,13 +56,7 @@ const char ACCOUNT_PAGE_HTML[] PROGMEM = R"HTML(
                 </div>
             </form>
             
-            <div id="newTokenDisplay" style="display: none;" class="mt-3">
-                <h4>New Token Created</h4>
-                <p>Copy this token now. It will not be shown again!</p>
-                <div class="token-display">
-                    <input type="text" id="newToken" class="form-control" readonly>
-                </div>
-            </div>
+            
             
             <h4 class="mt-3">Your Tokens</h4>
             <div id="tokenContainer">

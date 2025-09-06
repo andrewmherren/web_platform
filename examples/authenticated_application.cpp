@@ -51,7 +51,7 @@ void setup() {
                     <h1>Welcome, )" +
             auth.username + R"(!</h1>
                     <p>You are successfully logged into the secure dashboard.</p>
-                    <!-- Navigation menu will be auto-injected here -->
+                    {{NAV_MENU}}
                     <p></p>
                     <div class="status-grid">
                         <div class="status-card">
@@ -107,7 +107,7 @@ void setup() {
             </head><body>
                 <div class="container">
                     <h1>Device Control Panel</h1>
-                    <!-- Navigation menu will be auto-injected here -->
+                    {{NAV_MENU}}
                     <p></p>
                     <div class="card">
                         <h2>System Controls</h2>
@@ -211,7 +211,7 @@ void setup() {
             </head><body>
                 <div class="container">
                     <h1>API Examples & Documentation</h1>
-                    <!-- Navigation menu will be auto-injected here -->
+                    {{NAV_MENU}}
                     <p></p>
                     <div class="card">
                         <h2>Getting Started</h2>

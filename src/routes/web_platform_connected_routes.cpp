@@ -26,6 +26,7 @@ void WebPlatform::registerConnectedModeRoutes() {
                 std::bind(&WebPlatform::webPlatformJSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+
   registerRoute("/assets/wifi-management.js",
                 std::bind(&WebPlatform::wifiManagementJSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
@@ -62,33 +63,42 @@ void WebPlatform::registerConnectedModeRoutes() {
   registerRoute("/api/scan",
                 std::bind(&WebPlatform::scanApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::PAGE_TOKEN}, WebModule::WM_GET);
+                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                WebModule::WM_GET);
 
   registerRoute("/api/status",
                 std::bind(&WebPlatform::statusApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::PAGE_TOKEN}, WebModule::WM_GET);
+                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                WebModule::WM_GET);
 
   registerRoute("/api/connect",
                 std::bind(&WebPlatform::connectApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::PAGE_TOKEN}, WebModule::WM_POST);
+                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                WebModule::WM_POST);
   registerRoute("/api/reset",
                 std::bind(&WebPlatform::resetApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::PAGE_TOKEN}, WebModule::WM_POST);
+                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                WebModule::WM_POST);
 
   // Register RESTful API routes for system status data
   registerRoute("/api/system",
                 std::bind(&WebPlatform::getSystemStatusApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::SESSION}}, WebModule::WM_GET);
+                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                WebModule::WM_GET);
+
   registerRoute("/api/network",
                 std::bind(&WebPlatform::getNetworkStatusApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::SESSION}}, WebModule::WM_GET);
+                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                WebModule::WM_GET);
+
   registerRoute("/api/modules",
                 std::bind(&WebPlatform::getModulesApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::SESSION}}, WebModule::WM_GET);
+                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                WebModule::WM_GET);
 }
