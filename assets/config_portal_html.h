@@ -8,7 +8,6 @@ const char CONFIG_PORTAL_HTML[] PROGMEM = R"HTML(
 <head>
     <title>{{DEVICE_NAME}} - WiFi Setup</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{csrfToken}}">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="stylesheet" href="/assets/web-platform-style.css">

@@ -1,7 +1,5 @@
 #include "../../include/storage/auth_storage.h"
 #include "../../include/web_platform.h"
-
-
 String WebPlatform::prepareHtml(String html, WebRequest req,
                                 const String &csrfToken) {
   // Navigation menu injection
@@ -10,7 +8,20 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
     html.replace("{{NAV_MENU}}", navHtml);
   }
 
-  // csrf token injection
+  // Automatic CSRF meta tag injection for HTML
+  // documents
+  if (html.indexOf("<head>") >= 0) {
+    String token = csrfToken == ""
+                       ? AuthStorage::createPageToken(req.getClientIp())
+                       : csrfToken;
+    String csrfMetaTag = "\n    <meta name=\"csrf-token\" "
+                         "content=\"" +
+                         token + "\">";
+    html.replace("<head>", "<head>" + csrfMetaTag);
+  }
+
+  // Legacy csrf token bookmark injection (for
+  // backwards compatibility)
   if (html.indexOf("{{csrfToken}}") >= 0) {
     String token = csrfToken == ""
                        ? AuthStorage::createPageToken(req.getClientIp())
@@ -50,12 +61,14 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
 
 // Template processing helpers
 bool WebPlatform::shouldProcessResponse(const WebResponse &response) {
-  // Skip processing if explicitly disabled via header
+  // Skip processing if explicitly disabled via
+  // header
   if (response.getHeader("X-Skip-Template-Processing") == "true") {
     return false;
   }
 
-  // Only process responses with these content types
+  // Only process responses with these content
+  // types
   String contentType = response.getMimeType();
   return contentType == "text/html" || contentType == "text/plain";
 }

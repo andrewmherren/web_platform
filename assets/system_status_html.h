@@ -9,12 +9,12 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
 <head>
     <title>{{DEVICE_NAME}} - System Status</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{csrfToken}}">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/assets/favicon.ico" sizes="any">
     <script src="/assets/system-status.js"></script>
+    <script src="/assets/web-platform-utils.js"></script>
 </head>
 <body>
     <div class="container">

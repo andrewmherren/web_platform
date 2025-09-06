@@ -87,18 +87,18 @@ void WebPlatform::registerConnectedModeRoutes() {
   registerRoute("/api/system",
                 std::bind(&WebPlatform::getSystemStatusApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
                 WebModule::WM_GET);
 
   registerRoute("/api/network",
                 std::bind(&WebPlatform::getNetworkStatusApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
                 WebModule::WM_GET);
 
   registerRoute("/api/modules",
                 std::bind(&WebPlatform::getModulesApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
                 WebModule::WM_GET);
 }

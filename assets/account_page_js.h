@@ -9,28 +9,24 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('updatePasswordForm').addEventListener('submit', updatePassword);
     document.getElementById('createTokenForm').addEventListener('submit', createToken);
     
-    function loadUserTokens() {
-        // First get current user to get the ID
-        fetch('/api/user/')
-            .then(response => response.json())
-            .then(userData => {
-                if (userData.success) {
-                    const userId = userData.user.id;
-                    
-                    // Then get the tokens for this user
-                    return fetch('/api/users/' + userId + '/tokens');
+    async function loadUserTokens() {
+        try {
+            // First get current user to get the ID
+            const userData = await AuthUtils.fetchJSON('/api/user/');
+            if (userData.success) {
+                const userId = userData.user.id;
+                
+                // Then get the tokens for this user
+                const tokensData = await AuthUtils.fetchJSON('/api/users/' + userId + '/tokens');
+                if (tokensData.success) {
+                    updateTokensTable(tokensData.tokens);
                 }
+            } else {
                 throw new Error('Failed to get current user');
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateTokensTable(data.tokens);
-                }
-            })
-            .catch(error => {
-                console.error('Error loading tokens:', error);
-            });
+            }
+        } catch (error) {
+            console.error('Error loading tokens:', error);
+        }
     }
     
     function updateTokensTable(tokens) {
@@ -51,94 +47,92 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<td><button class="btn btn-danger btn-sm" onclick=deleteToken("' + 
                     token.id + '") > Delete</ button></ td>'; html +=
       '</tr>';
-  });
+    });
 
-  html += '</table>';
-  tokenContainer.innerHTML = html;
-  }
-
-  function updatePassword(e) {
-    e.preventDefault();
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-
-    // Validate passwords match
-    if (password !== confirmPassword) {
-      showMessage('Passwords do not match', 'error');
-      return;
+    html += '</table>';
+    tokenContainer.innerHTML = html;
     }
 
-    fetch('/api/user/', {
-      method : 'PUT',
-      headers : {'Content-Type' : 'application/json'},
-      body : JSON.stringify({password : password})
-    })
-        .then(response => response.json())
-        .then(data =>
-                    {
-                      if (data.success) {
-                        showMessage('Password updated successfully', 'success');
-                        document.getElementById('password').value = '';
-                        document.getElementById('confirmPassword').value = '';
-                      } else {
-                        showMessage(data.message || 'Failed to update password',
-                                    'error');
-                      }
-                    })
-        .catch(error => { showMessage('An error occurred: ' + error, 'error'); });
+    function updatePassword(e) {
+      e.preventDefault();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+
+      // Validate passwords match
+      if (password !== confirmPassword) {
+        showMessage('Passwords do not match', 'error');
+        return;
+      }
+
+      try {
+        const data = await AuthUtils.fetchJSON('/api/user/', {
+          method: 'PUT',
+          body: JSON.stringify({password: password})
+        });
+        
+        if (data.success) {
+          showMessage('Password updated successfully', 'success');
+          document.getElementById('password').value = '';
+          document.getElementById('confirmPassword').value = '';
+        } else {
+          showMessage(data.message || 'Failed to update password', 'error');
+        }
+      } catch (error) {
+        showMessage('An error occurred: ' + error, 'error');
+      }
     }
 
     function createToken(e) {
       e.preventDefault();
       const tokenName = document.getElementById('tokenName').value;
 
-      // First get current user to get the ID
-      fetch('/api/user/')
-          .then(response => response.json())
-          .then(userData => {
-            if (userData.success) {
-              const userId = userData.user.id;
-              // Then create token for this user
-              return fetch('/api/users/' + userId + '/tokens', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: tokenName})
-              });
-            }
-            throw new Error('Failed to get current user');
-          })
-          .then(response => response.json())
-          .then(data =>
-                      {
-                        if (data.success) {
-                          UIUtils.showTokenModal(data.token);
-                          document.getElementById('tokenName').value = '';
-                          loadUserTokens(); // Refresh token list
-                        } else {
-                          showMessage(data.message || 'Failed to create token',
-                                      'error');
-                        }
-                      })
-          .catch(error => { showMessage('An error occurred: ' + error, 'error'); });
-    }// Expose the deleteToken function globally
+      try {
+        // First get current user to get the ID
+        const userData = await AuthUtils.fetchJSON('/api/user/');
+        if (userData.success) {
+          const userId = userData.user.id;
+          
+          // Then create token for this user
+          const tokenData = await AuthUtils.fetchJSON('/api/users/' + userId + '/tokens', {
+            method: 'POST',
+            body: JSON.stringify({name: tokenName})
+          });
+          
+          if (tokenData.success) {
+            UIUtils.showTokenModal(tokenData.token);
+            document.getElementById('tokenName').value = '';
+            loadUserTokens(); // Refresh token list
+          } else {
+            showMessage(tokenData.message || 'Failed to create token', 'error');
+          }
+        } else {
+          throw new Error('Failed to get current user');
+        }
+      } catch (error) {
+        showMessage('An error occurred: ' + error, 'error');
+      }
+    }
+      
+    // Expose the deleteToken function globally
     window.deleteToken = function(tokenId) {
       UIUtils.showConfirm(
         'Delete Token',
         'Are you sure you want to delete this token? This cannot be undone.',
-        function() {
-          fetch('/api/tokens/' + tokenId, {method: 'DELETE'})
-              .then(response => response.json())
-              .then(data =>
-                          {
-                            if (data.success) {
-                              showMessage('Token deleted successfully', 'success');
-                              loadUserTokens(); // Refresh token list
-                            } else {
-                              showMessage(data.message || 'Failed to delete token',
-                                          'error');
-                            }
-                          })
-              .catch(error => { showMessage('An error occurred: ' + error, 'error'); });
+        async function() {
+          try {
+            const data = await AuthUtils.fetchJSON('/api/tokens/' + tokenId, {
+              method: 'DELETE'
+            });
+            
+            if (data.success) {
+              showMessage('Token deleted successfully', 'success');
+              loadUserTokens(); // Refresh token list
+            } else {
+              showMessage(data.message || 'Failed to delete token', 'error');
+            }
+          } catch (error) {
+            showMessage('An error occurred: ' + error, 'error');
+          }
         },
         null
       );

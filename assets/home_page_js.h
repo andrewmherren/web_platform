@@ -7,36 +7,36 @@ const char HOME_PAGE_JS[] PROGMEM = R"(
 document.addEventListener('DOMContentLoaded', function() {
     loadHomePageData();
     
-    function loadHomePageData() {
-        // Load system info
-        fetch('/api/system')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateSystemInfo(data.status);
-                }
-            })
-            .catch(error => console.error('Error fetching system data:', error));
-            
-        // Load network info
-        fetch('/api/network')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateNetworkInfo(data.network);
-                }
-            })
-            .catch(error => console.error('Error fetching network data:', error));
-            
-        // Load modules
-        fetch('/api/modules')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateModuleList(data.modules);
-                }
-            })
-            .catch(error => console.error('Error fetching modules data:', error));
+    async function loadHomePageData() {
+        try {
+            // Load system info
+            const systemData = await AuthUtils.fetchJSON('/api/system');
+            if (systemData.success) {
+                updateSystemInfo(systemData.status);
+            }
+        } catch (error) {
+            console.error('Error fetching system data:', error);
+        }
+        
+        try {
+            // Load network info
+            const networkData = await AuthUtils.fetchJSON('/api/network');
+            if (networkData.success) {
+                updateNetworkInfo(networkData.network);
+            }
+        } catch (error) {
+            console.error('Error fetching network data:', error);
+        }
+        
+        try {
+            // Load modules
+            const modulesData = await AuthUtils.fetchJSON('/api/modules');
+            if (modulesData.success) {
+                updateModuleList(modulesData.modules);
+            }
+        } catch (error) {
+            console.error('Error fetching modules data:', error);
+        }
     }
     
     function updateSystemInfo(status) {

@@ -12,7 +12,6 @@ const char LOGIN_PAGE_HTML[] PROGMEM = R"rawliteral(
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/assets/favicon.ico" sizes="any">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="csrf-token" content="{{csrfToken}}">
 </head>
 <body>
   <div class="container">
@@ -41,7 +40,6 @@ const char LOGIN_PAGE_ERROR_HTML[] PROGMEM = R"rawliteral(
   <title>Login - {{DEVICE_NAME}}</title>
   <link rel="stylesheet" href="/assets/style.css">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="csrf-token" content="{{csrfToken}}">
 </head>
 <body>
   <div class="container">

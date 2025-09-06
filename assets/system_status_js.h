@@ -12,36 +12,36 @@ document.addEventListener('DOMContentLoaded', function() {
     // Refresh data every 5 seconds
     setInterval(loadSystemData, 5000);
     
-    function loadSystemData() {
-        // Load system status data
-        fetch('/api/system')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateSystemStatus(data.status);
-                }
-            })
-            .catch(error => console.error('Error fetching system data:', error));
-            
-        // Load network status data
-        fetch('/api/network')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateNetworkStatus(data.network);
-                }
-            })
-            .catch(error => console.error('Error fetching network data:', error));
-            
-        // Load modules data
-        fetch('/api/modules')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateModulesTable(data.modules);
-                }
-            })
-            .catch(error => console.error('Error fetching modules data:', error));
+    async function loadSystemData() {
+        try {
+            // Load system status data
+            const systemData = await AuthUtils.fetchJSON('/api/system');
+            if (systemData.success) {
+                updateSystemStatus(systemData.status);
+            }
+        } catch (error) {
+            console.error('Error fetching system data:', error);
+        }
+        
+        try {
+            // Load network status data
+            const networkData = await AuthUtils.fetchJSON('/api/network');
+            if (networkData.success) {
+                updateNetworkStatus(networkData.network);
+            }
+        } catch (error) {
+            console.error('Error fetching network data:', error);
+        }
+        
+        try {
+            // Load modules data
+            const modulesData = await AuthUtils.fetchJSON('/api/modules');
+            if (modulesData.success) {
+                updateModulesTable(modulesData.modules);
+            }
+        } catch (error) {
+            console.error('Error fetching modules data:', error);
+        }
     }
     
     function updateSystemStatus(status) {

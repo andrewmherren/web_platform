@@ -20,7 +20,28 @@
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Starting Authenticated WebPlatform Application...");
+  Serial.println(
+      "Starting Authenticated WebPlatform Application..."); // Initialize NTP
+                                                            // client for
+                                                            // accurate
+                                                            // timestamps//
+                                                            // Initialize NTP
+                                                            // client for
+                                                            // accurate
+                                                            // timestamps//
+                                                            // Configure time
+                                                            // zone with
+                                                            // automatic DST
+                                                            // adjustment
+  //   NTPClient::setTimeZone(TimeZone::AMERICA_NEW_YORK, DSTRules::US_CANADA);
+
+  // Other examples with automatic DST:
+  // NTPClient::setTimeZone(TimeZone::AMERICA_LOS_ANGELES, DSTRules::US_CANADA);
+  // // Pacific Time with DST NTPClient::setTimeZone(TimeZone::EUROPE_LONDON,
+  // DSTRules::EU);              // GMT/BST with EU DST rules
+  // NTPClient::setTimeZone(TimeZone::AUSTRALIA_SYDNEY, DSTRules::AUSTRALIA); //
+  // Australian Eastern Time with DST
+  // NTPClient::setTimeZone(TimeZone::ASIA_TOKYO); // Japan (no DST needed)
 
   // Set up navigation menu with authentication-aware items
   std::vector<NavigationItem> navItems = {
@@ -41,11 +62,13 @@ void setup() {
         const AuthContext &auth = req.getAuthContext();
 
         String html =
-            R"(
-            <!DOCTYPE html>
+            R"(<!DOCTYPE html>
             <html><head>
                 <title>Secure Dashboard</title>
                 <link rel="stylesheet" href="/assets/style.css">
+                <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+                <link rel="icon" href="/assets/favicon.ico" sizes="any">
+                <script src="/assets/web-platform-utils.js"></script>
             </head><body>
                 <div class="container">
                     <h1>Welcome, )" +
@@ -71,9 +94,7 @@ void setup() {
             String(auth.username == "admin" ? "Administrator" : "User") +
             R"(</p>
                         </div>
-                    </div>
-                    
-                    <div class="card">
+                    </div><div class="card">
                         <h2>System Information</h2>
                         <table class="info-table">
                             <tr><td>Device:</td><td>)" +
@@ -85,9 +106,30 @@ void setup() {
                             <tr><td>HTTPS:</td><td>)" +
             String(webPlatform.isHttpsEnabled() ? "Enabled" : "Disabled") +
             R"(</td></tr>
-                        </table>
-                    </div>
+                            <tr><td>NTP Status:</td><td>)" +
+            String(NTPClient::isSynchronized() ? "Synchronized"
+                                               : "Not synchronized") +
+            R"(</td></tr><tr><td>Current Time:</td><td><span id="current-time">)" +
+            (NTPClient::isSynchronized() ? NTPClient::getFormattedTime()
+                                         : "Unknown") +
+            R"(</span></td></tr></td></tr>
+                        </table></div>
                 </div>
+                
+                <script>
+                    // Localize the current time display if available
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const currentTimeElement = document.getElementById('current-time');
+                        if (currentTimeElement && currentTimeElement.textContent !== 'Unknown') {
+                            // The server provides UTC timestamp, convert to local time
+                            const utcTime = currentTimeElement.textContent;
+                            if (utcTime.includes('T') && utcTime.includes('Z')) {
+                                const localTime = TimeUtils.formatTime(utcTime);
+                                currentTimeElement.textContent = localTime;
+                            }
+                        }
+                    });
+                </script>
             </body></html>
         )";
         res.setContent(html, "text/html");
@@ -98,12 +140,13 @@ void setup() {
   webPlatform.registerRoute(
       "/control",
       [](WebRequest &req, WebResponse &res) {
-        String html = R"(
-            <!DOCTYPE html>
+        String html = R"(<!DOCTYPE html>
             <html><head>
                 <title>Device Control</title>
-                <meta name="csrf-token" content="{{csrfToken}}">
                 <link rel="stylesheet" href="/assets/style.css">
+                <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+                <link rel="icon" href="/assets/favicon.ico" sizes="any">
+                <script src="/assets/web-platform-utils.js"></script>
             </head><body>
                 <div class="container">
                     <h1>Device Control Panel</h1>
@@ -126,43 +169,21 @@ void setup() {
                         
                         <div id="result" class="mt-3"></div>
                     </div>
-                    
-                    <div class="card">
-                        <h2>Configuration</h2>
-                        <form id="config-form" method="post" action="/api/configure">
-                            <div class="form-group">
-                                <label for="device-name">Device Name:</label>
-                                <input type="text" id="device-name" name="device-name" 
-                                        class="form-control" value="{{DEVICE_NAME}}">
-                            </div>
-                            <button type="submit" class="btn btn-secondary">Save Configuration</button>
-                        </form>
-                    </div>
-                </div>
-
-                <script>
-                    // Get CSRF token from meta tag
-                    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-                    
+                </div><script>
                     // Handle control form submission
                     document.getElementById('control-form').addEventListener('submit', async function(e) {
                         e.preventDefault();
                         
                         const formData = new FormData(this);
-                        const command = formData.get('command');
-                        
-                        try {
-                            const response = await fetch('/api/control', {
+                        const command = formData.get('command');try {
+                            const result = await AuthUtils.fetch('/api/control', {
                                 method: 'POST',
                                 headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                    'X-CSRF-Token': csrfToken
+                                    'Content-Type': 'application/x-www-form-urlencoded'
                                 },
-                                credentials: 'same-origin',
                                 body: 'command=' + encodeURIComponent(command)
-                            });
+                            }).then(response => response.json());
                             
-                            const result = await response.json();
                             document.getElementById('result').innerHTML = 
                                 '<div class="card ' + (result.success ? 'success' : 'error') + '">' +
                                 '<p>' + (result.message || result.error || 'Operation completed') + '</p>' +
@@ -174,40 +195,47 @@ void setup() {
                     });
                     
                     // Handle config form submission
-                    document.getElementById('config-form').addEventListener('submit', async function(e) {
-                        e.preventDefault();
-                        
-                        const formData = new FormData(this);
-                        formData.append('_csrf', csrfToken);
-                        
-                        try {
-                            const response = await fetch('/api/configure', {
-                                method: 'POST',
-                                body: formData,
-                                credentials: 'same-origin'
-                            });const result = await response.json();
-                        if (result.success) {
-                            UIUtils.showAlert('Configuration Saved', 'Configuration has been saved successfully!', 'success');
-                        } else {
-                            UIUtils.showAlert('Save Failed', 'Error: ' + result.error, 'error');
-                        }
-                    } catch (error) {
-                        UIUtils.showAlert('Network Error', 'Error: ' + error.message, 'error');
-                        }
-                    });
+                    const configForm = document.getElementById('config-form');
+                    if (configForm) {
+                        configForm.addEventListener('submit', async function(e) {
+                            e.preventDefault();
+                            
+                            const formData = new FormData(this);
+                            
+                            try {
+                                const result = await AuthUtils.fetch('/api/configure', {
+                                    method: 'POST',
+                                    body: formData
+                                }).then(response => response.json());
+                                
+                                if (result.success) {
+                                    UIUtils.showAlert('Configuration Saved', 'Configuration has been saved successfully!', 'success');
+                                } else {
+                                    UIUtils.showAlert('Save Failed', 'Error: ' + result.error, 'error');
+                                }
+                            } catch (error) {
+                                UIUtils.showAlert('Network Error', 'Error: ' + error.message, 'error');
+                            }
+                        });
+                    }
                 </script>
             </body></html>
         )";
         res.setContent(html, "text/html");
       },
-      {AuthType::SESSION}); // API Examples and Documentation page
+      {AuthType::SESSION, AuthType::PAGE_TOKEN, AuthType::TOKEN});
+
+  // API Examples and Documentation page
   webPlatform.registerRoute("/examples",
                             [](WebRequest &req, WebResponse &res) {
-                              String html = R"(
+                              String html =
+                                  R"(
             <!DOCTYPE html>
             <html><head>
                 <title>API Examples & Documentation</title>
                 <link rel="stylesheet" href="/assets/style.css">
+                <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+                <link rel="icon" href="/assets/favicon.ico" sizes="any">
             </head><body>
                 <div class="container">
                     <h1>API Examples & Documentation</h1>
@@ -230,18 +258,19 @@ void setup() {
                         <p>Use your API token with these endpoints:</p>
                         <pre class="code-block">
 # Get device status
-curl -H "Authorization: Bearer YOUR_TOKEN" )" +
-                                            webPlatform.getBaseUrl() +
-                                            R"(/api/status
+curl --insecure -H "Authorization: Bearer YOUR_TOKEN" )" +
+                                  webPlatform.getBaseUrl() +
+                                  R"(/api/status
 
 # Execute a command  
-curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
+curl --insecure -X POST -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"command":"status"}' \
   )" + webPlatform.getBaseUrl() + R"(/api/control
 
 # Alternative: Using URL parameter
-curl ")" + webPlatform.getBaseUrl() + R"(/api/status?access_token=YOUR_TOKEN"
+curl --insecure ")" + webPlatform.getBaseUrl() +
+                                  R"(/api/status?access_token=YOUR_TOKEN"
                         </pre>
                     </div>
                     
@@ -250,7 +279,7 @@ curl ")" + webPlatform.getBaseUrl() + R"(/api/status?access_token=YOUR_TOKEN"
                         <pre class="code-block">
 const token = 'YOUR_API_TOKEN_HERE';
 const baseUrl = ')" + webPlatform.getBaseUrl() +
-                                            R"(';
+                                  R"(';
 
 // Get device status
 fetch(baseUrl + '/api/status', {
@@ -289,7 +318,8 @@ import json
 
 # Your API token from the Account page
 token = 'YOUR_API_TOKEN_HERE'
-base_url = ')" + webPlatform.getBaseUrl() + R"('
+base_url = ')" + webPlatform.getBaseUrl() +
+                                  R"('
 headers = {'Authorization': f'Bearer {token}'}
 
 # Get device status
@@ -373,31 +403,45 @@ else:
                             },
                             {AuthType::SESSION});
 
-  // API Endpoints - accessible via both session and token auth
-
-  // Status API (can be called from web interface or via API token)
-  webPlatform.registerRoute("/api/status",
-                            [](WebRequest &req, WebResponse &res) {
-                              String json = R"({
+  // API Endpoints - accessible via both session and token auth// Status API
+  // (can be called from web interface or via API token)
+  webPlatform.registerRoute(
+      "/api/status",
+      [](WebRequest &req, WebResponse &res) {
+        String json =
+            R"({
             "success": true,
-            "device": ")" + String(webPlatform.getDeviceName()) +
-                                            R"(",
-            "uptime": )" + String(millis() / 1000) +
-                                            R"(,
-            "free_memory": )" + String(ESP.getFreeHeap()) +
-                                            R"(,
-            "wifi_ssid": ")" + WiFi.SSID() + R"(",
-            "ip_address": ")" + WiFi.localIP().toString() +
-                                            R"(",
+            "device": ")" +
+            String(webPlatform.getDeviceName()) +
+            R"(",
+            "uptime": )" +
+            String(millis() / 1000) +
+            R"(,
+            "free_memory": )" +
+            String(ESP.getFreeHeap()) +
+            R"(,
+            "wifi_ssid": ")" +
+            WiFi.SSID() + R"(",
+            "ip_address": ")" +
+            WiFi.localIP().toString() +
+            R"(",
             "https_enabled": )" +
-                                            String(webPlatform.isHttpsEnabled()
-                                                       ? "true"
-                                                       : "false") +
-                                            R"(
+            String(webPlatform.isHttpsEnabled() ? "true" : "false") +
+            R"(,
+            "ntp_synchronized": )" +
+            String(NTPClient::isSynchronized() ? "true" : "false") +
+            R"(,
+            "current_time": ")" +
+            (NTPClient::isSynchronized() ? NTPClient::getFormattedTime()
+                                         : "Not synchronized") +
+            R"(",
+            "time_since_sync": )" +
+            String(NTPClient::getTimeSinceLastSync() / 1000) +
+            R"(
         })";
-                              res.setContent(json, "application/json");
-                            },
-                            {AuthType::SESSION, AuthType::TOKEN});
+        res.setContent(json, "application/json");
+      },
+      {AuthType::SESSION, AuthType::PAGE_TOKEN, AuthType::TOKEN});
 
   // Control API with CSRF protection for web forms
   webPlatform.registerRoute(
@@ -410,8 +454,14 @@ else:
           return;
         }
 
-        String command = req.getParam("command");
         String result;
+        // try getting the command as a route parameter
+        String command = req.getParam("command");
+        if (command.isEmpty()) {
+          // if it wasn't in the route params try getting the command from the
+          // body json
+          command = req.getJsonParam("command");
+        }
 
         if (command == "status") {
           result = R"({"success":true,"message":"Device is operational"})";
@@ -439,32 +489,8 @@ else:
 
         res.setContent(result, "application/json");
       },
-      {AuthType::SESSION, AuthType::PAGE_TOKEN}, WebModule::WM_POST);
-
-  // Configuration API
-  webPlatform.registerRoute(
-      "/api/configure",
-      [](WebRequest &req, WebResponse &res) {
-        if (req.getMethod() != WebModule::WM_POST) {
-          res.setStatus(405);
-          res.setContent("{\"error\":\"Method not allowed\"}",
-                         "application/json");
-          return;
-        }
-
-        String deviceName = req.getParam("device-name");
-        bool enableDebug = req.getParam("enable-debug") == "on";
-
-        // In a real implementation, you would save these settings
-        Serial.println("Configuration update:");
-        Serial.println("Device Name: " + deviceName);
-        Serial.println("Debug Mode: " +
-                       String(enableDebug ? "Enabled" : "Disabled"));
-
-        res.setContent("{\"success\":true,\"message\":\"Configuration saved\"}",
-                       "application/json");
-      },
-      {AuthType::SESSION, AuthType::PAGE_TOKEN}, WebModule::WM_POST);
+      {AuthType::SESSION, AuthType::TOKEN, AuthType::PAGE_TOKEN},
+      WebModule::WM_POST);
 
   // Register secure modules
   // webPlatform.registerModule("/secure", &secureModule);

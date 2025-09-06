@@ -85,7 +85,6 @@ void setup() {
                 <!DOCTYPE html>
                 <html><head>
                     <title>API Token Management</title>
-                    <meta name="csrf-token" content="{{csrfToken}}">
                     <script>
                         async function createToken() {
                             const description = document.getElementById('description').value;
@@ -148,6 +147,43 @@ void setup() {
         }, {AuthType::SESSION, AuthType::TOKEN}, WebModule::WM_POST);
     }
 }
+```
+
+### CSRF Protection in JavaScript
+
+WebPlatform automatically injects CSRF tokens into all HTML pages. Access them in your JavaScript:
+
+```javascript
+// Get CSRF token from automatically injected meta tag
+function getCSRFToken() {
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    return metaTag ? metaTag.getAttribute('content') : null;
+}
+
+// Use in fetch requests
+async function makeSecureRequest(url, data) {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCSRFToken()
+        },
+        body: JSON.stringify(data)
+    });
+    return await response.json();
+}
+
+// Use in forms
+document.querySelector('form').addEventListener('submit', function(e) {
+    const csrf = getCSRFToken();
+    if (csrf) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = '_csrf';
+        input.value = csrf;
+        this.appendChild(input);
+    }
+});
 ```
 
 ### Custom Login Page
@@ -275,7 +311,7 @@ private:
 
 ### CSRF Protection for Forms
 
-When creating forms in your modules, include CSRF protection:
+WebPlatform automatically injects CSRF tokens into all HTML pages. Use them in your forms:
 
 ```cpp
 WebRoute("/config", WebModule::WM_GET, 
@@ -284,7 +320,6 @@ WebRoute("/config", WebModule::WM_GET,
             <!DOCTYPE html>
             <html><head>
                 <title>Device Configuration</title>
-                <meta name="csrf-token" content="{{csrfToken}}">
             </head><body>
                 <form method="post" action="/device/api/update-config">
                     <input type="text" name="setting1" placeholder="Setting 1">
@@ -293,7 +328,7 @@ WebRoute("/config", WebModule::WM_GET,
                 </form>
                 
                 <script>
-                    // Add CSRF token to form submissions
+                    // CSRF token is automatically available from injected meta tag
                     document.querySelector('form').addEventListener('submit', function(e) {
                         const csrf = document.querySelector('meta[name="csrf-token"]').content;
                         const input = document.createElement('input');
@@ -426,7 +461,7 @@ void protectedHandler(WebRequest& req, WebResponse& res) {
 
 1. **Use HTTPS**: Enable HTTPS whenever possible for encrypted communication
 2. **Protect Sensitive Operations**: Always require authentication for configuration changes
-3. **CSRF Protection**: Use `PAGE_TOKEN` for all form submissions
+3. **CSRF Protection**: CSRF tokens are automatically available - use `PAGE_TOKEN` for form submissions
 4. **Token Security**: Show API tokens only once during creation
 5. **Network Restrictions**: Consider `LOCAL_ONLY` for administrative functions
 
