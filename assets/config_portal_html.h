@@ -12,7 +12,7 @@ const char CONFIG_PORTAL_HTML[] PROGMEM = R"HTML(
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="stylesheet" href="/assets/web-platform-style.css">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="/assets/favicon.ico" sizes="any">
+    <link rel="icon" href="/assets/favicon.ico" sizes="any">
 </head>
 <body>
     <div class="container">
@@ -31,7 +31,7 @@ const char CONFIG_PORTAL_HTML[] PROGMEM = R"HTML(
                 </div>
             </div>
             
-            <form id="wifi-form" action="/save" method="post">
+            <form id="wifi-form">
                 <div class="form-group">
                     <label for="ssid">Network Name (SSID):</label>
                     <input type="text" id="ssid" name="ssid" placeholder="Select network or enter manually" required>
@@ -51,7 +51,6 @@ const char CONFIG_PORTAL_HTML[] PROGMEM = R"HTML(
             </div>
         </div>
     </div>
-    
     <script src="/assets/web-platform-utils.js"></script>
     <script src="/assets/config-portal.js"></script>
 </body>

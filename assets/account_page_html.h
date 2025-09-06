@@ -13,8 +13,6 @@ const char ACCOUNT_PAGE_HTML[] PROGMEM = R"HTML(
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/assets/favicon.ico" sizes="any">
-    <script src="/assets/web-platform-utils.js"></script>
-    <script src="/assets/account-page.js"></script>
 </head>
 <body>
     <div class="container">
@@ -68,6 +66,8 @@ const char ACCOUNT_PAGE_HTML[] PROGMEM = R"HTML(
             <a href="/logout" class="btn btn-danger">Logout</a>
         </div>
     </div>
+    <script src="/assets/web-platform-utils.js"></script>
+    <script src="/assets/account-page.js"></script>
 </body>
 </html>
 )HTML";

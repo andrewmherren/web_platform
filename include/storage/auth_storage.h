@@ -116,14 +116,16 @@ public:
    * @param sessionId Session ID
    * @return AuthSession or invalid session if not found
    */
-  static AuthSession findSession(const String &sessionId);
-
-  /**
-   * Validate session ID
-   * @param sessionId Session ID to validate
-   * @return User ID if valid, empty string if invalid
-   */
-  static String validateSession(const String &sessionId);
+  static AuthSession findSession(
+      const String
+          &sessionId); /**
+                        * Validate session ID
+                        * @param sessionId Session ID to validate
+                        * @param clientIp Client IP address (optional)
+                        * @return User ID if valid, empty string if invalid
+                        */
+  static String validateSession(const String &sessionId,
+                                const String &clientIp = "");
 
   /**
    * Delete session

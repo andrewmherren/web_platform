@@ -14,37 +14,30 @@ class WiFiManager {
   init() {
     this.bindEvents();
   }
-
+    
   bindEvents() {
-    const scanBtn = document.getElementById('scan-btn');
-    const clearBtn = document.getElementById('clear-btn');
-    const resetBtn = document.getElementById('reset-btn');
-    const form = document.getElementById('wifi-form');
+    const scanBtn = document.getElementById('scanButton');
+    const connectForm = document.getElementById('connectForm');
 
     if (scanBtn) scanBtn.onclick = () => this.scanNetworks();
-    if (clearBtn) clearBtn.onclick = () => this.clearForm();
-    if (resetBtn) resetBtn.onclick = () => this.resetWiFi();
-    if (form) form.onsubmit = (e) => this.connectToNetwork(e);
+    if (connectForm) connectForm.onsubmit = (e) => this.connectToNetwork(e);
   }
-
+    
   async scanNetworks() {
-    const btn = document.getElementById('scan-btn');
-    const list = document.getElementById('network-list');
+    const btn = document.getElementById('scanButton');
+    const resultsContainer = document.getElementById('scanResults');
     
     UIUtils.updateButtonState(btn, true, 'Scanning...');
-    UIUtils.showLoading(list, 'Scanning for networks...');
+    UIUtils.showLoading(resultsContainer, 'Scanning for networks...');
     
     try {
-      const data = await NetworkUtils.scanNetworks();
-      
-      if (data.networks && data.networks.length > 0) {
-        this.displayNetworks(data.networks, list);
+      const data = await NetworkUtils.scanNetworks();if (data.networks && data.networks.length > 0) {
+        this.displayNetworks(data.networks, resultsContainer);
       } else {
-        UIUtils.showError(list, 'No networks found');
-      }
-    } catch (error) {
+        UIUtils.showError(resultsContainer, 'No networks found');
+      }} catch (error) {
       console.error('Scan failed:', error);
-      UIUtils.showError(list, 'Scan failed. Please try again.');
+      UIUtils.showError(resultsContainer, 'Scan failed. Please try again.');
     } finally {
       UIUtils.updateButtonState(btn, false, 'Scan Networks');
     }
@@ -141,10 +134,27 @@ class WiFiManager {
     }
   }
 }
-
+  
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
   window.wifiManager = new WiFiManager();
+  
+  // Fetch current WiFi connection details
+  AuthUtils.fetch('/api/network')
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById('currentSsid').textContent = data?.network?.ssid || 'Not connected';
+      document.getElementById('signalStrength').textContent = data?.network?.signalStrength ? data.network.signalStrength + ' dBm' : 'N/A';
+      document.getElementById('ipAddress').textContent = data?.network?.ipAddress || 'N/A';
+      document.getElementById('macAddress').textContent = data?.network?.macAddress || 'N/A';
+    })
+    .catch(error => {
+      console.error('Failed to fetch WiFi status:', error);
+      document.getElementById('currentSsid').textContent = 'Error loading data';
+      document.getElementById('signalStrength').textContent = 'Error loading data';
+      document.getElementById('ipAddress').textContent = 'Error loading data';
+      document.getElementById('macAddress').textContent = 'Error loading data';
+    });
 });
 )rawliteral";
 

@@ -73,19 +73,47 @@ struct WebRoute {
         description(desc), authRequirements(auth) {}
 };
 
+// Authentication visibility for navigation items
+enum class NavAuthVisibility {
+  ALWAYS,         // Always visible regardless of auth state
+  AUTHENTICATED,  // Only visible when user has valid session
+  UNAUTHENTICATED // Only visible when user is not authenticated
+};
+
 // Navigation menu item structure
 struct NavigationItem {
   String name;   // Display name for the menu item
   String url;    // URL the menu item links to
   String target; // Optional: target attribute for the link (e.g., "_blank")
+  NavAuthVisibility visibility; // When this item should be visible
 
   // Constructors for convenience
   NavigationItem(const String &n, const String &u)
-      : name(n), url(u), target("") {}
+      : name(n), url(u), target(""), visibility(NavAuthVisibility::ALWAYS) {}
 
   NavigationItem(const String &n, const String &u, const String &t)
-      : name(n), url(u), target(t) {}
+      : name(n), url(u), target(t), visibility(NavAuthVisibility::ALWAYS) {}
+
+  NavigationItem(const String &n, const String &u, NavAuthVisibility vis)
+      : name(n), url(u), target(""), visibility(vis) {}
+
+  NavigationItem(const String &n, const String &u, const String &t,
+                 NavAuthVisibility vis)
+      : name(n), url(u), target(t), visibility(vis) {}
 };
+
+// Convenience wrapper functions for cleaner syntax
+inline NavigationItem Authenticated(const NavigationItem &item) {
+  NavigationItem authItem = item;
+  authItem.visibility = NavAuthVisibility::AUTHENTICATED;
+  return authItem;
+}
+
+inline NavigationItem Unauthenticated(const NavigationItem &item) {
+  NavigationItem unauthItem = item;
+  unauthItem.visibility = NavAuthVisibility::UNAUTHENTICATED;
+  return unauthItem;
+}
 
 // Redirect structure for managing URL redirects (simplified for embedded use)
 struct RedirectRule {
@@ -131,7 +159,7 @@ public:
   static String getCurrentPath();
 
   // Helper methods for navigation menu
-  static String generateNavigationHtml();
+  static String generateNavigationHtml(bool isAuthenticated = false);
   static String injectNavigationMenu(const String &htmlContent);
 
   // Custom error page management

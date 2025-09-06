@@ -29,13 +29,14 @@ Protect your entire application behind a login screen:
 void setup() {
     Serial.begin(115200);
     
-    // Set up navigation with logout option
+    // Set up navigation with authentication-aware items
     std::vector<NavigationItem> navItems = {
         NavigationItem("Dashboard", "/"),
         NavigationItem("Device Control", "/device/"),
         NavigationItem("Settings", "/settings"),
-        NavigationItem("Account", "/account"),
-        NavigationItem("Logout", "/logout")
+        Authenticated(NavigationItem("Account", "/account")),
+        Authenticated(NavigationItem("Logout", "/logout")),
+        Unauthenticated(NavigationItem("Login", "/login"))
     };
     IWebModule::setNavigationMenu(navItems);
     
@@ -155,7 +156,7 @@ WebPlatform automatically injects CSRF tokens into all HTML pages. Access them i
 
 ```javascript
 // Get CSRF token from automatically injected meta tag
-function getCSRFToken() {
+function getCsrfToken() {
     const metaTag = document.querySelector('meta[name="csrf-token"]');
     return metaTag ? metaTag.getAttribute('content') : null;
 }
@@ -166,7 +167,7 @@ async function makeSecureRequest(url, data) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': getCSRFToken()
+            'X-CSRF-Token': getCsrfToken()
         },
         body: JSON.stringify(data)
     });
@@ -175,7 +176,7 @@ async function makeSecureRequest(url, data) {
 
 // Use in forms
 document.querySelector('form').addEventListener('submit', function(e) {
-    const csrf = getCSRFToken();
+    const csrf = getCsrfToken();
     if (csrf) {
         const input = document.createElement('input');
         input.type = 'hidden';

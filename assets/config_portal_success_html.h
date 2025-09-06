@@ -14,7 +14,7 @@ const char CONFIG_PORTAL_SUCCESS_HTML[] PROGMEM = R"HTML(
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="stylesheet" href="/assets/web-platform-style.css">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="/assets/favicon.ico" sizes="any">
+    <link rel="icon" href="/assets/favicon.ico" sizes="any">
 </head>
 <body>
     <div class="container">
@@ -35,35 +35,7 @@ const char CONFIG_PORTAL_SUCCESS_HTML[] PROGMEM = R"HTML(
     </div>
     
     <script src="/assets/web-platform-utils.js"></script>
-    <script>
-        // Success page countdown functionality
-        let countdown = 3;
-        const countdownEl = document.getElementById('countdown');
-        const progressEl = document.getElementById('progress');
-        
-        function updateCountdown() {
-            countdownEl.textContent = countdown;
-            progressEl.style.width = ((3 - countdown) / 3 * 100) + '%';
-            
-            if (countdown <= 0) {
-                countdownEl.textContent = 'Restarting...';
-                progressEl.style.width = '100%';
-                
-                // Trigger restart using web-platform utilities
-                AuthUtils.fetch('/api/reset', { method: 'POST' })
-                    .catch(() => {}); // Ignore errors as device is restarting
-                return;
-            }
-            
-            countdown--;
-            setTimeout(updateCountdown, 1000);
-        }
-        
-        // Start countdown when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(updateCountdown, 100);
-        });
-    </script>
+    <script src="/assets/config-portal-success.js"></script>
 </body>
 </html>
 )HTML";

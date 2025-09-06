@@ -296,8 +296,13 @@ AuthSession AuthStorage::findSession(const String &sessionId) {
   return AuthSession();
 }
 
-String AuthStorage::validateSession(const String &sessionId) {
+String AuthStorage::validateSession(const String &sessionId,
+                                    const String &clientIp) {
   ensureInitialized();
+
+  if (sessionId.isEmpty()) {
+    return "";
+  }
 
   AuthSession session = findSession(sessionId);
   if (!session.isValid()) {
@@ -307,6 +312,14 @@ String AuthStorage::validateSession(const String &sessionId) {
     }
     return "";
   }
+
+  // Update expiration time to extend the session
+  unsigned long now = time(nullptr);
+  session.expiresAt = now + (AuthConstants::SESSION_DURATION_MS / 1000);
+
+  // Store the updated session
+  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  driver->store(SESSIONS_COLLECTION, sessionId, session.toJson());
 
   return session.userId;
 }

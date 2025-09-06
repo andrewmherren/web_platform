@@ -1,5 +1,7 @@
 #include "../../include/interface/web_request.h"
 #include "../../include/interface/webserver_typedefs.h"
+#include "../../include/storage/auth_storage.h"
+#include "../../include/models/data_models.h"
 #include <ArduinoJson.h>
 
 #if defined(ESP32)
@@ -34,9 +36,7 @@ const char *COMMON_HTTP_HEADERS[] = {"Host",
                                      "Connection",
                                      "Pragma"};
 const size_t COMMON_HTTP_HEADERS_COUNT =
-    sizeof(COMMON_HTTP_HEADERS) / sizeof(COMMON_HTTP_HEADERS[0]);
-
-// Constructor for Arduino WebServer
+    sizeof(COMMON_HTTP_HEADERS) / sizeof(COMMON_HTTP_HEADERS[0]);// Constructor for Arduino WebServer
 WebRequest::WebRequest(WebServerClass *server) {
   if (!server)
     return;
@@ -46,15 +46,6 @@ WebRequest::WebRequest(WebServerClass *server) {
   int queryStart = fullUri.indexOf('?');
   path = (queryStart >= 0) ? fullUri.substring(0, queryStart) : fullUri;
   method = httpMethodToWMMethod(server->method());
-
-  // Get request body for POST requests
-  if (server->method() == HTTP_POST || server->method() == HTTP_PUT ||
-      server->method() == HTTP_PATCH) {
-    body = server->arg("plain");
-    // Parse request body based on content type
-    String contentType = getHeader("Content-Type");
-    parseRequestBody(body, contentType);
-  }
 
   // Parse URL parameters (query string)
   for (int i = 0; i < server->args(); i++) {
@@ -66,11 +57,23 @@ WebRequest::WebRequest(WebServerClass *server) {
     headers[COMMON_HTTP_HEADERS[i]] = server->header(COMMON_HTTP_HEADERS[i]);
   }
 
+  // Get request body for POST, PUT, PATCH requests
+  if (server->method() == HTTP_POST || server->method() == HTTP_PUT ||
+      server->method() == HTTP_PATCH) {
+    body = server->arg("plain");
+    // Parse request body based on content type
+    String contentType = getHeader("Content-Type");
+    parseRequestBody(body, contentType);
+  }
+
   // Parse ClientIp
   clientIp = headers["X-Forwarded-For"];
   if (clientIp.isEmpty()) {
     clientIp = server->client().remoteIP().toString();
   }
+
+  // Always check for session information (for UI state, not authentication)
+  checkSessionInformation();
 }
 
 // Constructor for ESP-IDF HTTPS server
@@ -108,7 +111,7 @@ WebRequest::WebRequest(httpd_req *req) {
     }
   }
 
-  // Get request body for POST requests
+  // Get request body for POST, PUT, PATCH requests
   if ((req->method == HTTP_POST || req->method == HTTP_PUT ||
        req->method == HTTP_PATCH) &&
       req->content_len > 0) {
@@ -130,6 +133,9 @@ WebRequest::WebRequest(httpd_req *req) {
   if (clientIp.isEmpty()) {
     parseClientIp(req);
   }
+
+  // Always check for session information (for UI state, not authentication)
+  checkSessionInformation();
 }
 #endif
 
@@ -218,6 +224,7 @@ void WebRequest::parseFormData(const String &formData) {
 }
 
 void WebRequest::parseJsonData(const String &jsonData) {
+  Serial.println("Parsing: " + jsonData);
   if (jsonData.length() == 0)
     return;
 
@@ -477,4 +484,32 @@ String WebRequest::getRouteParameter(const String &paramName) const {
   }
 
   return String(); // Parameter not found
+}
+
+// Helper method to check session information for UI state (not authentication)
+void WebRequest::checkSessionInformation() {
+  // Extract session cookie to check if user is logged in (for UI state only)
+  String sessionCookie = getHeader("Cookie");
+  if (sessionCookie.indexOf("session=") >= 0) {
+    int start = sessionCookie.indexOf("session=") + 8;
+    int end = sessionCookie.indexOf(";", start);
+    if (end < 0)
+      end = sessionCookie.length();
+    String sessionId = sessionCookie.substring(start, end);
+    
+    // Simple check to see if session exists (no IP validation for UI state)
+    // We validate without IP checking for UI purposes only
+    if (AuthStorage::validateSession(sessionId)) {
+      // Get the session details for UI context
+      AuthSession session = AuthStorage::findSession(sessionId);
+      if (session.isValid()) {
+        // Set basic auth context for UI rendering purposes only
+        authContext.isAuthenticated = true;
+        authContext.authenticatedVia = AuthType::SESSION;
+        authContext.sessionId = sessionId;
+        authContext.username = session.username;
+        authContext.authenticatedAt = session.createdAt;
+      }
+    }
+  }
 }

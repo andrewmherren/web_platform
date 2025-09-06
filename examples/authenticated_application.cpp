@@ -43,14 +43,16 @@ void setup() {
   // Australian Eastern Time with DST
   // NTPClient::setTimeZone(TimeZone::ASIA_TOKYO); // Japan (no DST needed)
 
-  // Set up navigation menu with authentication-aware items
+  // Set up navigation menu with authentication-aware
+  // items
   std::vector<NavigationItem> navItems = {
       NavigationItem("Dashboard", "/"),
       NavigationItem("Device Control", "/control"),
       NavigationItem("Examples", "/examples"),
-      NavigationItem("Account", "/account"),
+      Authenticated(NavigationItem("Account", "/account")),
       NavigationItem("Status", "/status"),
-      NavigationItem("Logout", "/logout")};
+      Authenticated(NavigationItem("Logout", "/logout")),
+      Unauthenticated(NavigationItem("Login", "/login"))};
   IWebModule::setNavigationMenu(navItems);
 
   // Register all routes prior to calling webPlatform.begin()
@@ -146,7 +148,6 @@ void setup() {
                 <link rel="stylesheet" href="/assets/style.css">
                 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
                 <link rel="icon" href="/assets/favicon.ico" sizes="any">
-                <script src="/assets/web-platform-utils.js"></script>
             </head><body>
                 <div class="container">
                     <h1>Device Control Panel</h1>
@@ -169,7 +170,9 @@ void setup() {
                         
                         <div id="result" class="mt-3"></div>
                     </div>
-                </div><script>
+                </div>
+                <script src="/assets/web-platform-utils.js"></script>
+                <script>
                     // Handle control form submission
                     document.getElementById('control-form').addEventListener('submit', async function(e) {
                         e.preventDefault();
@@ -266,7 +269,8 @@ curl --insecure -H "Authorization: Bearer YOUR_TOKEN" )" +
 curl --insecure -X POST -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"command":"status"}' \
-  )" + webPlatform.getBaseUrl() + R"(/api/control
+  )" + webPlatform.getBaseUrl() +
+                                  R"(/api/control
 
 # Alternative: Using URL parameter
 curl --insecure ")" + webPlatform.getBaseUrl() +

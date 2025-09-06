@@ -2,7 +2,6 @@
 #include "../../include/web_platform.h"
 #include <ArduinoJson.h>
 
-
 void WebPlatform::scanApiHandler(WebRequest &req, WebResponse &res) {
   DynamicJsonDocument doc(2048);
   JsonArray networks = doc.createNestedArray("networks");
@@ -79,7 +78,6 @@ void WebPlatform::statusApiHandler(WebRequest &req, WebResponse &res) {
 
   res.setContent(response, "application/json");
 }
-
 void WebPlatform::resetApiHandler(WebRequest &req, WebResponse &res) {
   // Clear WiFi credentials
   EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
@@ -90,4 +88,60 @@ void WebPlatform::resetApiHandler(WebRequest &req, WebResponse &res) {
   ESP.restart();
 
   res.setContent(R"({"status": "restarting"})", "application/json");
+}
+
+void WebPlatform::wifiConfigHandler(WebRequest &req, WebResponse &res) {
+  Serial.println("WebPlatform: Received WiFi save API request");
+
+  String ssid = req.getJsonParam("ssid");
+  String password = req.getJsonParam("password");
+
+  Serial.printf("SSID: %s, Password length: %d chars (redacted for security)\n",
+                ssid.c_str(), password.length());
+
+  if (ssid.length() > 0) {
+    // Reset and save credentials
+    EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
+    EEPROM.commit();
+    saveWiFiCredentials(ssid, password);
+
+    // Verify credentials
+    String checkSsid, checkPass;
+    bool credentialsValid = loadWiFiCredentials(checkSsid, checkPass);
+    Serial.printf("WebPlatform: Credential verification %s - SSID match: %s\n",
+                  credentialsValid ? "passed" : "failed",
+                  checkSsid == ssid ? "yes" : "no");
+
+    // Return success response
+    DynamicJsonDocument doc(256);
+    doc["success"] = true;
+    doc["message"] = "WiFi credentials saved successfully";
+    doc["ssid"] = ssid;
+    doc["restart_required"] = true;
+
+    String response;
+    serializeJson(doc, response);
+    res.setContent(response, "application/json");
+
+    // Schedule restart after response is sent
+    Serial.println(
+        "WebPlatform: WiFi credentials saved - restarting in 3 seconds...");
+    delay(1000);
+    Serial.println("WebPlatform: Restarting in 2 seconds...");
+    delay(1000);
+    Serial.println("WebPlatform: Restarting in 1 second...");
+    delay(1000);
+    ESP.restart();
+  } else {
+    Serial.println("WebPlatform: No SSID provided in API request");
+
+    DynamicJsonDocument doc(256);
+    doc["success"] = false;
+    doc["error"] = "SSID is required";
+
+    String response;
+    serializeJson(doc, response);
+    res.setContent(response, "application/json");
+    res.setStatus(400);
+  }
 }

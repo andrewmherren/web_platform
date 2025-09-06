@@ -88,13 +88,16 @@ class ConfigPortal {
     this.selectedNetwork = null;
     UIUtils.selectNetworkItem(null);
   }
-
-  handleSubmit(event) {
+    
+  async handleSubmit(event) {
+    event.preventDefault();
+    
     const ssidInput = document.getElementById('ssid');
+    const passwordInput = document.getElementById('password');
     const ssid = ssidInput ? ssidInput.value.trim() : '';
+    const password = passwordInput ? passwordInput.value : '';
     
     if (!ssid) {
-      event.preventDefault();
       UIUtils.showAlert('Network Required', 'Please select a network or enter a network name to continue.', 'warning');
       return false;
     }
@@ -102,7 +105,41 @@ class ConfigPortal {
     const submitBtn = event.target.querySelector('button[type="submit"]');
     UIUtils.updateButtonState(submitBtn, true, '⟳ Connecting...');
     
-    return true;
+    try {
+      // Get CSRF token from automatically injected meta tag
+      
+      const response = await AuthUtils.fetchJSON('/api/wifi', {
+        method: 'POST',
+        body: JSON.stringify({
+          ssid: ssid,
+          password: password
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        UIUtils.showAlert('Success!', 
+          `WiFi credentials saved for network "${data.ssid}". Device will restart to connect.`, 
+          'success');
+        
+        // Disable form to prevent double-submission
+        const form = document.getElementById('wifi-form');
+        if (form) {
+          const inputs = form.querySelectorAll('input, button');
+          inputs.forEach(input => input.disabled = true);
+        }
+      } else {
+        UIUtils.showAlert('Configuration Failed', data.error || 'Failed to save WiFi credentials', 'error');
+        UIUtils.updateButtonState(submitBtn, false, 'Connect to WiFi');
+      }
+    } catch (error) {
+      console.error('WiFi config error:', error);
+      UIUtils.showAlert('Connection Error', 'Failed to communicate with device', 'error');
+      UIUtils.updateButtonState(submitBtn, false, 'Connect to WiFi');
+    }
+    
+    return false;
   }
 
   updateScanButton(text, disabled) {
@@ -123,10 +160,32 @@ class ConfigPortal {
     UIUtils.showError(networkList, message);
   }
 }
-
+  
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
   window.configPortal = new ConfigPortal();
+  
+  // Add CSRF protection to the WiFi form as fallback
+  const form = document.getElementById('wifi-form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      const csrf = AuthUtils.getCsrfToken();
+      if (csrf) {
+        // Remove any existing CSRF input
+        const existingCsrf = form.querySelector('input[name="_csrf"]');
+        if (existingCsrf) {
+          existingCsrf.remove();
+        }
+        
+        // Add fresh CSRF token
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = '_csrf';
+        input.value = csrf;
+        form.appendChild(input);
+      }
+    });
+  }
 });
 )rawliteral";
 

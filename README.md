@@ -32,12 +32,14 @@ Create reusable web modules using the IWebModule interface that can be shared ac
 
 void setup() {
     Serial.begin(115200);
-    
-    // Set up navigation menu
+    // Set up navigation menu with authentication-aware items
     std::vector<NavigationItem> navItems = {
         NavigationItem("Home", "/"),
         NavigationItem("Settings", "/settings/"),
-        NavigationItem("About", "/about")
+        NavigationItem("About", "/about"),
+        Authenticated(NavigationItem("Account", "/account")),
+        Authenticated(NavigationItem("Logout", "/logout")),
+        Unauthenticated(NavigationItem("Login", "/login"))
     };
     IWebModule::setNavigationMenu(navItems);
 
@@ -298,17 +300,25 @@ Supported bookmarks:
 // Disable template processing for a specific response
 res.setHeader("X-Skip-Template-Processing", "true");
 res.setContent(html, "text/html");
-```
+```### Navigation Menu
+Create responsive navigation menus that adapt to user authentication state:
 
-### Navigation Menu
 ```cpp
 std::vector<NavigationItem> navItems = {
     NavigationItem("Dashboard", "/"),
     NavigationItem("Settings", "/config/"),
-    NavigationItem("API Docs", "/docs", "_blank")  // Opens in new tab
+    NavigationItem("API Docs", "/docs", "_blank"),  // Opens in new tab
+    Authenticated(NavigationItem("Account", "/account")),
+    Authenticated(NavigationItem("Logout", "/logout")),
+    Unauthenticated(NavigationItem("Login", "/login"))
 };
 IWebModule::setNavigationMenu(navItems);
 ```
+
+**Authentication-aware Navigation Items**:
+- `Authenticated(NavigationItem(...))` - Only shows when user has valid session
+- `Unauthenticated(NavigationItem(...))` - Only shows when user is not logged in
+- Regular `NavigationItem(...)` - Always visible regardless of auth state
 
 ### Accessing Authentication Context
 ```cpp

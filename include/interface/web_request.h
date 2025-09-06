@@ -89,12 +89,14 @@ public:
   // Authentication context
   const AuthContext &getAuthContext() const { return authContext; }
   void setAuthContext(const AuthContext &context) { authContext = context; }
-
+  
   // Route matching (used by routing system)
   void setMatchedRoute(const String& routePattern) { matchedRoutePattern = routePattern; }
   String getMatchedRoute() const { return matchedRoutePattern; }
 
 private:
+  // Helper method to populate auth context for UI state (not authentication)
+  void checkSessionInformation();
   void parseQueryParams(const String &query);
   void parseFormData(const String &formData);
   void parseJsonData(const String &jsonData);

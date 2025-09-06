@@ -55,27 +55,3 @@ void WebPlatform::wifiPageHandler(WebRequest &req, WebResponse &res) {
   IWebModule::setCurrentPath("/wifi");
   res.setContent(FPSTR(WIFI_MANAGEMENT_HTML), "text/html");
 }
-
-void WebPlatform::connectApiHandler(WebRequest &req, WebResponse &res) {
-  String ssid = req.getParam("ssid");
-  String password = req.getParam("password");
-
-  if (ssid.length() > 0) {
-    saveWiFiCredentials(ssid, password);
-
-    res.setContent("{\"status\": \"restarting\", \"message\": \"Connecting "
-                   "to new network...\"}",
-                   "application/json");
-
-    // Schedule restart after response is sent
-    // Note: This is a simplified approach - in a real implementation you
-    // might want to use a timer
-    delay(100); // Give time for response to be sent
-    ESP.restart();
-  } else {
-    res.setStatus(400);
-    res.setContent(
-        "{\"status\": \"error\", \"message\": \"Invalid SSID provided\"}",
-        "application/json");
-  }
-};

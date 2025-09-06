@@ -143,7 +143,7 @@ private:                            // Core server components
   void resetApiHandler(WebRequest &req, WebResponse &res);
   void statusApiHandler(WebRequest &req, WebResponse &res);
   void scanApiHandler(WebRequest &req, WebResponse &res);
-  void connectApiHandler(WebRequest &req, WebResponse &res);
+  void wifiConfigHandler(WebRequest &req, WebResponse &res);
   void loginPageHandler(WebRequest &req, WebResponse &res);
   void logoutPageHandler(WebRequest &req, WebResponse &res);
   void accountPageHandler(WebRequest &req, WebResponse &res);
@@ -151,6 +151,7 @@ private:                            // Core server components
   void configPortalSavePageHandler(WebRequest &req, WebResponse &res);
   void configPortalPageHandler(WebRequest &req, WebResponse &res);
   void configPortalJSAssetHandler(WebRequest &req, WebResponse &res);
+  void configPortalSuccessJSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformJSAssetHandler(WebRequest &req, WebResponse &res);
   void wifiManagementJSAssetHandler(WebRequest &req, WebResponse &res);

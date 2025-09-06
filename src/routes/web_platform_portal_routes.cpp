@@ -34,6 +34,11 @@ void WebPlatform::registerConfigPortalRoutes() {
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::NONE}, WebModule::WM_GET);
 
+  registerRoute("/assets/config-portal-success.js",
+                std::bind(&WebPlatform::configPortalSuccessJSAssetHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+                {AuthType::NONE}, WebModule::WM_GET);
+
   // Register at multiple paths to ensure captive portal works
   registerRoute("/",
                 std::bind(&WebPlatform::configPortalPageHandler, this,
@@ -43,14 +48,13 @@ void WebPlatform::registerConfigPortalRoutes() {
   registerRoute("/index.html",
                 std::bind(&WebPlatform::configPortalPageHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::NONE}, WebModule::WM_GET);
-
-  // Save WiFi credentials - no auth required for initial setup
-  registerRoute("/save",
-                std::bind(&WebPlatform::configPortalSavePageHandler, this,
+                {AuthType::NONE},
+                WebModule::WM_GET); // WiFi configuration API endpoint - secured
+                                    // with CSRF protection
+  registerRoute("/api/wifi",
+                std::bind(&WebPlatform::wifiConfigHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {AuthType::NONE}, WebModule::WM_POST);
-  // TODO: /save should be an api route with page_token protection
+                {AuthType::PAGE_TOKEN}, WebModule::WM_POST);
 
   // API endpoints - no authentication required in captive portal mode
   registerRoute("/api/status",

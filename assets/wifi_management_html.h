@@ -13,8 +13,6 @@ const char WIFI_MANAGEMENT_HTML[] PROGMEM = R"HTML(
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/assets/favicon.ico" sizes="any">
-    <script src="/assets/wifi-management.js"></script>
-    <script src="/assets/web-platform-utils.js"></script>
 </head>
 <body>
     <div class="container">
@@ -74,6 +72,8 @@ const char WIFI_MANAGEMENT_HTML[] PROGMEM = R"HTML(
             <a href="/" class="btn btn-secondary">Back to Home</a>
         </div>
     </div>
+    <script src="/assets/web-platform-utils.js"></script>
+    <script src="/assets/wifi-management.js"></script>
 </body>
 </html>
 )HTML";

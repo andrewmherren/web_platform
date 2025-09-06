@@ -13,8 +13,6 @@ const char CONNECTED_HOME_HTML[] PROGMEM = R"HTML(
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/assets/favicon.ico" sizes="any">
-    <script src="/assets/home-page.js"></script>
-    <script src="/assets/web-platform-utils.js"></script>
 </head>
 <body>
     <div class="container">
@@ -72,6 +70,8 @@ const char CONNECTED_HOME_HTML[] PROGMEM = R"HTML(
             <a href="/account" class="btn">Account Settings</a>
         </div>
     </div>
+    <script src="/assets/home-page.js"></script>
+    <script src="/assets/web-platform-utils.js"></script>
 </body>
 </html>
 )HTML";

@@ -13,8 +13,6 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/assets/favicon.ico" sizes="any">
-    <script src="/assets/system-status.js"></script>
-    <script src="/assets/web-platform-utils.js"></script>
 </head>
 <body>
     <div class="container">
@@ -171,6 +169,8 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
             box-shadow: 0 0 5px rgba(244, 67, 54, 0.5);
         }
     </style>
+    <script src="/assets/web-platform-utils.js"></script>
+    <script src="/assets/system-status.js"></script>
 </body>
 </html>
 )HTML";

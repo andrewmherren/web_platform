@@ -20,13 +20,32 @@ void IWebModule::setCurrentPath(const String &path) { currentPath = path; }
 
 String IWebModule::getCurrentPath() { return currentPath; }
 
-String IWebModule::generateNavigationHtml() {
+String IWebModule::generateNavigationHtml(bool isAuthenticated) {
   if (navigationMenu.empty()) {
     return "";
   }
 
   String html = "<div class=\"nav-links\">\n";
   for (const auto &item : navigationMenu) {
+    // Check visibility requirements
+    bool shouldShow = true;
+    switch (item.visibility) {
+    case NavAuthVisibility::AUTHENTICATED:
+      shouldShow = isAuthenticated;
+      break;
+    case NavAuthVisibility::UNAUTHENTICATED:
+      shouldShow = !isAuthenticated;
+      break;
+    case NavAuthVisibility::ALWAYS:
+    default:
+      shouldShow = true;
+      break;
+    }
+
+    if (!shouldShow) {
+      continue;
+    }
+
     html += "  <a href=\"" + item.url + "\"";
 
     // Auto-detect active state by comparing with current path

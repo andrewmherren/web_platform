@@ -1,10 +1,33 @@
 #include "../../include/storage/auth_storage.h"
 #include "../../include/web_platform.h"
-String WebPlatform::prepareHtml(String html, WebRequest req,
-                                const String &csrfToken) {
-  // Navigation menu injection
+
+String WebPlatform::prepareHtml(
+    String html, WebRequest req,
+    const String
+        &csrfToken) { // Navigation menu injection with authentication awareness
   if (html.indexOf("{{NAV_MENU}}") >= 0) {
-    String navHtml = generateNavigationHtml();
+    const AuthContext &auth = req.getAuthContext();
+    bool isAuthenticated = auth.hasValidSession();
+
+    // Manual session check as a fallback for routes that don't require auth
+    if (!isAuthenticated) {
+      // Try to extract session from cookie for pages that don't require auth
+      String sessionCookie = req.getHeader("Cookie");
+      if (sessionCookie.indexOf("session=") >= 0) {
+        int start = sessionCookie.indexOf("session=") + 8;
+        int end = sessionCookie.indexOf(";", start);
+        if (end < 0)
+          end = sessionCookie.length();
+        String sessionId = sessionCookie.substring(start, end);
+
+        // Check if this is a valid session
+        if (AuthStorage::validateSession(sessionId, req.getClientIp()) != "") {
+          isAuthenticated = true;
+        }
+      }
+    }
+
+    String navHtml = IWebModule::generateNavigationHtml(isAuthenticated);
     html.replace("{{NAV_MENU}}", navHtml);
   }
 

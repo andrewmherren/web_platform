@@ -63,24 +63,25 @@ void WebPlatform::registerConnectedModeRoutes() {
   registerRoute("/api/scan",
                 std::bind(&WebPlatform::scanApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
                 WebModule::WM_GET);
 
   registerRoute("/api/status",
                 std::bind(&WebPlatform::statusApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
                 WebModule::WM_GET);
 
-  registerRoute("/api/connect",
-                std::bind(&WebPlatform::connectApiHandler, this,
-                          std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
-                WebModule::WM_POST);
   registerRoute("/api/reset",
                 std::bind(&WebPlatform::resetApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::PAGE_TOKEN, AuthType::SESSION, AuthType::TOKEN}},
+                {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
+                WebModule::WM_POST);
+
+  registerRoute("/api/wifi",
+                std::bind(&WebPlatform::wifiConfigHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+                {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
                 WebModule::WM_POST);
 
   // Register RESTful API routes for system status data
