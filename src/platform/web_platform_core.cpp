@@ -220,18 +220,18 @@ void WebPlatform::setupRoutes() {
 void WebPlatform::setupConfigPortalMode() {
   Serial.println("WebPlatform: Setting up config portal routes");
 
-  // Someday this could be optional but for now the config portal is assumed
-  // to be a simple setup interface that shouldn't be cluttered with additional
-  // routes
-  //
-  // TODO: this breaks the overriding of the static assets like style.css and
-  // faveicon which is a problem as the portal should still allow this.
-  clearRouteRegistry();
-
-  // Register main portal routes
+  // Register main portal routes (using /portal instead of /)
   registerConfigPortalRoutes();
 
-  // Register unified routes with the server
+  // register a redirect but do it directly on the server instead of the registry. 
+  // This means that if the user has tried to add one to the registry, it wont add
+  // because this one is already on the server (cant be replace donce fully regsitered)
+  server->on("/", HTTP_GET, [this]() {
+    server->sendHeader("Location", "/portal");
+    server->send(302, "text/plain", "Redirecting to setup...");
+  });
+
+  // Bind user overrides from registry (includes asset overrides like CSS)
   bindRegisteredRoutes();
 
   // Setup captive portal DNS server to redirect all DNS queries to our AP IP

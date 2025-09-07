@@ -160,7 +160,6 @@ public:
 
   // Helper methods for navigation menu
   static String generateNavigationHtml(bool isAuthenticated = false);
-  static String injectNavigationMenu(const String &htmlContent);
 
   // Custom error page management
   static void setErrorPage(int statusCode, const String &html);

@@ -40,17 +40,11 @@ void WebPlatform::registerConfigPortalRoutes() {
                 {AuthType::NONE}, WebModule::WM_GET);
 
   // Register at multiple paths to ensure captive portal works
-  registerRoute("/",
+  registerRoute("/portal",
                 std::bind(&WebPlatform::configPortalPageHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::NONE}, WebModule::WM_GET);
 
-  registerRoute("/index.html",
-                std::bind(&WebPlatform::configPortalPageHandler, this,
-                          std::placeholders::_1, std::placeholders::_2),
-                {AuthType::NONE},
-                WebModule::WM_GET); // WiFi configuration API endpoint - secured
-                                    // with CSRF protection
   registerRoute("/api/wifi",
                 std::bind(&WebPlatform::wifiConfigHandler, this,
                           std::placeholders::_1, std::placeholders::_2),

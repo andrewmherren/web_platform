@@ -224,7 +224,6 @@ public:
     
     // Static utility methods
     static void setNavigationMenu(const std::vector<NavigationItem>& items);
-    static String injectNavigationMenu(const String& htmlContent);
     static void setErrorPage(int statusCode, const String& html);
     static void addRedirect(const String& fromPath, const String& toPath);
 };
