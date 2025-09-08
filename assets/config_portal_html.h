@@ -34,11 +34,16 @@ const char CONFIG_PORTAL_HTML[] PROGMEM = R"HTML(
             <form id="wifi-form">
                 <div class="form-group">
                     <label for="ssid">Network Name (SSID):</label>
-                    <input type="text" id="ssid" name="ssid" placeholder="Select network or enter manually" required>
+                    <input type="text" id="ssid" name="ssid" class="form-control" placeholder="Select network or enter manually" required>
                 </div>
                 <div class="form-group">
                     <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" placeholder="Leave empty for open networks">
+                    <div class="password-field">
+                        <input type="password" id="password" name="password" class="form-control" placeholder="Leave empty for open networks">
+                        <button type="button" class="password-toggle" onclick="togglePassword()" title="Show password">
+                            Show
+                        </button>
+                    </div>
                 </div>
                 <div class="button-group">
                     <button type="submit" class="btn btn-primary">Connect to WiFi</button>
@@ -52,7 +57,7 @@ const char CONFIG_PORTAL_HTML[] PROGMEM = R"HTML(
         </div>
     </div>
     <script src="/assets/web-platform-utils.js"></script>
-    <script src="/assets/config-portal.js"></script>
+    <script src="/assets/wifi.js"></script>
 </body>
 </html>
 )HTML";

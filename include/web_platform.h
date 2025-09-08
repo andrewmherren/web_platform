@@ -150,11 +150,10 @@ private:                            // Core server components
   void accountPageJSAssetHandler(WebRequest &req, WebResponse &res);
   void configPortalSavePageHandler(WebRequest &req, WebResponse &res);
   void configPortalPageHandler(WebRequest &req, WebResponse &res);
-  void configPortalJSAssetHandler(WebRequest &req, WebResponse &res);
   void configPortalSuccessJSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformJSAssetHandler(WebRequest &req, WebResponse &res);
-  void wifiManagementJSAssetHandler(WebRequest &req, WebResponse &res);
+  void wifiJSAssetHandler(WebRequest &req, WebResponse &res);
   void styleCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformFaviconHandler(WebRequest &req, WebResponse &res);
   void systemStatusJSAssetHandler(WebRequest &req, WebResponse &res);

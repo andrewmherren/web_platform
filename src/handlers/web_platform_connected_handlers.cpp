@@ -3,7 +3,6 @@
 #include "../../assets/system_status_html.h"
 #include "../../assets/system_status_js.h"
 #include "../../assets/wifi_management_html.h"
-#include "../../assets/wifi_management_js.h"
 #include "../../include/interface/web_module_interface.h"
 #include "../../include/storage/auth_storage.h"
 #include "../../include/web_platform.h"
@@ -13,12 +12,6 @@
 #elif defined(ESP8266)
 #include <ESP8266WebServer.h>
 #endif
-
-void WebPlatform::wifiManagementJSAssetHandler(WebRequest &req,
-                                               WebResponse &res) {
-  res.setContent(FPSTR(WIFI_MANAGEMENT_JS), "application/javascript");
-  res.setHeader("Cache-Control", "public, max-age=3600");
-}
 
 void WebPlatform::systemStatusJSAssetHandler(WebRequest &req,
                                              WebResponse &res) {

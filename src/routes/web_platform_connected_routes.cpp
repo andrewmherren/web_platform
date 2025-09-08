@@ -27,8 +27,8 @@ void WebPlatform::registerConnectedModeRoutes() {
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
-  registerRoute("/assets/wifi-management.js",
-                std::bind(&WebPlatform::wifiManagementJSAssetHandler, this,
+  registerRoute("/assets/wifi.js",
+                std::bind(&WebPlatform::wifiJSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 

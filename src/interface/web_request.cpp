@@ -51,9 +51,9 @@ WebRequest::WebRequest(WebServerClass *server) {
   for (int i = 0; i < server->args(); i++) {
     params[server->argName(i)] = server->arg(i);
   }
-
+  
   // Parse headers
-  for (int i = 0; i < COMMON_HTTP_HEADERS_COUNT; i++) {
+  for (size_t i = 0; i < COMMON_HTTP_HEADERS_COUNT; i++) {
     headers[COMMON_HTTP_HEADERS[i]] = server->header(COMMON_HTTP_HEADERS[i]);
   }
 

@@ -1,16 +1,9 @@
 
 #include "../../assets/config_portal_html.h"
-#include "../../assets/config_portal_js.h"
 #include "../../assets/config_portal_success_html.h"
 #include "../../assets/config_portal_success_js.h"
 #include "../../include/web_platform.h"
 #include <ArduinoJson.h>
-
-void WebPlatform::configPortalJSAssetHandler(WebRequest &req,
-                                             WebResponse &res) {
-  res.setContent(FPSTR(CONFIG_PORTAL_JS), "application/javascript");
-  res.setHeader("Cache-Control", "public, max-age=3600");
-}
 
 void WebPlatform::configPortalPageHandler(WebRequest &req, WebResponse &res) {
   IWebModule::setCurrentPath("/");

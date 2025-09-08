@@ -18,22 +18,22 @@ void WebPlatform::registerConfigPortalRoutes() {
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::NONE}, WebModule::WM_GET);
 
+  registerRoute("/assets/web-platform-style.css",
+                std::bind(&WebPlatform::webPlatformCSSAssetHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+                {AuthType::NONE}, WebModule::WM_GET);
+
   registerRoute("/assets/web-platform-utils.js",
                 std::bind(&WebPlatform::webPlatformJSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::NONE}, WebModule::WM_GET);
 
-  registerRoute("/assets/config-portal.js",
-                std::bind(&WebPlatform::configPortalJSAssetHandler, this,
+  registerRoute("/assets/wifi.js",
+                std::bind(&WebPlatform::wifiJSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::NONE}, WebModule::WM_GET);
 
   // Register static assets first
-  registerRoute("/assets/config-portal.js",
-                std::bind(&WebPlatform::configPortalJSAssetHandler, this,
-                          std::placeholders::_1, std::placeholders::_2),
-                {AuthType::NONE}, WebModule::WM_GET);
-
   registerRoute("/assets/config-portal-success.js",
                 std::bind(&WebPlatform::configPortalSuccessJSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),

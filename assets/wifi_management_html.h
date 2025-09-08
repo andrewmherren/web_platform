@@ -11,6 +11,7 @@ const char WIFI_MANAGEMENT_HTML[] PROGMEM = R"HTML(
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="/assets/web-platform-style.css">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/assets/favicon.ico" sizes="any">
 </head>
@@ -39,30 +40,34 @@ const char WIFI_MANAGEMENT_HTML[] PROGMEM = R"HTML(
             </div>
         </div>
         
-        <div class="card">
-            <h3>Available Networks</h3>
-            <div class="button-group">
-                <button id="scanButton" class="btn btn-primary">Scan for Networks</button>
+        <div class="card wifi-setup">
+            <div class="network-scanner">
+                <h3>Available Networks</h3>
+                <button type="button" class="btn scan-button" id="scan-button">
+                    <span id="scan-text">🔍 Scan for Networks</span>
+                </button>
+                <div class="network-list" id="network-list">
+                    <div class="loading">Click "Scan for Networks" to discover WiFi networks</div>
+                </div>
             </div>
-            <div id="scanResults">
-                <p>Click "Scan for Networks" to see available WiFi networks.</p>
-            </div>
-        </div>
-        
-        <div class="card">
-            <h3>Connect to Network</h3>
+            
             <form id="connectForm">
                 <div class="form-group">
-                    <label for="ssid">SSID:</label>
-                    <input type="text" id="ssid" name="ssid" class="form-control" required>
+                    <label for="ssid">Network Name (SSID):</label>
+                    <input type="text" id="ssid" name="ssid" class="form-control" placeholder="Select network or enter manually" required>
                 </div>
                 <div class="form-group">
                     <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" class="form-control">
-                    <small>Leave blank for open networks</small>
+                    <div class="password-field">
+                        <input type="password" id="password" name="password" class="form-control" placeholder="Leave empty for open networks">
+                        <button type="button" class="password-toggle" onclick="togglePassword()" title="Show password">
+                            Show
+                        </button>
+                    </div>
                 </div>
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary">Connect</button>
+                    <button type="submit" class="btn btn-primary">Connect to WiFi</button>
+                    <button type="button" class="btn btn-secondary" id="clear-button">Clear Form</button>
                 </div>
             </form>
             <div id="connectionStatus"></div>
@@ -73,7 +78,7 @@ const char WIFI_MANAGEMENT_HTML[] PROGMEM = R"HTML(
         </div>
     </div>
     <script src="/assets/web-platform-utils.js"></script>
-    <script src="/assets/wifi-management.js"></script>
+    <script src="/assets/wifi.js"></script>
 </body>
 </html>
 )HTML";

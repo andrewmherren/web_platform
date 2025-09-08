@@ -89,6 +89,24 @@ const NetworkUtils = {
     if (rssi >= -70) return 'Fair';
     return 'Weak';
   },
+  
+  getSignalBars(rssi) {
+    const bars = [];
+    const strength = this.getSignalStrength(rssi);
+    
+    for (let i = 1; i <= 4; i++) {
+      bars.push(`<div class="signal-bar ${i <= strength ? 'active' : ''}"></div>`);
+    }
+    
+    return `<div class="signal-bars">${bars.join('')}</div>`;
+  },
+  
+  getSignalStrength(rssi) {
+    if (rssi >= -50) return 4; // Excellent
+    if (rssi >= -60) return 3; // Good
+    if (rssi >= -70) return 2; // Fair
+    return 1; // Weak
+  },
 
   renderNetworkItem(network, clickHandler) {
     const div = document.createElement('div');
@@ -101,6 +119,9 @@ const NetworkUtils = {
     const infoDiv = document.createElement('div');
     infoDiv.className = 'network-info';
     
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'network-meta';
+    
     const securityIcon = document.createElement('span');
     securityIcon.className = 'security-icon';
     securityIcon.innerHTML = network.encryption ? '🔒' : '🔓';
@@ -108,11 +129,18 @@ const NetworkUtils = {
     
     const signalSpan = document.createElement('span');
     signalSpan.className = 'signal-strength';
-    signalSpan.textContent = `${network.rssi}dBm`;
-    signalSpan.title = this.getSignalStrengthText(network.rssi);
+    signalSpan.textContent = this.getSignalStrengthText(network.rssi);
+    signalSpan.title = `${network.rssi}dBm`;
     
-    infoDiv.appendChild(securityIcon);
-    infoDiv.appendChild(signalSpan);
+    metaDiv.appendChild(securityIcon);
+    metaDiv.appendChild(signalSpan);
+    
+    // Add signal bars
+    const signalBars = document.createElement('div');
+    signalBars.innerHTML = this.getSignalBars(network.rssi);
+    
+    infoDiv.appendChild(metaDiv);
+    infoDiv.appendChild(signalBars);
     
     div.appendChild(nameDiv);
     div.appendChild(infoDiv);

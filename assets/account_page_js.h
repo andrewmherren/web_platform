@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadUserTokens() {
         try {
             // First get current user to get the ID
-            const userData = await AuthUtils.fetchJSON('/api/user/');
+            const userData = await AuthUtils.fetchJSON('/api/user');
             if (userData.success) {
                 const userId = userData.user.id;
                 
@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
     tokenContainer.innerHTML = html;
     }
 
-    function updatePassword(e) {
+    async function updatePassword(e) {
       e.preventDefault();
       const password = document.getElementById('password').value;
       const confirmPassword = document.getElementById('confirmPassword').value;
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       try {
-        const data = await AuthUtils.fetchJSON('/api/user/', {
+        const data = await AuthUtils.fetchJSON('/api/user', {
           method: 'PUT',
           body: JSON.stringify({password: password})
         });
@@ -82,13 +82,13 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
 
-    function createToken(e) {
+    async function createToken(e) {
       e.preventDefault();
       const tokenName = document.getElementById('tokenName').value;
 
       try {
         // First get current user to get the ID
-        const userData = await AuthUtils.fetchJSON('/api/user/');
+        const userData = await AuthUtils.fetchJSON('/api/user');
         if (userData.success) {
           const userId = userData.user.id;
           
