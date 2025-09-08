@@ -164,8 +164,35 @@ void WebPlatform::handleNotFound() {
     server->send(302, "text/html", "");
     return;
   }
+  
+  // Check for parameterized/wildcard routes
+  WebRequest request(server);
+  String requestPath = request.getPath();
+  WebModule::Method wmMethod = httpMethodToWMMethod(server->method());
+    
+  // Check all routes for wildcard matches
+  for (const auto &route : routeRegistry) {
+    if (route.disabled || !route.handler || route.method != wmMethod) {
+      continue;
+    }
 
-  // Use IWebModule error page system
+    bool hasWildcard = route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
+    bool pathMatches = this->pathMatchesRoute(route.path, requestPath);
+    
+    if (hasWildcard && pathMatches) {
+      WebResponse response;
+      
+      // Set the matched route pattern for parameter extraction
+      request.setMatchedRoute(route.path);
+      
+      // Process the request with full auth handling
+      this->executeRouteWithAuth(route, request, response, "HTTP");
+      response.sendTo(server);
+      return;
+    }
+  }
+  
+  // Use IWebModule error page system if no wildcard routes matched
   String errorPage = IWebModule::getErrorPage(404);
   if (errorPage.length() > 0) {
     server->send(404, "text/html", errorPage);

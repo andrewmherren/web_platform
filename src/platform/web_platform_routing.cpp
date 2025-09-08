@@ -213,14 +213,16 @@ bool WebPlatform::shouldSkipRoute(const RouteEntry &route,
   }
 
   return false;
-} // Helper function to execute route with authentication and CSRF processing
+}
+
+// Helper function to execute route with authentication and CSRF processing
 // (shared logic)
 void WebPlatform::executeRouteWithAuth(const RouteEntry &route,
                                        WebRequest &request,
                                        WebResponse &response,
                                        const String &serverType) {
-  Serial.printf("%s handling request: %s\n", serverType.c_str(),
-                request.getPath().c_str());
+  Serial.printf("%s handling request: %s with route pattern: %s\n", serverType.c_str(),
+                request.getPath().c_str(), route.path.c_str());
 
   // Set the matched route pattern on the request for parameter extraction
   request.setMatchedRoute(route.path);
@@ -274,34 +276,15 @@ void WebPlatform::bindRegisteredRoutes() {
     }
 
     HTTPMethod httpMethod = wmMethodToHttpMethod(route.method);
-
+    
     // Check if this route has wildcards or parameters - if so, use a generic
     // handler
     bool hasWildcard =
         route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
 
     if (hasWildcard) {
-      // Create a generic handler that checks all requests for pattern matching
-      auto wrapperHandler = [route, this]() {
-        WebRequest request(server);
-        String requestPath = request.getPath();
-
-        // Check if this request matches our route pattern
-        if (pathMatchesRoute(route.path, requestPath)) {
-          WebResponse response;
-          executeRouteWithAuth(route, request, response, "HTTP");
-          response.sendTo(server);
-        } else {
-          // This shouldn't happen if routing is working correctly
-          server->send(404, "text/plain", "Not Found");
-        }
-      };
-
-      // For wildcard routes, we need to register a catch-all pattern
-      // This is a limitation of Arduino WebServer - we'll register with the
-      // server's notFound handler For now, we'll store these routes and handle
-      // them in a custom way
-
+      Serial.printf("HTTP skipping wildcard route registration: %s (will be handled by onNotFound)\n", route.path.c_str());
+      // Skip wildcard route registration - will be handled by onNotFound
     } else {
       // Regular exact-match route
       auto wrapperHandler = [route, this]() {
@@ -314,7 +297,7 @@ void WebPlatform::bindRegisteredRoutes() {
         // Send the response
         response.sendTo(server);
       };
-
+      
       // Register both with and without trailing slash
       server->on(route.path.c_str(), httpMethod, wrapperHandler);
 
@@ -324,7 +307,7 @@ void WebPlatform::bindRegisteredRoutes() {
       }
     }
   }
-
+  
   // Set up a custom notFound handler that checks wildcard routes
   server->onNotFound([this]() {
     WebRequest request(server);
@@ -358,8 +341,8 @@ void WebPlatform::bindRegisteredRoutes() {
       }
     }
 
-    // No match found
-    server->send(404, "text/plain", "Not Found");
+    // Fall back to original handleNotFound logic
+    this->handleNotFound();
   });
 }
 
