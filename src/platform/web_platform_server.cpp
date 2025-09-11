@@ -214,9 +214,14 @@ void WebPlatform::configureHttpsServer() {
         if (errorPage.length() > 0) {
           // Set navigation context and inject menu
           IWebModule::setCurrentPath("/404");
+
+          // Process error page through template system for bookmark replacement
+          String processedErrorPage =
+              WebPlatform::httpsInstance->prepareHtml(errorPage, request);
+
           WebResponse response;
           response.setStatus(404);
-          response.setContent(errorPage, "text/html");
+          response.setContent(processedErrorPage, "text/html");
           return response.sendTo(req);
         } else {
           // Use a simple default response
