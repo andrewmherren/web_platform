@@ -63,12 +63,6 @@ const char CONNECTED_HOME_HTML[] PROGMEM = R"HTML(
                 <p>Loading modules...</p>
             </div>
         </div>
-        
-        <div class="button-group mt-3">
-            <a href="/status" class="btn">System Status</a>
-            <a href="/wifi" class="btn">WiFi Setup</a>
-            <a href="/account" class="btn">Account Settings</a>
-        </div>
     </div>
     <script src="/assets/home-page.js"></script>
     <script src="/assets/web-platform-utils.js"></script>

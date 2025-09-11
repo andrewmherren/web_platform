@@ -1,11 +1,13 @@
-#include "../../include/web_platform.h"
+#include "../../assets/favicon_ico.h"
+#include "../../assets/maker_api_styles_css.h"
 #include "../../assets/web_platform_styles_css.h"
 #include "../../assets/web_platform_utils_js.h"
 #include "../../assets/web_ui_styles.h"
-#include "../../assets/favicon_ico.h"
 #include "../../assets/wifi_js.h"
+#include "../../include/web_platform.h"
 
-void WebPlatform::webPlatformCSSAssetHandler(WebRequest &req, WebResponse &res) {
+void WebPlatform::webPlatformCSSAssetHandler(WebRequest &req,
+                                             WebResponse &res) {
   res.setContent(FPSTR(WEB_PLATFORM_STYLES_CSS), "text/css");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
@@ -17,6 +19,12 @@ void WebPlatform::webPlatformJSAssetHandler(WebRequest &req, WebResponse &res) {
 
 void WebPlatform::styleCSSAssetHandler(WebRequest &req, WebResponse &res) {
   res.setContent(WEB_UI_DEFAULT_CSS, "text/css");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+}
+
+void WebPlatform::makerApiStyleCSSAssetHandler(WebRequest &req,
+                                               WebResponse &res) {
+  res.setContent(MAKER_API_STYLES_CSS, "text/css");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 

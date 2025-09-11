@@ -1,50 +1,53 @@
+#include "../include/interface/auth_types.h"
 #include "../include/route_entry.h"
 #include "../include/web_platform.h"
-#include "../include/interface/auth_types.h"
 
 // Enhanced route debugging tools for Phase 2
 
-void WebPlatform::printUnifiedRoutes(const String* moduleBasePath, IWebModule* module) const {
+void WebPlatform::printUnifiedRoutes(const String *moduleBasePath,
+                                     IWebModule *module) const {
   // Determine what we're printing based on parameters
   String headerTitle;
   if (module && moduleBasePath) {
-    headerTitle = "Module '" + module->getModuleName() + "' Routes (" + *moduleBasePath + ")";
+    headerTitle = "Module '" + module->getModuleName() + "' Routes (" +
+                  *moduleBasePath + ")";
   } else {
     headerTitle = "WebPlatform Route Registry";
   }
-  
+
   Serial.printf("\n=== %s ===\n", headerTitle.c_str());
   Serial.println(
-      "PATH                     METHOD  AUTH         STATUS     SOURCE");
+      "PATH                        METHOD  STATUS     SOURCE    AUTH");
   Serial.println(
-      "------------------------ ------- ------------ ---------- -----------");
+      "--------------------------- ------- ---------- --------- -------------");
 
   int routeCount = 0;
   for (const auto &route : routeRegistry) {
-    // If filtering by module, only show routes that start with the module's base path
+    // If filtering by module, only show routes that start with the module's
+    // base path
     bool shouldShow = true;
     if (moduleBasePath && module) {
       // Only show routes that start with the module's base path
       shouldShow = route.path.startsWith(*moduleBasePath);
-      
+
       // Special case for module root path
       if (*moduleBasePath != "/" && route.path == *moduleBasePath) {
         shouldShow = true;
       }
     }
-    
+
     if (!shouldShow) {
       continue;
     }
-    
+
     routeCount++;
-    
+
     // Format path with padding (up to 24 chars)
     String pathStr = route.path;
-    if (pathStr.length() > 24) {
-      pathStr = pathStr.substring(0, 21) + "...";
+    if (pathStr.length() > 27) {
+      pathStr = pathStr.substring(0, 24) + "...";
     } else {
-      while (pathStr.length() < 24) {
+      while (pathStr.length() < 27) {
         pathStr += " ";
       }
     }
@@ -84,10 +87,10 @@ void WebPlatform::printUnifiedRoutes(const String* moduleBasePath, IWebModule* m
     String sourceStr = route.isOverride ? "OVERRIDE" : "DEFAULT";
 
     Serial.printf("%s %s %s %s %s\n", pathStr.c_str(), methodStr.c_str(),
-                  authStr.c_str(), statusStr.c_str(), sourceStr.c_str());
+                  statusStr.c_str(), sourceStr.c_str(), authStr.c_str());
   }
 
-  Serial.println("=============================================");
+  Serial.println("========================================================");
   if (module && moduleBasePath) {
     Serial.printf("Total module routes: %d\n\n", routeCount);
   } else {

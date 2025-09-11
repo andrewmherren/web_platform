@@ -155,6 +155,7 @@ private:                            // Core server components
   void webPlatformJSAssetHandler(WebRequest &req, WebResponse &res);
   void wifiJSAssetHandler(WebRequest &req, WebResponse &res);
   void styleCSSAssetHandler(WebRequest &req, WebResponse &res);
+  void makerApiStyleCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformFaviconHandler(WebRequest &req, WebResponse &res);
   void systemStatusJSAssetHandler(WebRequest &req, WebResponse &res);
   void homePageJSAssetHandler(WebRequest &req, WebResponse &res);
@@ -238,6 +239,9 @@ private:                            // Core server components
   void registerModuleRoutesForModule(const String &basePath,
                                      IWebModule *module);
   void bindRegisteredRoutes();
+  bool dispatchRoute(const String &path, WebModule::Method wmMethod,
+                     WebRequest &request, WebResponse &response,
+                     const char *protocol);
 
 #if defined(ESP32)
   void registerUnifiedHttpsRoutes();

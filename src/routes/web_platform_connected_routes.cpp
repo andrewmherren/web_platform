@@ -17,6 +17,11 @@ void WebPlatform::registerConnectedModeRoutes() {
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
+  registerRoute("/assets/maker-api-style.css",
+                std::bind(&WebPlatform::makerApiStyleCSSAssetHandler, this,
+                          std::placeholders::_1, std::placeholders::_2),
+                {AuthType::NONE}, WebModule::WM_GET);
+
   registerRoute("/assets/web-platform-style.css",
                 std::bind(&WebPlatform::webPlatformCSSAssetHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
