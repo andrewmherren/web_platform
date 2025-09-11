@@ -150,8 +150,8 @@ void setup() {
                 <link rel="icon" href="/assets/favicon.ico" sizes="any">
             </head><body>
                 <div class="container">
-                    <h1>Device Control Panel</h1>
                     {{NAV_MENU}}
+                    <h1>Device Control Panel</h1>
                     <p></p>
                     <div class="card">
                         <h2>System Controls</h2>
@@ -241,8 +241,8 @@ void setup() {
                 <link rel="icon" href="/assets/favicon.ico" sizes="any">
             </head><body>
                 <div class="container">
-                    <h1>API Examples & Documentation</h1>
                     {{NAV_MENU}}
+                    <h1>API Examples & Documentation</h1>
                     <p></p>
                     <div class="card">
                         <h2>Getting Started</h2>

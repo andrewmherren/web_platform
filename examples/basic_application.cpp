@@ -47,8 +47,8 @@ void setup() {
                 <link rel="stylesheet" href="/assets/style.css">
             </head><body>
                 <div class="container">
-                    <h1>Welcome to My Device</h1>
                     {{NAV_MENU}}
+                    <h1>Welcome to My Device</h1>
                     <p>This is a simple embedded web application built with WebPlatform.</p>
                     
                     <div class="status-grid">
@@ -88,8 +88,8 @@ void setup() {
                 <link rel="stylesheet" href="/assets/style.css">
             </head><body>
                 <div class="container">
-                    <h1>About My Device</h1>
                     {{NAV_MENU}}
+                    <h1>About My Device</h1>
                     <div class="card">
                         <h2>Device Information</h2>
                         <table class="info-table">
@@ -143,8 +143,8 @@ void setup() {
                 <link rel="stylesheet" href="/assets/style.css">
             </head><body>
                 <div class="container">
-                    <h1>Device Settings</h1>
                     {{NAV_MENU}}
+                    <h1>Device Settings</h1>
                     <div class="card">
                         <h2>WiFi Configuration</h2>
                         <p>Current Network: <strong>)" +
