@@ -145,6 +145,7 @@ private:                            // Core server components
   void scanApiHandler(WebRequest &req, WebResponse &res);
   void wifiConfigHandler(WebRequest &req, WebResponse &res);
   void loginPageHandler(WebRequest &req, WebResponse &res);
+  void loginApiHandler(WebRequest &req, WebResponse &res);
   void logoutPageHandler(WebRequest &req, WebResponse &res);
   void accountPageHandler(WebRequest &req, WebResponse &res);
   void accountPageJSAssetHandler(WebRequest &req, WebResponse &res);

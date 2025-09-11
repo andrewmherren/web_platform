@@ -16,7 +16,7 @@ const char LOGIN_PAGE_HTML[] PROGMEM = R"rawliteral(
 <body>
   <div class="container">
     <h1>Login</h1>
-    <form method="post" action="/login?redirect={{redirectUrl}}">
+    <form method="post" action="/api/login?redirect={{redirectUrl}}">
       <input type="hidden" name="_csrf" value="{{csrfToken}}">
       <div class="form-group">
         <label for="username">Username:</label>

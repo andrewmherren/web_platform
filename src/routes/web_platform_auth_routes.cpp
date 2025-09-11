@@ -6,9 +6,10 @@
 #include "../../include/web_platform.h"
 #include <functional>
 
-// In general, auth api routes should use Token and Session auth types because only
-// those two identify the actual user preforming interactions and we dont wan to 
-// allow anonymous interaction with auth related resources (ie users, tokens, etc)
+// In general, auth api routes should use Token and Session auth types because
+// only those two identify the actual user preforming interactions and we dont
+// wan to allow anonymous interaction with auth related resources (ie users,
+// tokens, etc)
 
 // Register authentication-related routes
 void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
@@ -24,8 +25,8 @@ void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
                 {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   // POST handler for login form submission
-  registerRoute("/login",
-                std::bind(&WebPlatform::loginPageHandler, this,
+  registerRoute("/api/login",
+                std::bind(&WebPlatform::loginApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
                 {AuthType::LOCAL_ONLY}, WebModule::WM_POST);
 
@@ -46,36 +47,31 @@ void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
   registerRoute("/api/users",
                 std::bind(&WebPlatform::getUsersApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::TOKEN, AuthType::SESSION}},
-                WebModule::WM_GET);
+                {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET);
 
   // Create new user (admin only)
   registerRoute("/api/users",
                 std::bind(&WebPlatform::createUserApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::TOKEN, AuthType::SESSION}},
-                WebModule::WM_POST);
+                {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_POST);
 
   // Get specific user by ID
   registerRoute("/api/users/{id}",
                 std::bind(&WebPlatform::getUserByIdApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::TOKEN, AuthType::SESSION}},
-                WebModule::WM_GET);
+                {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET);
 
   // Update specific user by ID
   registerRoute("/api/users/{id}",
                 std::bind(&WebPlatform::updateUserByIdApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::TOKEN, AuthType::SESSION}},
-                WebModule::WM_PUT);
+                {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_PUT);
 
   // Delete specific user by ID (admin only)
   registerRoute("/api/users/{id}",
                 std::bind(&WebPlatform::deleteUserByIdApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::TOKEN, AuthType::SESSION}},
-                WebModule::WM_DELETE);
+                {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_DELETE);
 
   // Current user convenience endpoints
 
@@ -89,8 +85,7 @@ void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
   registerRoute("/api/user",
                 std::bind(&WebPlatform::updateCurrentUserApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::TOKEN, AuthType::SESSION}},
-                WebModule::WM_PUT);
+                {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_PUT);
 
   // Token management endpoints
 
@@ -98,8 +93,7 @@ void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
   registerRoute("/api/users/{id}/tokens",
                 std::bind(&WebPlatform::getUserTokensApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::TOKEN, AuthType::SESSION}},
-                WebModule::WM_GET);
+                {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET);
 
   // Create token for user
   registerRoute("/api/users/{id}/tokens",
@@ -110,6 +104,5 @@ void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
   registerRoute("/api/tokens/{id}",
                 std::bind(&WebPlatform::deleteTokenApiHandler, this,
                           std::placeholders::_1, std::placeholders::_2),
-                {{AuthType::TOKEN, AuthType::SESSION}},
-                WebModule::WM_DELETE);
+                {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_DELETE);
 }

@@ -78,6 +78,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const moduleAction = document.createElement('div');
             const moduleLink = document.createElement('a');
             moduleLink.href = module.basePath;
+            // Ensure trailing slash for module links
+            let basePath = module.basePath;
+            if (!basePath.endsWith('/')) {
+                basePath += '/';
+            }
+            moduleLink.href = basePath;
             moduleLink.className = 'btn btn-secondary';
             moduleLink.textContent = 'Open';
             moduleAction.appendChild(moduleLink);

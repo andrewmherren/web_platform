@@ -24,55 +24,71 @@ void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
   String clientIp = req.getClientIp();
   String csrfToken = AuthStorage::createPageToken(clientIp);
 
-  if (req.getMethod() == WebModule::WM_POST) {
-    // Verify CSRF token
-    String formToken = req.getParam("_csrf");
+  // Show login form
+  String loginHtml = String(LOGIN_PAGE_HTML);
+  loginHtml.replace("{{redirectUrl}}", redirectUrl);
 
-    if (formToken.isEmpty() ||
-        !AuthStorage::validatePageToken(formToken, clientIp)) {
-      res.setStatus(403);
-      res.setContent("CSRF token validation failed. Please try again.");
-      return;
-    }
+  res.setContent(loginHtml);
 
-    // Process login form
-    String username = req.getParam("username");
-    String password = req.getParam("password");
-    String userId = AuthStorage::validateCredentials(username, password);
-    if (!userId.isEmpty()) {
-      // Create session
-      String sessionId = AuthStorage::createSession(userId);
+  // Set HttpOnly cookie with page token (CSRF protection)
+  res.setHeader("Set-Cookie",
+                "page_token=" + csrfToken + "; Path=/; Max-Age=" +
+                    String(AuthConstants::PAGE_TOKEN_DURATION_MS / 1000) +
+                    "; SameSite=Strict; HttpOnly");
+}
 
-      // Set session cookie - HTTP only for security
-      res.setHeader("Set-Cookie",
-                    "session=" + sessionId + "; Path=/; Max-Age=" +
-                        String(AuthConstants::SESSION_DURATION_MS / 1000) +
-                        "; SameSite=Strict; HttpOnly");
+void WebPlatform::loginApiHandler(WebRequest &req, WebResponse &res) {
+  String redirectUrl = req.getParam("redirect");
+  if (redirectUrl.isEmpty()) {
+    redirectUrl = "/";
+  }
 
-      // Redirect to requested page
-      res.redirect(redirectUrl);
-      return;
-    } else {
-      // Invalid credentials, show login form with error
-      String loginHtml = String(LOGIN_PAGE_ERROR_HTML);
-      loginHtml.replace("{{redirectUrl}}", redirectUrl);
+  // Check if already logged in
+  const AuthContext &auth = req.getAuthContext();
+  if (auth.hasValidSession()) {
+    res.redirect(redirectUrl);
+    return;
+  }
 
-      res.setContent(loginHtml);
-      res.setStatus(401);
-      return;
-    }
+  // Create a CSRF token for the form
+  String clientIp = req.getClientIp();
+  String csrfToken = AuthStorage::createPageToken(clientIp);
+
+  // Verify CSRF token
+  String formToken = req.getParam("_csrf");
+
+  if (formToken.isEmpty() ||
+      !AuthStorage::validatePageToken(formToken, clientIp)) {
+    res.setStatus(403);
+    res.setContent("CSRF token validation failed. Please try again.");
+    return;
+  }
+
+  // Process login form
+  String username = req.getParam("username");
+  String password = req.getParam("password");
+  String userId = AuthStorage::validateCredentials(username, password);
+  if (!userId.isEmpty()) {
+    // Create session
+    String sessionId = AuthStorage::createSession(userId);
+
+    // Set session cookie - HTTP only for security
+    res.setHeader("Set-Cookie",
+                  "session=" + sessionId + "; Path=/; Max-Age=" +
+                      String(AuthConstants::SESSION_DURATION_MS / 1000) +
+                      "; SameSite=Strict; HttpOnly");
+
+    // Redirect to requested page
+    res.redirect(redirectUrl);
+    return;
   } else {
-    // Show login form
-    String loginHtml = String(LOGIN_PAGE_HTML);
+    // Invalid credentials, show login form with error
+    String loginHtml = String(LOGIN_PAGE_ERROR_HTML);
     loginHtml.replace("{{redirectUrl}}", redirectUrl);
 
     res.setContent(loginHtml);
-
-    // Set HttpOnly cookie with page token (CSRF protection)
-    res.setHeader("Set-Cookie",
-                  "page_token=" + csrfToken + "; Path=/; Max-Age=" +
-                      String(AuthConstants::PAGE_TOKEN_DURATION_MS / 1000) +
-                      "; SameSite=Strict; HttpOnly");
+    res.setStatus(401);
+    return;
   }
 }
 

@@ -221,8 +221,9 @@ void WebPlatform::executeRouteWithAuth(const RouteEntry &route,
                                        WebRequest &request,
                                        WebResponse &response,
                                        const String &serverType) {
-  Serial.printf("%s handling request: %s with route pattern: %s\n", serverType.c_str(),
-                request.getPath().c_str(), route.path.c_str());
+  Serial.printf("%s handling request: %s with route pattern: %s\n",
+                serverType.c_str(), request.getPath().c_str(),
+                route.path.c_str());
 
   // Set the matched route pattern on the request for parameter extraction
   request.setMatchedRoute(route.path);
@@ -243,6 +244,26 @@ void WebPlatform::executeRouteWithAuth(const RouteEntry &route,
       this->processResponseTemplates(request, response);
     }
   }
+}
+
+bool WebPlatform::dispatchRoute(const String &path, WebModule::Method wmMethod,
+                                WebRequest &request, WebResponse &response,
+                                const char *protocol) {
+  for (const auto &route : routeRegistry) {
+    if (route.disabled || !route.handler || route.method != wmMethod) {
+      continue;
+    }
+
+    bool matches = pathMatchesRoute(route.path, path) ||
+                   (!route.path.endsWith("/") && route.path + "/" == path);
+
+    if (matches) {
+      executeRouteWithAuth(route, request, response, protocol);
+      return true; // handled
+    }
+  }
+
+  return false; // not handled
 }
 
 // Internal method to register unified routes with actual server
@@ -270,44 +291,69 @@ void WebPlatform::bindRegisteredRoutes() {
   }
 
   for (const auto &route : routeRegistry) {
-    // Use shared route validation
     if (shouldSkipRoute(route, "HTTP")) {
       continue;
     }
 
     HTTPMethod httpMethod = wmMethodToHttpMethod(route.method);
-    
-    // Check if this route has wildcards or parameters - if so, use a generic
-    // handler
+
     bool hasWildcard =
         route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
 
     if (hasWildcard) {
-      Serial.printf("HTTP skipping wildcard route registration: %s (will be handled by onNotFound)\n", route.path.c_str());
-      // Skip wildcard route registration - will be handled by onNotFound
-    } else {
-      // Regular exact-match route
-      auto wrapperHandler = [route, this]() {
+      // will be handled in 404 handler.
+      continue;
+    }
+
+    // Special case: root
+    if (route.path == "/") {
+      server->on(route.path.c_str(), httpMethod, [this, route]() {
         WebRequest request(server);
         WebResponse response;
 
-        // Use shared execution logic with authentication and CSRF
         executeRouteWithAuth(route, request, response, "HTTP");
-
-        // Send the response
         response.sendTo(server);
-      };
-      
-      // Register both with and without trailing slash
-      server->on(route.path.c_str(), httpMethod, wrapperHandler);
+      });
+      continue;
+    }
 
-      if (!route.path.endsWith("/") && route.path != "/") {
-        String pathWithSlash = route.path + "/";
-        server->on(pathWithSlash.c_str(), httpMethod, wrapperHandler);
-      }
+    // Determine if the route looks like a "file" (has extension)
+    bool looksLikeFile =
+        route.path.lastIndexOf('.') > route.path.lastIndexOf('/');
+
+    // Detect REST API routes
+    bool isApiRoute = route.path.indexOf("/api/") != -1;
+
+    String routeWithSlash = route.path;
+    // Only apply trailing-slash redirect for page-like routes that are not API
+    if (!looksLikeFile && !isApiRoute && !routeWithSlash.endsWith("/")) {
+      routeWithSlash += "/";
+    }
+
+    String routeNoSlash =
+        looksLikeFile || isApiRoute
+            ? route.path // don’t alter file routes
+            : routeWithSlash.substring(0, routeWithSlash.length() - 1);
+
+    // Real handler (slash form)
+    auto wrapperHandler = [this, route]() {
+      WebRequest request(server);
+      WebResponse response;
+
+      executeRouteWithAuth(route, request, response, "HTTP");
+      response.sendTo(server);
+    };
+    server->on(routeWithSlash.c_str(), httpMethod, wrapperHandler);
+
+    // Redirect from no-slash to slash, only for directory-like routes
+    if (!looksLikeFile && !isApiRoute && route.path != "/") {
+      server->on(routeNoSlash.c_str(), httpMethod, [routeWithSlash, this]() {
+        server->sendHeader("Location", routeWithSlash, true);
+        server->send(301);
+      });
     }
   }
-  
+
   // Set up a custom notFound handler that checks wildcard routes
   server->onNotFound([this]() {
     WebRequest request(server);
@@ -356,101 +402,108 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
   }
 
   for (const auto &route : routeRegistry) {
-    // Use shared route validation
     if (shouldSkipRoute(route, "HTTPS")) {
       continue;
     }
 
-    // Convert method to ESP-IDF HTTP method
     httpd_method_t httpdMethod = wmMethodToHttpMethod(route.method);
 
-    // Check if this route has wildcards or parameters
     bool hasWildcard =
         route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
 
-    // For wildcard/parameterized routes, we need to handle them differently
-    // ESP-IDF doesn't support wildcard matching, so we skip registration here
-    // and handle them in a catch-all handler
     if (hasWildcard) {
-      continue; // Skip registration, handle in catch-all
+      continue; // handled by catch-all
     }
 
     String registrationPath = route.path;
 
-    // Store the path permanently for ESP-IDF
-    httpsRoutePaths.push_back(registrationPath);
-    String pathWithSlash = registrationPath + "/";
-    if (!registrationPath.endsWith("/") && registrationPath != "/") {
-      httpsRoutePaths.push_back(pathWithSlash);
+    // === Special case: root ("/") ===
+    if (registrationPath == "/") {
+      httpsRoutePaths.push_back(registrationPath);
+
+      httpd_uri_t uri_config = {};
+      uri_config.uri = httpsRoutePaths.back().c_str();
+      uri_config.method = httpdMethod;
+      uri_config.user_ctx = nullptr;
+      uri_config.handler = [](httpd_req_t *req) -> esp_err_t {
+        WebRequest request(req);
+        WebResponse response;
+
+        String requestPath = request.getPath();
+        WebModule::Method wmMethod =
+            httpMethodToWMMethod((HTTPMethod)req->method);
+
+        if (!WebPlatform::httpsInstance->dispatchRoute(
+                requestPath, wmMethod, request, response, "HTTPS")) {
+          httpd_resp_send_404(req);
+          return ESP_FAIL;
+        }
+        return response.sendTo(req);
+      };
+      httpd_register_uri_handler(httpsServerHandle, &uri_config);
+      continue;
     }
 
-    // Register the route
+    // Ensure trailing slash form only for "directory-like" routes
+    String routeWithSlash = registrationPath;
+    bool looksLikeFile =
+        registrationPath.lastIndexOf('.') > registrationPath.lastIndexOf('/');
+
+    // Detect REST API routes
+    bool isApiRoute = route.path.indexOf("/api/") != -1;
+
+    if (!looksLikeFile && !isApiRoute && !routeWithSlash.endsWith("/")) {
+      routeWithSlash += "/";
+    }
+
+    // No-slash form
+    String routeNoSlash =
+        looksLikeFile || isApiRoute
+            ? registrationPath // don’t alter file routes
+            : routeWithSlash.substring(0, routeWithSlash.length() - 1);
+
+    // === Slash form: real handler ===
+    httpsRoutePaths.push_back(routeWithSlash);
     httpd_uri_t uri_config = {};
-    uri_config.uri = httpsRoutePaths[httpsRoutePaths.size() -
-                                     (registrationPath.endsWith("/") ||
-                                              registrationPath == "/"
-                                          ? 1
-                                          : 2)]
-                         .c_str();
+    uri_config.uri = httpsRoutePaths.back().c_str();
     uri_config.method = httpdMethod;
     uri_config.handler = [](httpd_req_t *req) -> esp_err_t {
-      // Create WebRequest first to get properly parsed path
       WebRequest request(req);
       WebResponse response;
       String requestPath = request.getPath();
 
-      Serial.printf("HTTPS handling request: %s\n", req->uri);
-      for (const auto &route : routeRegistry) {
-        // Convert ESP-IDF method back to our WebModule method for comparison
-        WebModule::Method wmMethod = WebModule::WM_GET; // default
-        if (req->method == HTTP_POST)
-          wmMethod = WebModule::WM_POST;
-        else if (req->method == HTTP_PUT)
-          wmMethod = WebModule::WM_PUT;
-        else if (req->method == HTTP_DELETE)
-          wmMethod = WebModule::WM_DELETE;
-        else if (req->method == HTTP_PATCH)
-          wmMethod = WebModule::WM_PATCH;
+      WebModule::Method wmMethod =
+          httpMethodToWMMethod((HTTPMethod)req->method);
 
-        if (route.method != wmMethod || route.disabled || !route.handler) {
-          continue;
-        }
-
-        bool pathMatches = WebPlatform::httpsInstance->pathMatchesRoute(
-                               route.path, requestPath) ||
-                           (route.path + "/" == requestPath &&
-                            !route.path.endsWith("/") && route.path != "/");
-
-        if (pathMatches && !route.disabled) {
-          Serial.printf(
-              "HTTPS found matching route: %s matches %s (override: %s)\n",
-              route.path.c_str(), requestPath.c_str(),
-              route.isOverride ? "yes" : "no");
-
-          // Use shared execution logic with authentication and CSRF
-          WebPlatform::httpsInstance->executeRouteWithAuth(route, request,
-                                                           response, "HTTPS");
-
-          return response.sendTo(req);
-        }
+      if (!WebPlatform::httpsInstance->dispatchRoute(
+              requestPath, wmMethod, request, response, "HTTPS")) {
+        httpd_resp_send_404(req);
+        return ESP_FAIL;
       }
 
-      Serial.printf("HTTPS no matching route found for: %s (path: %s)\n",
-                    req->uri, requestPath.c_str());
-      return ESP_FAIL;
+      return response.sendTo(req);
     };
-    uri_config.user_ctx = nullptr;
-
     httpd_register_uri_handler(httpsServerHandle, &uri_config);
 
-    // Register trailing slash version if different
-    if (!registrationPath.endsWith("/") && registrationPath != "/") {
-      uri_config.uri = httpsRoutePaths.back().c_str();
-      httpd_register_uri_handler(httpsServerHandle, &uri_config);
+    // === No-slash redirect ===
+    if (!looksLikeFile && !isApiRoute && registrationPath != "/") {
+      // note: if we ever allow dynamic route addition/removal or
+      // teardown and recreation of the server this String could create
+      // a memory leak. It would need to be freed in these conditions
+      String *targetCopy = new String(routeWithSlash);
+      httpd_uri_t redirect_config = {};
+      redirect_config.uri = routeNoSlash.c_str();
+      redirect_config.method = httpdMethod;
+      redirect_config.user_ctx = targetCopy;
+      redirect_config.handler = [](httpd_req_t *req) -> esp_err_t {
+        const String *target = static_cast<const String *>(req->user_ctx);
+        httpd_resp_set_status(req, "301 Moved Permanently");
+        httpd_resp_set_hdr(req, "Location", target->c_str());
+        httpd_resp_sendstr(req, "Redirecting...");
+        return ESP_OK;
+      };
+      httpd_register_uri_handler(httpsServerHandle, &redirect_config);
     }
   }
-
-  // No need for catch-all handlers - wildcard routes will be handled in the
-  // existing 404 error handler
 }
 #endif
