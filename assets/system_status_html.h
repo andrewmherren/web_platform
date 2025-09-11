@@ -113,21 +113,15 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
             <div class="form-group">
                 <label>Flash Size:</label>
                 <div class="status-value" id="flashSize">Loading...</div>
-            </div>
-            <div class="form-group">
-                <label>Used Space:</label>
-                <div class="status-value with-gauge">
-                    <span><span id="usedSpace">-</span> MB (<span id="usedSpacePercent">-</span>% used)</span>
-                    <div class="gauge-inline">
-                        <div id="storage-gauge" class="gauge">
-                            <div id="storage-gauge-fill" class="gauge-fill"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Available Space:</label>
-                <div class="status-value" id="availableSpace">Loading...</div>
+            </div><div class="form-group">
+                    <label>Free Space:</label>
+                    <div class="status-value with-gauge">
+                        <span><span id="freeSpace">-</span> MB (<span id="freeSpacePercent">-</span>% free)</span>
+                        <div class="gauge-inline">
+                            <div id="storage-gauge" class="gauge">
+                                <div id="storage-gauge-fill" class="gauge-fill"></div>
+                            </div>
+                        </div></div>
             </div>
         </div>
         

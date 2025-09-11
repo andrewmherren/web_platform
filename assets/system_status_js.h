@@ -48,15 +48,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Memory gauge
         document.getElementById('uptimeValue').textContent = formatUptime(status.uptime);
         document.getElementById('freeHeap').textContent = status.memory.freeHeap;
-        document.getElementById('freeHeapPercent').textContent = status.memory.freeHeapPercent + '%';
-        document.getElementById('memory-gauge-fill').style.width = status.memory.freeHeapPercent + '%';
+        document.getElementById('freeHeapPercent').textContent = status.memory.freeHeapPercent;
+        document.getElementById('memory-gauge-fill').style.width = (100 - status.memory.freeHeapPercent) + '%';
         document.getElementById('memory-gauge').className = 'gauge gauge-' + status.memory.color;
         
         // Storage gauge
-        document.getElementById('flashSize').textContent = status.storage.flashSize;
-        document.getElementById('usedSpace').textContent = status.storage.usedSpace;
-        document.getElementById('availableSpace').textContent = status.storage.availableSpace;
-        document.getElementById('usedSpacePercent').textContent = status.storage.usedSpacePercent + '%';
+        document.getElementById('flashSize').textContent = status.storage.flashSize + ' MB';
+        document.getElementById('freeSpace').textContent = status.storage.availableSpace;
+        document.getElementById('freeSpacePercent').textContent = (100 - status.storage.usedSpacePercent);
         document.getElementById('storage-gauge-fill').style.width = status.storage.usedSpacePercent + '%';
         document.getElementById('storage-gauge').className = 'gauge gauge-' + status.storage.color;
         

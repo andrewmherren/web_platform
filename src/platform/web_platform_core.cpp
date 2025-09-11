@@ -164,34 +164,35 @@ void WebPlatform::handleNotFound() {
     server->send(302, "text/html", "");
     return;
   }
-  
+
   // Check for parameterized/wildcard routes
   WebRequest request(server);
   String requestPath = request.getPath();
   WebModule::Method wmMethod = httpMethodToWMMethod(server->method());
-    
+
   // Check all routes for wildcard matches
   for (const auto &route : routeRegistry) {
     if (route.disabled || !route.handler || route.method != wmMethod) {
       continue;
     }
 
-    bool hasWildcard = route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
+    bool hasWildcard =
+        route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
     bool pathMatches = this->pathMatchesRoute(route.path, requestPath);
-    
+
     if (hasWildcard && pathMatches) {
       WebResponse response;
-      
+
       // Set the matched route pattern for parameter extraction
       request.setMatchedRoute(route.path);
-      
+
       // Process the request with full auth handling
       this->executeRouteWithAuth(route, request, response, "HTTP");
       response.sendTo(server);
       return;
     }
   }
-  
+
   // Use IWebModule error page system if no wildcard routes matched
   String errorPage = IWebModule::getErrorPage(404);
   if (errorPage.length() > 0) {
@@ -253,9 +254,10 @@ void WebPlatform::setupConfigPortalMode() {
   // Register main portal routes (using /portal instead of /)
   registerConfigPortalRoutes();
 
-  // register a redirect but do it directly on the server instead of the registry. 
-  // This means that if the user has tried to add one to the registry, it wont add
-  // because this one is already on the server (cant be replace donce fully regsitered)
+  // register a redirect but do it directly on the server instead of the
+  // registry. This means that if the user has tried to add one to the registry,
+  // it wont add because this one is already on the server (cant be replace
+  // donce fully regsitered)
   server->on("/", HTTP_GET, [this]() {
     server->sendHeader("Location", "/portal");
     server->send(302, "text/plain", "Redirecting to setup...");
@@ -365,54 +367,25 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
       if (!fullPath.endsWith("/")) {
         fullPath += "/";
       }
-      Serial.printf("  Module root path: %s\n", fullPath.c_str());
     } else if (!fullPath.endsWith("/") && !routePath.startsWith("/")) {
       // Neither has slash, add one between
       fullPath += "/" + routePath;
-      Serial.printf("  Added slash between paths: %s\n", fullPath.c_str());
     } else if (fullPath.endsWith("/") && routePath.startsWith("/")) {
       // Both have slash, remove duplicate
       fullPath += routePath.substring(1);
-      Serial.printf("  Removed duplicate slash: %s\n", fullPath.c_str());
     } else {
       // One has slash, just concatenate
       fullPath += routePath;
     }
 
     // Register the route directly with the unified system
-    if (route.unifiedHandler) {
-      // Pass the route's auth requirements when registering
-      registerRoute(fullPath, route.unifiedHandler, route.authRequirements,
-                    route.method);
-    } else if (route.handler) {
-      // Convert legacy handler to unified handler
-      // Lambda to adapt the legacy handler format
-      auto unifiedHandler = [route, basePath](WebRequest &req,
-                                              WebResponse &res) {
-        // Set current path for navigation highlighting
-        IWebModule::setCurrentPath(basePath);
-
-        // Extract parameters from request
-        std::map<String, String> params = req.getAllParams();
-
-        // Call legacy handler
-        String result = route.handler(req.getBody(), params);
-
-        // Set response
-        res.setContent(result, route.contentType);
-      };
-
-      // By default, legacy routes have no auth requirements
-      registerRoute(fullPath, unifiedHandler, {AuthType::NONE}, route.method);
-    }
+    // Pass the route's auth requirements when registering
+    registerRoute(fullPath, route.unifiedHandler, route.authRequirements,
+                  route.method);
   }
 
   // Print only routes for this specific module
   printUnifiedRoutes(&basePath, module);
-
-  // Similar process for HTTPS routes
-  auto httpsRoutes = module->getHttpsRoutes();
-  // Skip detailed HTTPS processing as it's redundant with the unified system
 }
 
 void WebPlatform::onSetupComplete(WiFiSetupCompleteCallback callback) {
