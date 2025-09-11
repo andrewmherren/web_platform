@@ -195,7 +195,10 @@ void WebPlatform::handleNotFound() {
   // Use IWebModule error page system if no wildcard routes matched
   String errorPage = IWebModule::getErrorPage(404);
   if (errorPage.length() > 0) {
-    server->send(404, "text/html", errorPage);
+    // Process error page through template system for bookmark replacement
+    WebRequest errorRequest(server);
+    String processedErrorPage = prepareHtml(errorPage, errorRequest);
+    server->send(404, "text/html", processedErrorPage);
   } else {
     server->send(404, "text/plain", "Not Found");
   }
