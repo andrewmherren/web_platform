@@ -1,0 +1,474 @@
+# WebPlatform API Reference
+
+This document provides a comprehensive API reference for the WebPlatform library.
+
+## Table of Contents
+- [WebPlatform Core API](#webplatform-core-api)
+- [IWebModule Interface](#iwebmodule-interface)
+- [WebRoute Structure](#webroute-structure)
+- [WebRequest Class](#webrequest-class)
+- [WebResponse Class](#webresponse-class)
+- [Authentication API](#authentication-api)
+- [Storage API](#storage-api)
+- [Navigation System](#navigation-system)
+- [Error Handling](#error-handling)
+
+## WebPlatform Core API
+
+### Initialization
+
+```cpp
+// Basic initialization
+void begin(const char* deviceName = "Device", bool forceHttpsOnly = false);
+```
+
+Parameters:
+- `deviceName`: Name of the device, used for AP SSID and mDNS hostname
+- `forceHttpsOnly`: If true, only HTTPS will be used (if available); HTTP requests are rejected
+
+### Module Management
+
+```cpp
+// Register a module with base path
+bool registerModule(const char* basePath, IWebModule* module);
+```
+
+Parameters:
+- `basePath`: Base URL path for this module (e.g., "/sensor")
+- `module`: Pointer to an IWebModule instance
+
+Returns:
+- `true` if module was registered successfully
+- `false` if registration failed (e.g., already in config portal mode)
+
+### Route Management
+
+```cpp
+// Register a new route
+void registerRoute(const String& path, WebModule::UnifiedRouteHandler handler,
+                  const AuthRequirements& auth = {AuthType::NONE},
+                  WebModule::Method method = WebModule::WM_GET);
+
+// Override an existing route
+void overrideRoute(const String& path, WebModule::UnifiedRouteHandler handler,
+                  const AuthRequirements& auth = {AuthType::NONE},
+                  WebModule::Method method = WebModule::WM_GET);
+                  
+// Disable a route
+void disableRoute(const String& path,
+                  WebModule::Method method = WebModule::WM_GET);
+```
+
+Parameters:
+- `path`: URL path for the route
+- `handler`: Function to handle the request
+- `auth`: Authentication requirements (defaults to public access)
+- `method`: HTTP method (GET, POST, etc.)
+
+### Request Handling
+
+```cpp
+// Process HTTP requests and WiFi operations (call in loop)
+void handle();
+```
+
+### State Queries
+
+```cpp
+// Check if connected to WiFi
+bool isConnected() const;
+
+// Get current connection state
+WiFiConnectionState getConnectionState() const;
+
+// Get current platform mode
+PlatformMode getCurrentMode() const;
+
+// Check if HTTPS is enabled
+bool isHttpsEnabled() const;
+
+// Get base URL for the device
+String getBaseUrl() const;
+
+// Get server port
+int getPort() const;
+```
+
+### WiFi Management
+
+```cpp
+// Reset stored WiFi credentials
+void resetWiFiCredentials();
+
+// Start WiFi configuration portal
+void startConfigPortal();
+
+// Set callback for when WiFi setup completes
+void onSetupComplete(WiFiSetupCompleteCallback callback);
+
+// Get access point name
+const char* getAPName() const;
+
+// Get mDNS hostname
+String getHostname() const;
+```
+
+### Debug and Monitoring
+
+```cpp
+// Get number of registered routes
+size_t getRouteCount() const;
+
+// Print all registered routes (for debugging)
+void printUnifiedRoutes(const String* moduleBasePath = nullptr,
+                       IWebModule* module = nullptr) const;
+                       
+// Validate all routes for consistency
+void validateRoutes() const;
+```
+
+## IWebModule Interface
+
+### Required Methods
+
+```cpp
+// Get HTTP routes for this module
+virtual std::vector<WebRoute> getHttpRoutes() = 0;
+
+// Get HTTPS routes for this module
+virtual std::vector<WebRoute> getHttpsRoutes() = 0;
+
+// Get module name
+virtual String getModuleName() const = 0;
+```
+
+### Optional Methods
+
+```cpp
+// Get module version (defaults to "1.0.0")
+virtual String getModuleVersion() const;
+
+// Get module description (defaults to "Web-enabled module")
+virtual String getModuleDescription() const;
+
+// Convenience method for modules with identical HTTP/HTTPS routes
+virtual std::vector<WebRoute> getWebRoutes();
+```
+
+### Static Utility Methods
+
+```cpp
+// Set navigation menu items
+static void setNavigationMenu(const std::vector<NavigationItem>& items);
+
+// Get current navigation menu items
+static std::vector<NavigationItem> getNavigationMenu();
+
+// Set current path for auto-active detection in navigation
+static void setCurrentPath(const String& path);
+
+// Get current path
+static String getCurrentPath();
+
+// Generate navigation HTML
+static String generateNavigationHtml(bool isAuthenticated = false);
+
+// Set custom error page for specific status code
+static void setErrorPage(int statusCode, const String& html);
+
+// Get error page for specific status code
+static String getErrorPage(int statusCode);
+
+// Generate default error page with status code and optional message
+static String generateDefaultErrorPage(int statusCode, const String& message = "");
+
+// Add URL redirect
+static void addRedirect(const String& fromPath, const String& toPath);
+
+// Get redirect target for path (empty if no redirect)
+static String getRedirectTarget(const String& requestPath);
+```
+
+## WebRoute Structure
+
+```cpp
+struct WebRoute {
+    String path;                     // Route path
+    WebModule::Method method;        // HTTP method  
+    WebModule::RouteHandler handler; // Legacy function pointer (deprecated)
+    WebModule::UnifiedRouteHandler unifiedHandler; // New unified handler
+    String contentType;              // Response content type
+    String description;              // Optional description
+    AuthRequirements authRequirements; // Authentication requirements
+};
+```
+
+### Constructors
+
+```cpp
+// Basic constructor
+WebRoute(const String& p, WebModule::Method m, WebModule::UnifiedRouteHandler h);
+
+// With content type
+WebRoute(const String& p, WebModule::Method m, WebModule::UnifiedRouteHandler h, const String& ct);
+
+// With content type and description
+WebRoute(const String& p, WebModule::Method m, WebModule::UnifiedRouteHandler h, const String& ct, const String& desc);
+
+// With auth requirements
+WebRoute(const String& p, WebModule::Method m, WebModule::UnifiedRouteHandler h, const AuthRequirements& auth);
+
+// With auth requirements and content type
+WebRoute(const String& p, WebModule::Method m, WebModule::UnifiedRouteHandler h, const AuthRequirements& auth, const String& ct);
+
+// With auth requirements, content type, and description
+WebRoute(const String& p, WebModule::Method m, WebModule::UnifiedRouteHandler h, const AuthRequirements& auth, const String& ct, const String& desc);
+```
+
+## WebRequest Class
+
+```cpp
+class WebRequest {
+public:
+    // Get request method
+    WebModule::Method getMethod() const;
+    
+    // Get request path
+    String getPath() const;
+    
+    // Get query parameter value
+    String getParam(const String& name, const String& defaultValue = "") const;
+    
+    // Get all query parameters
+    std::map<String, String> getParams() const;
+    
+    // Get request body
+    String getBody() const;
+    
+    // Get request header value
+    String getHeader(const String& name) const;
+    
+    // Get all headers
+    std::map<String, String> getHeaders() const;
+    
+    // Get client IP address
+    IPAddress getClientIP() const;
+    
+    // Get authentication context
+    const AuthContext& getAuthContext() const;
+    
+    // Check if request is from local network
+    bool isLocalRequest() const;
+};
+```
+
+## WebResponse Class
+
+```cpp
+class WebResponse {
+public:
+    // Set response content and content type
+    void setContent(const String& content, const String& contentType);
+    
+    // Set response status code
+    void setStatus(int code);
+    
+    // Set response header
+    void setHeader(const String& name, const String& value);
+    
+    // Redirect to another URL
+    void redirect(const String& url);
+    
+    // Send response as JSON
+    void json(const String& jsonContent);
+    
+    // Get response content
+    String getContent() const;
+    
+    // Get content type
+    String getContentType() const;
+    
+    // Get status code
+    int getStatus() const;
+    
+    // Get headers
+    std::map<String, String> getHeaders() const;
+};
+```
+
+## Authentication API
+
+### Authentication Types
+
+```cpp
+enum class AuthType {
+    NONE,         // Public access (no authentication)
+    SESSION,      // Web-based login required (cookies)
+    TOKEN,        // API token required (Bearer or URL param)
+    PAGE_TOKEN,   // CSRF protection for forms
+    LOCAL_ONLY    // Restrict to local network access
+};
+```
+
+### Authentication Requirements
+
+```cpp
+struct AuthRequirements {
+    std::vector<AuthType> requiredAuthTypes;  // Authentication types required
+    
+    // Default constructor (no authentication)
+    AuthRequirements() : requiredAuthTypes({AuthType::NONE}) {}
+    
+    // Constructor with a single auth type
+    AuthRequirements(AuthType type) : requiredAuthTypes({type}) {}
+    
+    // Constructor with multiple auth types
+    AuthRequirements(std::initializer_list<AuthType> types) : requiredAuthTypes(types) {}
+    
+    // Check if any authentication is required
+    bool requiresAuth() const;
+    
+    // Check if a specific auth type is required
+    bool requires(AuthType type) const;
+};
+```
+
+### Authentication Context
+
+```cpp
+struct AuthContext {
+    bool isAuthenticated;        // Whether request is authenticated
+    AuthType authenticatedVia;   // Which auth method was used
+    String username;             // Username (for SESSION auth)
+    String userId;               // User ID (for SESSION auth)
+    String token;                // Token ID (for TOKEN auth)
+    bool isAdmin;                // Whether user has admin privileges
+};
+```
+
+### Auth Storage API
+
+```cpp
+// User management
+String AuthStorage::createUser(const String& username, const String& password);
+AuthUser AuthStorage::findUserById(const String& userId);
+AuthUser AuthStorage::findUserByUsername(const String& username);
+bool AuthStorage::updateUser(const String& userId, const String& username, const String& password);
+bool AuthStorage::deleteUser(const String& userId);
+
+// Session management
+String AuthStorage::createSession(const String& userId);
+AuthSession AuthStorage::findSessionById(const String& sessionId);
+bool AuthStorage::deleteSession(const String& sessionId);
+
+// Token management
+String AuthStorage::createApiToken(const String& userId, const String& name);
+std::vector<AuthApiToken> AuthStorage::getUserApiTokens(const String& userId);
+bool AuthStorage::deleteApiToken(const String& tokenId);
+```
+
+## Storage API
+
+### Storage Manager
+
+```cpp
+// Get query builder for a collection
+static QueryBuilder StorageManager::query(const String& collection);
+
+// Get specific storage driver
+static IDatabaseDriver* StorageManager::driver(const String& driverName);
+
+// Store data directly
+static bool StorageManager::store(const String& collection, const String& key, const String& data);
+
+// Retrieve data directly
+static String StorageManager::get(const String& collection, const String& key);
+
+// Delete data directly
+static bool StorageManager::remove(const String& collection, const String& key);
+```
+
+### Query Builder
+
+```cpp
+class QueryBuilder {
+public:
+    // Filter by field value
+    QueryBuilder& where(const String& field, const String& value);
+    
+    // Get data
+    String get();
+    
+    // Store data with key
+    bool store(const String& key, const String& data);
+    
+    // Delete data by key
+    bool remove(const String& key);
+    
+    // Check if key exists
+    bool exists(const String& key);
+    
+    // Get all keys in collection
+    std::vector<String> keys();
+};
+```
+
+## Navigation System
+
+### Navigation Item
+
+```cpp
+struct NavigationItem {
+    String name;                 // Display name
+    String url;                  // URL to link to
+    String target;               // Optional target attribute
+    NavAuthVisibility visibility; // When this item should be visible
+};
+```
+
+### Navigation Visibility
+
+```cpp
+enum class NavAuthVisibility {
+    ALWAYS,         // Always visible regardless of auth state
+    AUTHENTICATED,  // Only visible when user has valid session
+    UNAUTHENTICATED // Only visible when user is not authenticated
+};
+```
+
+### Helper Functions
+
+```cpp
+// Make navigation item only visible to authenticated users
+NavigationItem Authenticated(const NavigationItem& item);
+
+// Make navigation item only visible to unauthenticated users
+NavigationItem Unauthenticated(const NavigationItem& item);
+```
+
+## Error Handling
+
+### Setting Custom Error Pages
+
+```cpp
+// Set custom error page for specific status code
+IWebModule::setErrorPage(404, "<html><body><h1>Not Found</h1></body></html>");
+
+// Generate default error page with custom message
+String errorPage = IWebModule::generateDefaultErrorPage(500, "Database connection failed");
+```
+
+### Responding with Errors
+
+```cpp
+// In route handler
+void errorHandler(WebRequest& req, WebResponse& res) {
+    // Return 404 Not Found
+    res.setStatus(404);
+    res.setContent(IWebModule::getErrorPage(404), "text/html");
+    
+    // Alternative: JSON error
+    res.setStatus(400);
+    res.setContent("{\"error\":\"Bad request\",\"message\":\"Missing required parameter\"}", 
+                   "application/json");
+}

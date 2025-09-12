@@ -2,6 +2,13 @@
 
 A comprehensive web development platform for ESP32/ESP8266 that provides a unified framework for building web-enabled embedded applications.
 
+## Documentation
+
+- [User Guide](GUIDE.md) - Detailed usage instructions and examples
+- [API Reference](API.md) - Complete API documentation
+- [Authentication Guide](AUTH.md) - Detailed authentication system documentation
+- [Examples](examples/README.md) - Example applications and modules
+
 ## Overview
 
 WebPlatform is a complete web development framework that transforms ESP32/ESP8266 devices into sophisticated web-enabled applications. It combines multiple components into a single, easy-to-use library:
@@ -105,384 +112,82 @@ private:
 };
 ```
 
-## Key Features
+## Build Configuration
 
-### Unified Architecture
-- **Single Server Instance**: HTTP or HTTPS automatically selected based on certificate availability
-- **Mode-Based Operation**: Automatic switching between WiFi configuration and application modes
-- **Module System**: Register multiple web modules with isolated route namespaces
-- **Static Assets**: Built-in CSS framework and JavaScript utilities
+To use WebPlatform in your project, add the following to your `platformio.ini`:
 
-### Security & Authentication
-- **HTTPS Auto-Detection**: Uses HTTPS when certificates are available, falls back to HTTP
-- **Authentication Types**: Support for session-based and token-based authentication
-- **CSRF Protection**: Built-in protection for form submissions
-- **Route-Level Security**: Fine-grained authentication requirements per route
+### HTTP-only Mode (default)
 
-### Advanced Route Management
-- **Route Overrides**: Replace module routes with custom implementations
-- **Route Disabling**: Completely disable specific module routes
-- **Authentication Requirements**: Specify different auth types per route
-- **Flexible Handlers**: Both legacy and modern request/response handlers supported
+```ini
+[env:esp32]
+platform = espressif32
+board = esp32dev
+framework = arduino
+lib_deps = 
+  bblanchon/ArduinoJson@^6.20.0
+  # Add your web modules here
 
-## Operating Modes
-
-### CONFIG_PORTAL Mode
-Activated when no WiFi credentials are stored or connection fails.
-
-- Creates WiFi access point (`[DeviceName]Setup`)
-- Serves captive portal for WiFi configuration  
-- Uses HTTPS if certificates available
-- Automatically transitions to CONNECTED mode after setup
-
-### CONNECTED Mode  
-Activated when device successfully connects to WiFi.
-
-- Serves registered application modules
-- Provides full authentication system
-- Enables advanced features like API tokens
-- Supports mDNS hostname resolution (`device.local`)
-
-## Authentication System
-
-### Authentication Types
-- `AuthType::NONE` - Public access (no authentication)
-- `AuthType::SESSION` - Web-based login (cookies)
-- `AuthType::TOKEN` - API access (Bearer tokens)
-- `AuthType::PAGE_TOKEN` - CSRF protection for forms
-- `AuthType::LOCAL_ONLY` - Restrict to local network access
-
-### Route Protection
-```cpp
-// Public route
-webPlatform.registerRoute("/public", handler, {AuthType::NONE});
-
-// Login required
-webPlatform.registerRoute("/admin", handler, {AuthType::SESSION});
-
-// API access
-webPlatform.registerRoute("/api/data", handler, {AuthType::TOKEN});
-
-// Form with CSRF protection
-webPlatform.registerRoute("/api/save", handler, 
-    {AuthType::SESSION, AuthType::PAGE_TOKEN}, WebModule::WM_POST);
-
-// Flexible access (either session or token)
-webPlatform.registerRoute("/api/status", handler, 
-    {AuthType::SESSION, AuthType::TOKEN});
+[env:esp8266]
+platform = espressif8266
+board = nodemcuv2
+framework = arduino
+lib_deps = 
+  bblanchon/ArduinoJson@^6.20.0
+  https://github.com/rweaver/arduinolibs.git
+  marvinroger/ESP8266TrueRandom@^1.0.0
+  # Add your web modules here
 ```
 
-## API Reference
+### HTTPS Mode (ESP32 only)
 
-### WebPlatform Core Methods
-
-```cpp
-// Initialization
-void begin(const char* deviceName = "Device", bool forceHttpsOnly = false);
-
-// Module management
-bool registerModule(const char* basePath, IWebModule* module);
-
-// Route management
-void registerRoute(const String& path, WebModule::UnifiedRouteHandler handler,
-                  const AuthRequirements& auth = {AuthType::NONE},
-                  WebModule::Method method = WebModule::WM_GET);
-                  
-void overrideRoute(const String& path, WebModule::UnifiedRouteHandler handler,
-                  const AuthRequirements& auth = {AuthType::NONE},
-                  WebModule::Method method = WebModule::WM_GET);
-                  
-void disableRoute(const String& path, WebModule::Method method = WebModule::WM_GET);
-
-// Request handling
-void handle();
-
-// State queries  
-bool isConnected() const;
-PlatformMode getCurrentMode() const;
-bool isHttpsEnabled() const;
-String getBaseUrl() const;
-
-// WiFi management
-void resetWiFiCredentials();
-String getHostname() const;
+```ini
+[env:esp32-https]
+platform = espressif32
+board = esp32dev
+framework = arduino
+lib_deps = 
+  bblanchon/ArduinoJson@^6.20.0
+  # Add your web modules here
+  
+# HTTPS certificate embedding - certificate files must exist in src/ directory
+board_build.embed_txtfiles = 
+  src/server_cert.pem
+  src/server_key.pem
 ```
 
-### IWebModule Interface
-
-```cpp
-class IWebModule {
-public:
-    // Required implementations
-    virtual std::vector<WebRoute> getHttpRoutes() = 0;
-    virtual std::vector<WebRoute> getHttpsRoutes() = 0;
-    virtual String getModuleName() const = 0;
-    
-    // Optional implementations
-    virtual String getModuleVersion() const { return "1.0.0"; }
-    virtual String getModuleDescription() const { return "Web-enabled module"; }
-    
-    // Static utility methods
-    static void setNavigationMenu(const std::vector<NavigationItem>& items);
-    static void setErrorPage(int statusCode, const String& html);
-    static void addRedirect(const String& fromPath, const String& toPath);
-};
-```
-
-### WebRoute Structure
-
-```cpp
-struct WebRoute {
-    String path;                                    // Route path
-    WebModule::Method method;                       // HTTP method  
-    WebModule::UnifiedRouteHandler unifiedHandler;  // Request handler
-    String contentType;                             // Response content type
-    String description;                             // Optional description
-    AuthRequirements authRequirements;             // Authentication requirements
-    
-    // Constructor with auth requirements
-    WebRoute(const String& path, WebModule::Method method,
-             WebModule::UnifiedRouteHandler handler,
-             const AuthRequirements& auth = {AuthType::NONE});
-};
-```
-
-## Advanced Features
-
-### Custom Error Pages
-```cpp
-IWebModule::setErrorPage(404, R"(
-    <html><body>
-        <h1>Page Not Found</h1>
-        <p>The requested page could not be found.</p>
-    </body></html>
-)");
-```
-
-### URL Redirects
-```cpp
-IWebModule::addRedirect("/old-path", "/new-path");
-IWebModule::addRedirect("/settings", "/config/");
-```
-
-### Template System with Bookmarks
-WebPlatform includes an automatic template processing system that replaces bookmarks in HTML content. This happens automatically for HTML responses and requires no manual processing.
-
-```cpp
-// Define a handler that uses bookmarks
-webPlatform.registerRoute("/example", [](WebRequest& req, WebResponse& res) {
-    String html = R"(
-      <!DOCTYPE html>
-      <html><head><title>Example</title></head>
-      <body>
-        <div class="container">
-          {{NAV_MENU}}
-          <h1>Welcome, {{username}}!</h1>
-          <p>Device: {{DEVICE_NAME}}</p>
-        </div>
-      </body></html>
-    )";
-    
-    res.setContent(html, "text/html");  // Bookmarks processed automatically!
-}, {AuthType::SESSION});
-```
-
-Supported bookmarks:
-- `{{NAV_MENU}}` - Injects the navigation menu (replaces the old comment-based system)
-- `{{csrfToken}}` - Generates and injects a CSRF token for form protection
-- `{{SECURITY_NOTICE}}` - Displays HTTPS status notice for sensitive forms
-- `{{username}}` - Shows the authenticated user's username
-- `{{DEVICE_NAME}}` - Shows the device name set during initialization
-
-### Opt-Out of Template Processing
-```cpp
-// Disable template processing for a specific response
-res.setHeader("X-Skip-Template-Processing", "true");
-res.setContent(html, "text/html");
-```### Navigation Menu
-Create responsive navigation menus that adapt to user authentication state:
-
-```cpp
-std::vector<NavigationItem> navItems = {
-    NavigationItem("Dashboard", "/"),
-    NavigationItem("Settings", "/config/"),
-    NavigationItem("API Docs", "/docs", "_blank"),  // Opens in new tab
-    Authenticated(NavigationItem("Account", "/account")),
-    Authenticated(NavigationItem("Logout", "/logout")),
-    Unauthenticated(NavigationItem("Login", "/login"))
-};
-IWebModule::setNavigationMenu(navItems);
-```
-
-**Authentication-aware Navigation Items**:
-- `Authenticated(NavigationItem(...))` - Only shows when user has valid session
-- `Unauthenticated(NavigationItem(...))` - Only shows when user is not logged in
-- Regular `NavigationItem(...)` - Always visible regardless of auth state
-
-### Accessing Authentication Context
-```cpp
-void protectedHandler(WebRequest& req, WebResponse& res) {
-    const AuthContext& auth = req.getAuthContext();
-    
-    if (auth.authenticatedVia == AuthType::SESSION) {
-        // User logged in via web interface
-        String username = auth.username;
-    } else if (auth.authenticatedVia == AuthType::TOKEN) {
-        // API access via token
-        String token = auth.token;
-    }
-}
-```
-
-## Memory and Performance
-
-### Resource Requirements
-- **Base Memory**: ~4KB RAM for WebPlatform instance
-- **Per Module**: ~500 bytes additional per registered module
-- **HTTPS Overhead**: ~2KB additional when certificates enabled
-- **Storage**: 512 bytes EEPROM for WiFi credentials
-
-### Performance Benefits
-- **Single Server**: Eliminates dual HTTP/HTTPS server overhead
-- **Unified Routing**: Single route table with efficient lookup
-- **Asset Caching**: Built-in caching headers for static assets
-- **Memory Management**: Careful string handling and minimal heap fragmentation
-
-## Storage System
-
-WebPlatform includes a flexible storage system inspired by Laravel's database architecture:
-
-### Multiple Storage Drivers
-- **JsonDatabaseDriver**: Default driver using ESP32 Preferences or ESP8266 EEPROM
-- **Extensible Architecture**: Support for additional drivers (LittleFS, cloud databases)
-- **Query Builder**: Laravel-inspired fluent API for data operations
-
-### Usage Example
-```cpp
-// Store user data
-StorageManager::query("users")
-  ->store("user1", userObject.toJson());
-
-// Query with conditions
-String userData = StorageManager::query("users")
-  ->where("username", "admin")
-  ->get();
-
-// Use different storage drivers
-StorageManager::driver("cloud")
-  ->query("audit_logs")
-  ->store("log1", logData);
-```
-
-### Data Models
-Built-in models with automatic JSON serialization:
-- `AuthUser`: User accounts with UUID primary keys
-- `AuthSession`: Session management
-- `AuthApiToken`: API token authentication
-- `ConfigItem`: Configuration storage
-
-## Certificate Support
-
-WebPlatform provides both HTTP and HTTPS support with automatic certificate detection:
-
-### How HTTPS Works
-
-WebPlatform uses ESP-IDF's native HTTPS server implementation (`esp_https_server.h`) which provides:
-- Secure TLS/SSL connections
-- Efficient memory usage  
-- Hardware-accelerated cryptography
-- Automatic HTTP to HTTPS redirection
-
-### Certificate Configuration
-
-**HTTPS is not automatically detected** - it requires manual configuration in both `platformio.ini` and certificate files.
-
-#### To Enable HTTPS:
-1. Generate or obtain SSL certificate files (see instructions below)
-2. Place certificate files in the `src` directory:
-   - `server_cert.pem` - Server certificate
-   - `server_key.pem` - Private key
-3. Ensure the following lines are **uncommented** in `platformio.ini` for ESP32 builds:
-   ```ini
-   board_build.embed_txtfiles =
-     src/server_cert.pem
-     src/server_key.pem
-   ```
-
-#### To Disable HTTPS (HTTP-only mode):
-1. **Comment out or remove** the `board_build.embed_txtfiles` lines in `platformio.ini`:
-   ```ini
-   ; board_build.embed_txtfiles =
-   ;   src/server_cert.pem
-   ;   src/server_key.pem
-   ```
-2. Certificate files in `src` directory are not required when HTTPS is disabled
-
-**Important**: If the `board_build.embed_txtfiles` lines are present in `platformio.ini` but the certificate files don't exist, the build will fail.
-
-### Generating SSL Certificates
+### Generate SSL Certificates
 
 ```bash
 # Generate private key
 openssl genrsa -out src/server_key.pem 2048
 
-# Generate certificate signing request (follow prompts for certificate details)
+# Generate certificate signing request
 openssl req -new -key src/server_key.pem -out src/server_csr.pem
 
 # Generate self-signed certificate (valid for 365 days)
 openssl x509 -req -days 365 -in src/server_csr.pem -signkey src/server_key.pem -out src/server_cert.pem
 
-# Clean up temporary CSR file (optional)
+# Clean up temporary file
 rm src/server_csr.pem
 ```
 
-**After generating certificates**, ensure the `board_build.embed_txtfiles` lines are uncommented in `platformio.ini` as described above.
+## Key Features
 
-### Build Notes
-- If you get build errors related to missing certificate files, check that the `board_build.embed_txtfiles` lines in `platformio.ini` match your setup (commented out for HTTP-only, uncommented with existing certificate files for HTTPS)
-- For HTTP-only builds, ensure the certificate embedding lines are commented out or removed from `platformio.ini`
-- ESP8266 builds use HTTP only and do not require certificate configuration
+For more information on WebPlatform features, see the [User Guide](GUIDE.md).
 
-## Development Workflow
+- **Dual-mode Operation**: WiFi configuration portal and application modes
+- **Authentication System**: Session-based and token-based authentication
+- **Route Management**: Register, override, and disable routes
+- **Template System**: HTML templates with automatic bookmark replacement
+- **Storage System**: Flexible database drivers with query builder
+- **HTTPS Support**: Automatic HTTPS when certificates available
 
-### For Module Developers
-1. **Implement IWebModule**: Create routes and handlers for your module
-2. **Define Authentication**: Specify appropriate security requirements
-3. **Build Assets**: Create HTML/CSS/JS for your module's interface
-4. **Test Integration**: Verify compatibility with WebPlatform
-5. **Package Module**: Prepare for distribution as a library
+## Learn More
 
-### For Application Developers
-1. **Initialize Platform**: Set up WebPlatform with device configuration
-2. **Register Modules**: Add web modules for specific functionality
-3. **Customize Routes**: Override or extend module behavior
-4. **Configure Security**: Set up authentication and user management
-5. **Deploy**: Single binary with automatic HTTPS detection
-
-## Platform Dependencies
-
-Add to your `platformio.ini`:
-
-```ini
-[env:esp32-s3-devkitc-1]
-platform = espressif32
-board = esp32-s3-devkitc-1
-framework = arduino
-lib_deps = 
-  bblanchon/ArduinoJson@^6.20.0
-  # Add web modules as needed
-  
-# Optional HTTPS certificate embedding
-# board_build.embed_txtfiles = src/server_cert.pem, src/server_key.pem
-
-[env:nodemcuv2]
-platform = espressif8266
-board = nodemcuv2
-framework = arduino
-lib_deps = 
-  ${env:esp32-s3-devkitc-1.lib_deps}
-  https://github.com/rweaver/arduinolibs.git
-  marvinroger/ESP8266TrueRandom@^1.0.0
-```
-
-This comprehensive platform enables rapid development of sophisticated embedded web applications while maintaining security and performance standards. Whether you're building a simple device interface or a complex IoT system, WebPlatform provides the foundation you need.
+- [Authentication System](GUIDE.md#authentication-system)
+- [Template System](GUIDE.md#template-system)
+- [Storage System](GUIDE.md#storage-system)
+- [HTTPS Configuration](GUIDE.md#https-configuration)
+- [Navigation Menu](GUIDE.md#navigation-menu)
+- [Examples](examples/README.md)
+- [API Reference](API.md)

@@ -1,7 +1,7 @@
 {
   "name": "web_platform",
-  "version": "1.0.0",
-  "description": "Unified web platform for ESP32/ESP8266 with integrated module interface, WiFi management, HTTPS support, and authentication system",
+  "version": "0.1.0",
+  "description": "Complete web development framework for ESP32/ESP8266 with WiFi, HTTPS, and authentication",
   "build": {
     "includeDir": "."
   },
@@ -25,7 +25,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/anderwmherren/web_platform.git"
+    "url": "https://github.com/andrewmherren/web_platform.git"
   },
   "authors": [
     {
