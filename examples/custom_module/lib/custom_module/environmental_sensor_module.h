@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "web_platform.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <web_platform.h>
 
 class EnvironmentalSensorModule : public IWebModule {
 private:
@@ -50,7 +50,7 @@ public:
   String getLocation() const;
 
   // Configuration setters (optional - for programmatic control)
-  void setLocation(const String& location);
+  void setLocation(const String &location);
   void setTempThreshold(float threshold);
   void setHumidityThreshold(float threshold);
   void setAlertsEnabled(bool enabled);
@@ -67,12 +67,12 @@ private:
   void updateSensorReadings();
 
   // Route handlers
-  void mainPageHandler(WebRequest& req, WebResponse& res);
-  void getCurrentDataHandler(WebRequest& req, WebResponse& res);
-  void configPageHandler(WebRequest& req, WebResponse& res);
-  void updateConfigHandler(WebRequest& req, WebResponse& res);
-  void getDataAPIHandler(WebRequest& req, WebResponse& res);
-  void controlAPIHandler(WebRequest& req, WebResponse& res);
+  void mainPageHandler(WebRequest &req, WebResponse &res);
+  void getCurrentDataHandler(WebRequest &req, WebResponse &res);
+  void configPageHandler(WebRequest &req, WebResponse &res);
+  void updateConfigHandler(WebRequest &req, WebResponse &res);
+  void getDataAPIHandler(WebRequest &req, WebResponse &res);
+  void controlAPIHandler(WebRequest &req, WebResponse &res);
 };
 
 // Global instance of the module (declared here, defined in .cpp)

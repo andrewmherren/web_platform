@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Complete web development framework for ESP32/ESP8266 with WiFi, HTTPS, and authentication",
   "build": {
-    "includeDir": "."
+    "includeDir": "include"
   },
   "keywords": [
     "web",
