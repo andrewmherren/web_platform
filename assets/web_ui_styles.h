@@ -216,7 +216,8 @@ label {
   display: flex;
   justify-content: center;
   gap: 20px;
-  margin-top: 30px;
+  margin-top: 15px;
+  margin-bottom: 15px;
   flex-wrap: wrap;
 }
 

@@ -156,7 +156,6 @@ private:                            // Core server components
   void webPlatformJSAssetHandler(WebRequest &req, WebResponse &res);
   void wifiJSAssetHandler(WebRequest &req, WebResponse &res);
   void styleCSSAssetHandler(WebRequest &req, WebResponse &res);
-  void makerApiStyleCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformFaviconHandler(WebRequest &req, WebResponse &res);
   void systemStatusJSAssetHandler(WebRequest &req, WebResponse &res);
   void homePageJSAssetHandler(WebRequest &req, WebResponse &res);

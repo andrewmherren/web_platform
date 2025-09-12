@@ -4,35 +4,34 @@ This directory contains comprehensive examples demonstrating how to use the WebP
 
 ## Examples Overview
 
-### 1. Basic Application (`basic_application.cpp`)
+### 1. Basic Application (`applications/basic_application.cpp`)
 **Audience**: Application developers getting started with WebPlatform  
 **Demonstrates**:
 - Simple WebPlatform initialization and setup
-- Custom route registration
-- Navigation menu configuration  
-- Static asset serving
-- WiFi configuration handling
-- System information display
+- Custom route registration and navigation menu configuration  
+- Static asset serving and WiFi configuration handling
+- System information display and basic API endpoints
+- Error handling and URL redirects
 
-### 2. Authenticated Application (`authenticated_application.cpp`)
+### 2. Authenticated Application (`applications/authenticated_application.cpp`)
 **Audience**: Application developers building secure devices  
 **Demonstrates**:
 - Session-based authentication for web users
 - API token authentication for programmatic access
-- CSRF protection for forms
-- Route-level security configuration
-- User account management
-- Secure API endpoints
+- CSRF protection for forms and route-level security configuration
+- User account management and secure API endpoints
+- NTP time synchronization and authentication-aware navigation
 
-### 3. Custom Module (`custom_module.cpp`)
+### 3. Custom Module (`custom_module/environmental_sensor_module.h/.cpp`)
 **Audience**: Module developers creating reusable components  
 **Demonstrates**:
-- Complete IWebModule interface implementation
-- Mixed authentication requirements (public, session, token)
-- RESTful API design
-- Interactive web interface with real-time updates
-- Configuration management
-- State persistence and management
+- Complete IWebModule interface implementation with proper C++ structure
+- Mixed authentication requirements (local, session, token-based)
+- RESTful API design and interactive web interface with real-time updates
+- Configuration management with CSRF protection
+- Professional class design and module lifecycle management
+
+See the [Custom Module README](custom_module/README.md) for detailed documentation, API examples, and real-world adaptation guide.
 
 ## Quick Start Guide
 
@@ -67,28 +66,39 @@ void loop() {
 
 If you want to create reusable web components:
 
-1. **Study the Custom Module**: Review `custom_module.cpp` for best practices
-2. **Implement IWebModule**: Create your class inheriting from IWebModule
-3. **Define Routes**: Specify HTTP routes with appropriate authentication
+1. **Study the Custom Module**: Review the [Environmental Sensor Module](custom_module/README.md) for best practices
+2. **Implement IWebModule**: Create your class inheriting from IWebModule with proper header/source separation
+3. **Define Routes**: Specify HTTP routes with appropriate authentication levels
 4. **Test Integration**: Ensure your module works in different applications
 
 ```cpp
-// Minimal module implementation
+// environmental_sensor_module.h
 class MyModule : public IWebModule {
-public:
-    std::vector<WebRoute> getHttpRoutes() override {
-        return {
-            WebRoute("/", WebModule::WM_GET, 
-                [this](WebRequest& req, WebResponse& res) {
-                    res.setContent("<h1>My Module</h1>", "text/html");
-                })
-        };
-    }
+private:
+    // Private data members
+    float sensorValue;
     
-    std::vector<WebRoute> getHttpsRoutes() override { return getHttpRoutes(); }
-    String getModuleName() const override { return "My Module"; }
+public:
+    // Lifecycle methods
+    void begin();
+    void handle();
+    
+    // Public API
+    float getSensorValue() const;
+    
+    // IWebModule interface
+    std::vector<WebRoute> getHttpRoutes() override;
+    std::vector<WebRoute> getHttpsRoutes() override;
+    String getModuleName() const override;
+    
+private:
+    // Route handlers
+    void mainPageHandler(WebRequest& req, WebResponse& res);
+    void apiHandler(WebRequest& req, WebResponse& res);
 };
 ```
+
+See the [Custom Module documentation](custom_module/README.md) for complete implementation examples, API usage, and real-world adaptation tips.
 
 ## Example Features Comparison
 
@@ -104,6 +114,9 @@ public:
 | Module Architecture | ❌ | ❌ | ✅ |
 | RESTful APIs | Basic | ✅ | ✅ |
 | Real-time Updates | ❌ | ❌ | ✅ |
+| NTP Time Sync | ❌ | ✅ | ❌ |
+| Error Pages | Basic | ❌ | ❌ |
+| URL Redirects | ✅ | ❌ | ❌ |
 
 *\* Authentication support through route requirements, but can be used without auth*
 
@@ -111,7 +124,20 @@ public:
 
 ### PlatformIO Setup
 
-1. Copy the desired example to your `src/main.cpp`
+1. Copy the desired example to your `src/main.cpp`:
+   ```bash
+   # For basic application
+   cp lib/web_platform/examples/applications/basic_application.cpp src/main.cpp
+   
+   # For authenticated application  
+   cp lib/web_platform/examples/applications/authenticated_application.cpp src/main.cpp
+   
+   # For custom module (copy module files and main)
+   mkdir -p lib/environmental_sensor/
+   cp lib/web_platform/examples/custom_module/lib/custom_module/environmental_sensor_module.* lib/environmental_sensor/
+   cp lib/web_platform/examples/custom_module/custom_module_main.cpp src/main.cpp
+   ```
+
 2. Ensure your `platformio.ini` includes the web_platform dependency:
    ```ini
    [env:esp32dev]
@@ -119,21 +145,14 @@ public:
    board = esp32dev
    framework = arduino
    lib_deps = 
-       https://github.com/andrewmherren/web_platform.git
        bblanchon/ArduinoJson@^6.20.0
+       # Add other sensor libraries as needed
    ```
 
 3. Build and upload:
    ```bash
    pio run --target upload
    ```
-
-### Arduino IDE Setup
-
-1. Install the WebPlatform library through Library Manager or manually
-2. Copy the example code to a new sketch
-3. Install required dependencies (ArduinoJson)
-4. Select your board and upload
 
 ### First Run
 
@@ -147,7 +166,7 @@ public:
    - Or use mDNS: `http://devicename.local/`
    - HTTPS automatically used if certificates available
 
-3. **Authentication (if enabled)**:
+3. **Authentication (Auth App and Custom Module)**:
    - Default credentials: `admin` / `admin`
    - Change credentials through account page
    - Create API tokens for programmatic access
@@ -245,7 +264,7 @@ When contributing new examples:
 
 ## Additional Resources
 
-- [WebPlatform Library Documentation](../README.md)
-- [Authentication Guide](../README-auth.md)
-- [API Reference](../README.md#api-reference)
-- [Module Development Best Practices](../README.md#for-module-developers)
+- [WebPlatform Library Documentation](../README.md) - Main library documentation
+- [Custom Module Development Guide](custom_module/README.md) - Detailed module creation guide
+- [Module Development Best Practices](../README.md#for-module-developers) - General module guidelines
+- [Authentication System Guide](../README.md#authentication-system) - Security implementation details
