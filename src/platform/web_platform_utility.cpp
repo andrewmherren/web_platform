@@ -77,6 +77,8 @@ String WebPlatform::prepareHtml(
     html.replace("{{username}}", auth.username);
   }
 
+  html.replace("{{MODULE_PREFIX}}", req.getModuleBasePath());
+
   // device name injection
   html.replace("{{DEVICE_NAME}}", getDeviceName());
   return html;

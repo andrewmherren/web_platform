@@ -6,7 +6,6 @@
 #include <ArduinoJson.h>
 
 void WebPlatform::configPortalPageHandler(WebRequest &req, WebResponse &res) {
-  IWebModule::setCurrentPath("/");
   res.setContent(FPSTR(CONFIG_PORTAL_HTML), "text/html");
 };
 

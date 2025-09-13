@@ -1,8 +1,9 @@
 #include "../../include/interface/web_request.h"
 #include "../../include/interface/webserver_typedefs.h"
-#include "../../include/storage/auth_storage.h"
 #include "../../include/models/data_models.h"
+#include "../../include/storage/auth_storage.h"
 #include <ArduinoJson.h>
+
 
 #if defined(ESP32)
 #include <WebServer.h>
@@ -36,7 +37,8 @@ const char *COMMON_HTTP_HEADERS[] = {"Host",
                                      "Connection",
                                      "Pragma"};
 const size_t COMMON_HTTP_HEADERS_COUNT =
-    sizeof(COMMON_HTTP_HEADERS) / sizeof(COMMON_HTTP_HEADERS[0]);// Constructor for Arduino WebServer
+    sizeof(COMMON_HTTP_HEADERS) /
+    sizeof(COMMON_HTTP_HEADERS[0]); // Constructor for Arduino WebServer
 WebRequest::WebRequest(WebServerClass *server) {
   if (!server)
     return;
@@ -51,7 +53,7 @@ WebRequest::WebRequest(WebServerClass *server) {
   for (int i = 0; i < server->args(); i++) {
     params[server->argName(i)] = server->arg(i);
   }
-  
+
   // Parse headers
   for (size_t i = 0; i < COMMON_HTTP_HEADERS_COUNT; i++) {
     headers[COMMON_HTTP_HEADERS[i]] = server->header(COMMON_HTTP_HEADERS[i]);
@@ -204,9 +206,8 @@ void WebRequest::parseQueryParams(const String &query) {
       String key = param.substring(0, equalPos);
       String value = param.substring(equalPos + 1);
 
-      // URL decode (basic implementation)
-      value.replace("+", " ");
-      value.replace("%20", " ");
+      // URL decode (enhanced implementation)
+      value = urlDecode(value);
 
       params[key] = value;
     }
@@ -496,7 +497,7 @@ void WebRequest::checkSessionInformation() {
     if (end < 0)
       end = sessionCookie.length();
     String sessionId = sessionCookie.substring(start, end);
-    
+
     // Simple check to see if session exists (no IP validation for UI state)
     // We validate without IP checking for UI purposes only
     if (AuthStorage::validateSession(sessionId)) {
@@ -512,4 +513,32 @@ void WebRequest::checkSessionInformation() {
       }
     }
   }
+}
+
+String WebRequest::urlDecode(const String &str) {
+  String decoded = "";
+  char temp[] = "0x00";
+  unsigned int len = str.length();
+  unsigned int i = 0;
+
+  while (i < len) {
+    char decodedChar;
+    char actualChar = str[i];
+
+    if (actualChar == '+') {
+      decodedChar = ' ';
+    } else if (actualChar == '%' && i + 2 < len) {
+      temp[2] = str[i + 1];
+      temp[3] = str[i + 2];
+      decodedChar = strtol(temp, NULL, 16);
+      i += 2;
+    } else {
+      decodedChar = actualChar;
+    }
+
+    decoded += decodedChar;
+    ++i;
+  }
+
+  return decoded;
 }

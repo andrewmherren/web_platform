@@ -65,8 +65,10 @@ public:
   String getPathSegment(int index) const;
   String getLastPathSegment() const;
   String getPathParameter(const String &routePattern) const;
-  String getPathParameter(const String &routePattern, const String &paramName) const;
-  String getRouteParameter(const String &paramName) const; // Uses matched route pattern
+  String getPathParameter(const String &routePattern,
+                          const String &paramName) const;
+  String getRouteParameter(
+      const String &paramName) const; // Uses matched route pattern
 
   // URL parameters (query string and POST form data)
   String getParam(const String &name) const;
@@ -91,7 +93,9 @@ public:
   void setAuthContext(const AuthContext &context) { authContext = context; }
   
   // Route matching (used by routing system)
-  void setMatchedRoute(const String& routePattern) { matchedRoutePattern = routePattern; }
+  void setMatchedRoute(const String &routePattern) {
+    matchedRoutePattern = routePattern;
+  }
   String getMatchedRoute() const { return matchedRoutePattern; }
 
 private:
@@ -102,6 +106,8 @@ private:
   void parseJsonData(const String &jsonData);
   void parseRequestBody(const String &body, const String &contentType);
   void parseHeaders();
+  String urlDecode(const String &str);
+
 #if defined(ESP32)
   void parseClientIp(httpd_req *req);
 #endif

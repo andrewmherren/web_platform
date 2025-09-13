@@ -35,16 +35,13 @@ void WebPlatform::homePageJSAssetHandler(WebRequest &req, WebResponse &res) {
 #endif
 
 void WebPlatform::rootPageHandler(WebRequest &req, WebResponse &res) {
-  IWebModule::setCurrentPath("/");
   res.setContent(FPSTR(CONNECTED_HOME_HTML), "text/html");
 }
 
 void WebPlatform::statusPageHandler(WebRequest &req, WebResponse &res) {
-  IWebModule::setCurrentPath("/status");
   res.setContent(FPSTR(SYSTEM_STATUS_HTML), "text/html");
 }
 
 void WebPlatform::wifiPageHandler(WebRequest &req, WebResponse &res) {
-  IWebModule::setCurrentPath("/wifi");
   res.setContent(FPSTR(WIFI_MANAGEMENT_HTML), "text/html");
 }

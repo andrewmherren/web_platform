@@ -3,7 +3,6 @@
 
 // Initialize static variables
 std::vector<NavigationItem> IWebModule::navigationMenu;
-String IWebModule::currentPath = "";
 std::map<int, String> IWebModule::errorPages;
 std::vector<RedirectRule> IWebModule::redirectRules;
 
@@ -15,10 +14,6 @@ void IWebModule::setNavigationMenu(const std::vector<NavigationItem> &items) {
 std::vector<NavigationItem> IWebModule::getNavigationMenu() {
   return navigationMenu;
 }
-
-void IWebModule::setCurrentPath(const String &path) { currentPath = path; }
-
-String IWebModule::getCurrentPath() { return currentPath; }
 
 String IWebModule::generateNavigationHtml(bool isAuthenticated) {
   if (navigationMenu.empty()) {
@@ -47,13 +42,6 @@ String IWebModule::generateNavigationHtml(bool isAuthenticated) {
     }
 
     html += "  <a href=\"" + item.url + "\"";
-
-    // Auto-detect active state by comparing with current path
-    if (!currentPath.isEmpty() &&
-        (currentPath == item.url ||
-         (item.url != "/" && currentPath.startsWith(item.url)))) {
-      html += " class=\"active\"";
-    }
 
     if (item.target.length() > 0) {
       html += " target=\"" + item.target + "\"";

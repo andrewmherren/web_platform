@@ -164,12 +164,6 @@ static void setNavigationMenu(const std::vector<NavigationItem>& items);
 // Get current navigation menu items
 static std::vector<NavigationItem> getNavigationMenu();
 
-// Set current path for auto-active detection in navigation
-static void setCurrentPath(const String& path);
-
-// Get current path
-static String getCurrentPath();
-
 // Generate navigation HTML
 static String generateNavigationHtml(bool isAuthenticated = false);
 
