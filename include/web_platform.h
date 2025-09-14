@@ -2,10 +2,12 @@
 #define WEB_PLATFORM_H
 
 #include "interface/auth_types.h"
+#include "interface/openapi_types.h"
 #include "interface/web_module_interface.h"
 #include "interface/web_request.h"
 #include "interface/web_response.h"
 #include "platform/ntp_client.h"
+#include <ArduinoJson.h>
 #include <DNSServer.h>
 #include <EEPROM.h>
 #include <functional>
@@ -74,14 +76,16 @@ public:
   bool registerModule(const char *basePath, IWebModule *module);
 
   // Route registration - unified handler system with auth requirements
-  void registerRoute(const String &path, WebModule::UnifiedRouteHandler handler,
-                     const AuthRequirements &auth = {AuthType::NONE},
-                     WebModule::Method method = WebModule::WM_GET);
-  void overrideRoute(const String &path, WebModule::UnifiedRouteHandler handler,
-                     const AuthRequirements &auth = {AuthType::NONE},
-                     WebModule::Method method = WebModule::WM_GET);
-  void disableRoute(const String &path,
-                    WebModule::Method method = WebModule::WM_GET);
+  void registerWebRoute(const String &path,
+                        WebModule::UnifiedRouteHandler handler,
+                        const AuthRequirements &auth = {AuthType::NONE},
+                        WebModule::Method method = WebModule::WM_GET);
+
+  void
+  registerApiRoute(const String &path, WebModule::UnifiedRouteHandler handler,
+                   const AuthRequirements &auth, WebModule::Method method,
+                   const OpenAPIDocumentation &docs = OpenAPIDocumentation());
+
   void clearRouteRegistry();
 
   // Handle all web requests and WiFi operations
@@ -106,8 +110,8 @@ public:
   void onSetupComplete(WiFiSetupCompleteCallback callback);
 
   // IWebModule interface (for consistency, though not used by web_router)
-  std::vector<WebRoute> getHttpRoutes() override;
-  std::vector<WebRoute> getHttpsRoutes() override;
+  std::vector<RouteVariant> getHttpRoutes() override;
+  std::vector<RouteVariant> getHttpsRoutes() override;
   String getModuleName() const override { return "WebPlatform"; }
   String getModuleVersion() const override { return "1.0.0"; }
 
@@ -123,9 +127,26 @@ public:
 
   String prepareHtml(String html, WebRequest req, const String &csrfToken = "");
 
+  // OpenAPI generation helper methods
+  String generateDefaultSummary(const String &path, const String &method) const;
+  String generateOperationId(const String &method, const String &path) const;
+  String inferModuleFromPath(const String &path) const;
+  String formatModuleName(const String &moduleName) const;
+  bool hasTokenAuth(const AuthRequirements &requirements) const;
+  void addParametersToOperation(JsonObject &operation,
+                                const RouteEntry &route) const;
+  void addResponsesToOperation(JsonObject &operation,
+                               const RouteEntry &route) const;
+  void addRequestBodyToOperation(JsonObject &operation,
+                                 const RouteEntry &route) const;
+
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
   DNSServer dnsServer;              // For captive portal functionality
+
+  void registerRoute(const String &path, WebModule::UnifiedRouteHandler handler,
+                     const AuthRequirements &auth, WebModule::Method method,
+                     const OpenAPIDocumentation &docs);
 
   // Authentication system
   bool authenticateRequest(WebRequest &req, WebResponse &res,
@@ -135,6 +156,10 @@ private:                            // Core server components
   // CSRF token processing
   void addCsrfCookie(WebResponse &res, const String &token);
   void processCsrfForResponse(WebRequest &req, WebResponse &res);
+
+  // OpenAPI spec
+  String getOpenAPISpec() const;
+  String getOpenAPISpec(AuthType filterType) const;
 
   // Handlers
   void rootPageHandler(WebRequest &req, WebResponse &res);
@@ -184,6 +209,7 @@ private:                            // Core server components
   void getSystemStatusApiHandler(WebRequest &req, WebResponse &res);
   void getNetworkStatusApiHandler(WebRequest &req, WebResponse &res);
   void getModulesApiHandler(WebRequest &req, WebResponse &res);
+  void getOpenAPISpecHandler(WebRequest &req, WebResponse &res);
 
   // Platform state
   PlatformMode currentMode;

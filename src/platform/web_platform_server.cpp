@@ -187,7 +187,7 @@ void WebPlatform::configureHttpsServer() {
 
         // Check all routes including wildcard ones
         for (const auto &route : routeRegistry) {
-          if (route.method != wmMethod || route.disabled || !route.handler) {
+          if (route.method != wmMethod || !route.handler) {
             continue;
           }
 
@@ -237,7 +237,7 @@ void WebPlatform::configureHttpsServer() {
 }
 
 bool WebPlatform::detectHttpsCapability() {
-  // Phase 2: Full certificate detection without build flags requirement
+  // Full certificate detection without build flags requirement
   // NOTE: Config portal always uses HTTP for captive portal compatibility
   if (currentMode == CONFIG_PORTAL) {
     Serial.println("WebPlatform: Config portal mode - forcing HTTP for captive "

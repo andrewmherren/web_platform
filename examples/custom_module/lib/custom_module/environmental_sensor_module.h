@@ -56,8 +56,8 @@ public:
   void setAlertsEnabled(bool enabled);
 
   // Required IWebModule methods
-  std::vector<WebRoute> getHttpRoutes() override;
-  std::vector<WebRoute> getHttpsRoutes() override;
+  std::vector<RouteVariant> getHttpRoutes() override;
+  std::vector<RouteVariant> getHttpsRoutes() override;
   String getModuleName() const override;
   String getModuleVersion() const override;
   String getModuleDescription() const override;

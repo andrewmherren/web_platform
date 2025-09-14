@@ -58,7 +58,7 @@ void setup() {
   // Register all routes prior to calling webPlatform.begin()
 
   // Protected dashboard (requires login)
-  webPlatform.overrideRoute(
+  webPlatform.registerWebRoute(
       "/",
       [](WebRequest &req, WebResponse &res) {
         const AuthContext &auth = req.getAuthContext();
@@ -139,7 +139,7 @@ void setup() {
       {AuthType::SESSION});
 
   // Device control page with CSRF-protected forms
-  webPlatform.registerRoute(
+  webPlatform.registerWebRoute(
       "/control",
       [](WebRequest &req, WebResponse &res) {
         String html = R"(<!DOCTYPE html>
@@ -229,10 +229,10 @@ void setup() {
       {AuthType::SESSION, AuthType::PAGE_TOKEN, AuthType::TOKEN});
 
   // API Examples and Documentation page
-  webPlatform.registerRoute("/examples",
-                            [](WebRequest &req, WebResponse &res) {
-                              String html =
-                                  R"(
+  webPlatform.registerWebRoute("/examples",
+                               [](WebRequest &req, WebResponse &res) {
+                                 String html =
+                                     R"(
             <!DOCTYPE html>
             <html><head>
                 <title>API Examples & Documentation</title>
@@ -262,19 +262,19 @@ void setup() {
                         <pre class="code-block">
 # Get device status
 curl --insecure -H "Authorization: Bearer YOUR_TOKEN" )" +
-                                  webPlatform.getBaseUrl() +
-                                  R"(/api/status
+                                     webPlatform.getBaseUrl() +
+                                     R"(/api/status
 
 # Execute a command  
 curl --insecure -X POST -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"command":"status"}' \
   )" + webPlatform.getBaseUrl() +
-                                  R"(/api/control
+                                     R"(/api/control
 
 # Alternative: Using URL parameter
 curl --insecure ")" + webPlatform.getBaseUrl() +
-                                  R"(/api/status?access_token=YOUR_TOKEN"
+                                     R"(/api/status?access_token=YOUR_TOKEN"
                         </pre>
                     </div>
                     
@@ -283,7 +283,7 @@ curl --insecure ")" + webPlatform.getBaseUrl() +
                         <pre class="code-block">
 const token = 'YOUR_API_TOKEN_HERE';
 const baseUrl = ')" + webPlatform.getBaseUrl() +
-                                  R"(';
+                                     R"(';
 
 // Get device status
 fetch(baseUrl + '/api/status', {
@@ -323,7 +323,7 @@ import json
 # Your API token from the Account page
 token = 'YOUR_API_TOKEN_HERE'
 base_url = ')" + webPlatform.getBaseUrl() +
-                                  R"('
+                                     R"('
 headers = {'Authorization': f'Bearer {token}'}
 
 # Get device status
@@ -403,14 +403,14 @@ else:
                 </div>
             </body></html>
         )";
-                              res.setContent(html, "text/html");
-                            },
-                            {AuthType::SESSION});
+                                 res.setContent(html, "text/html");
+                               },
+                               {AuthType::SESSION});
 
   // API Endpoints - accessible via both session and token auth// Status API
   // (can be called from web interface or via API token)
-  webPlatform.registerRoute(
-      "/api/status",
+  webPlatform.registerApiRoute(
+      "/status",
       [](WebRequest &req, WebResponse &res) {
         String json =
             R"({
@@ -448,8 +448,8 @@ else:
       {AuthType::SESSION, AuthType::PAGE_TOKEN, AuthType::TOKEN});
 
   // Control API with CSRF protection for web forms
-  webPlatform.registerRoute(
-      "/api/control",
+  webPlatform.registerApiRoute(
+      "/control",
       [](WebRequest &req, WebResponse &res) {
         if (req.getMethod() != WebModule::WM_POST) {
           res.setStatus(405);
@@ -500,7 +500,7 @@ else:
   // webPlatform.registerModule("/secure", &secureModule);
 
   // Override module routes to add authentication if needed
-  // webPlatform.overrideRoute("/secure/admin", adminHandler,
+  // webPlatform.registerWebRoute("/secure/admin", adminHandler,
   // {AuthType::SESSION});
 
   // Initialize WebPlatform

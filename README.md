@@ -58,7 +58,7 @@ void setup() {
         // webPlatform.registerModule("/device", &deviceModule);
         
         // Add custom application routes
-        webPlatform.registerRoute("/about", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerWebRoute("/about", [](WebRequest& req, WebResponse& res) {
             String html = "<h1>About My Device</h1><p>Built with WebPlatform</p>";
             res.setContent(html, "text/html");
         }, {AuthType::SESSION});  // Protect with login
@@ -85,20 +85,20 @@ void loop() {
 
 class MyModule : public IWebModule {
 public:
-    std::vector<WebRoute> getHttpRoutes() override {
+    std::vector<RouteVariant> getHttpRoutes() override {
         return {
             WebRoute("/", WebModule::WM_GET, 
                 [this](WebRequest& req, WebResponse& res) {
                     res.setContent(getMainPage(), "text/html");
                 }),
-            WebRoute("/api/data", WebModule::WM_GET, 
+            ApiRoute("/data", WebModule::WM_GET, 
                 [this](WebRequest& req, WebResponse& res) {
                     res.setContent(getDataJSON(), "application/json");
                 }, {AuthType::TOKEN})  // API requires token authentication
         };
     }
     
-    std::vector<WebRoute> getHttpsRoutes() override {
+    std::vector<RouteVariant> getHttpsRoutes() override {
         return getHttpRoutes(); // Same routes for HTTP and HTTPS
     }
     
@@ -177,7 +177,8 @@ For more information on WebPlatform features, see the [User Guide](GUIDE.md).
 
 - **Dual-mode Operation**: WiFi configuration portal and application modes
 - **Authentication System**: Session-based and token-based authentication
-- **Route Management**: Register, override, and disable routes
+- **Route Management**: Register, override, and disable routes with OpenAPI documentation support
+- **OpenAPI 3.0 Integration**: Automatic API documentation generation for registered routes
 - **Template System**: HTML templates with automatic bookmark replacement
 - **Storage System**: Flexible database drivers with query builder
 - **HTTPS Support**: Automatic HTTPS when certificates available
@@ -191,3 +192,42 @@ For more information on WebPlatform features, see the [User Guide](GUIDE.md).
 - [Navigation Menu](GUIDE.md#navigation-menu)
 - [Examples](examples/README.md)
 - [API Reference](API.md)
+
+## Compatible Modules
+
+The following modules are designed to work with WebPlatform:
+
+- **[Maker API](https://github.com/andrewmherren/maker_api)** - Interactive API documentation and testing interface with OpenAPI 3.0 support
+- More modules coming soon...
+
+## OpenAPI 3.0 Support
+
+WebPlatform includes built-in support for OpenAPI 3.0 specification generation. When you register API routes using `registerApiRoute()`, the platform automatically generates comprehensive API documentation that can be consumed by tools like:
+
+- **Postman**: Import OpenAPI specs for easy API testing
+- **Swagger UI**: Generate interactive API documentation
+- **Code Generators**: Automatically generate client libraries
+
+### Example with OpenAPI Documentation
+
+```cpp
+// Register an API route with detailed OpenAPI documentation
+webPlatform.registerApiRoute("/device/status", 
+    [](WebRequest& req, WebResponse& res) {
+        res.setContent("{\"status\":\"online\",\"uptime\":12345}", "application/json");
+    }, 
+    {AuthType::TOKEN}, 
+    WebModule::WM_GET,
+    OpenAPIDocumentation(
+        "Get device status",
+        "Returns current device status including uptime and connection info",
+        "getDeviceStatus", 
+        {"Device Management"}
+    )
+);
+
+// Access the OpenAPI specification at /api/openapi.json
+String spec = webPlatform.getOpenAPISpec();
+```
+
+The Maker API module provides a complete web interface for exploring, testing, and managing these documented APIs directly from your device.

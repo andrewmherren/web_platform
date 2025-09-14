@@ -172,7 +172,7 @@ void WebPlatform::handleNotFound() {
 
   // Check all routes for wildcard matches
   for (const auto &route : routeRegistry) {
-    if (route.disabled || !route.handler || route.method != wmMethod) {
+    if (!route.handler || route.method != wmMethod) {
       continue;
     }
 
@@ -352,14 +352,30 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
   Serial.printf("  Processing module: %s at path: %s\n",
                 module->getModuleName().c_str(), basePath.c_str());
 
-  // Process HTTP routes
+  // Process HTTP routes (now returns RouteVariant)
   auto httpRoutes = module->getHttpRoutes();
   Serial.printf("  Module has %d HTTP routes\n", httpRoutes.size());
 
-  for (const auto &route : httpRoutes) {
-    // Create full path
+  for (const auto &routeVariant : httpRoutes) {
+    // Extract route info from either variant type
+    const WebRoute *webRoute = nullptr;
+    OpenAPIDocumentation docs; // Default empty docs
+
+    // Replace std::holds_alternative and std::get calls with:
+    if (holds_alternative<WebRoute>(routeVariant)) {
+      webRoute = &get<WebRoute>(routeVariant);
+    } else if (holds_alternative<ApiRoute>(routeVariant)) {
+      const ApiRoute &apiRoute = get<ApiRoute>(routeVariant);
+      webRoute = &apiRoute.webRoute;
+      docs = apiRoute.docs;
+    }
+
+    if (!webRoute)
+      continue;
+
+    // Create full path using the WebRoute path
     String fullPath = basePath;
-    String routePath = route.path;
+    String routePath = webRoute->path;
 
     // Special case for root path
     if (routePath == "/" || routePath.isEmpty()) {
@@ -378,10 +394,14 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
       fullPath += routePath;
     }
 
-    // Register the route directly with the unified system
-    // Pass the route's auth requirements when registering
-    registerRoute(fullPath, route.unifiedHandler, route.authRequirements,
-                  route.method);
+    // Register with appropriate method based on whether we have docs
+    if (docs.hasDocumentation()) {
+      registerApiRoute(fullPath, webRoute->unifiedHandler,
+                       webRoute->authRequirements, webRoute->method, docs);
+    } else {
+      registerWebRoute(fullPath, webRoute->unifiedHandler,
+                       webRoute->authRequirements, webRoute->method);
+    }
   }
 
   // Print only routes for this specific module
@@ -393,9 +413,11 @@ void WebPlatform::onSetupComplete(WiFiSetupCompleteCallback callback) {
 }
 
 // IWebModule interface implementation (for consistency)
-std::vector<WebRoute> WebPlatform::getHttpRoutes() {
+std::vector<RouteVariant> WebPlatform::getHttpRoutes() {
   // Return empty routes since WebPlatform manages its own routing
-  return std::vector<WebRoute>();
+  return std::vector<RouteVariant>();
 }
 
-std::vector<WebRoute> WebPlatform::getHttpsRoutes() { return getHttpRoutes(); }
+std::vector<RouteVariant> WebPlatform::getHttpsRoutes() {
+  return getHttpRoutes();
+}

@@ -3,7 +3,10 @@
 
 #include "../../assets/web_ui_styles.h"
 #include "auth_types.h"
+#include "openapi_types.h"
 #include "platform_service.h"
+#include "utils/route_variant.h"
+#include "utils/utils.h"
 #include "web_module_types.h"
 #include "web_request.h"
 #include "web_response.h"
@@ -27,6 +30,9 @@ typedef std::function<void(WebRequest &, WebResponse &)> UnifiedRouteHandler;
 
 } // namespace WebModule
 
+// Forward declaration for variant
+struct ApiRoute;
+
 // Web route structure - supports both legacy and unified handlers
 struct WebRoute {
   String path;                     // Route path (e.g., "/status", "/config")
@@ -37,40 +43,117 @@ struct WebRoute {
   String description; // Optional: Human-readable description
   AuthRequirements authRequirements; // Authentication requirements for route
 
+private:
+  // Helper function to check for API path usage warning
+  static void checkApiPathWarning(const String &p) {
+    if (p.startsWith("/api/") || p.startsWith("api/")) {
+      Serial.println(
+          "WARNING: WebRoute path '" + p +
+          "' starts with '/api/' or 'api/'. Consider using ApiRoute instead "
+          "for better API documentation and path normalization.");
+    }
+  }
+
+public:
   // Constructors for unified handlers
   WebRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h)
       : path(p), method(m), unifiedHandler(h), contentType("text/html"),
-        authRequirements({AuthType::NONE}) {}
+        authRequirements({AuthType::NONE}) {
+    checkApiPathWarning(p);
+  }
 
   WebRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const String &ct)
       : path(p), method(m), unifiedHandler(h), contentType(ct),
-        authRequirements({AuthType::NONE}) {}
+        authRequirements({AuthType::NONE}) {
+    checkApiPathWarning(p);
+  }
 
   WebRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const String &ct,
            const String &desc)
       : path(p), method(m), unifiedHandler(h), contentType(ct),
-        description(desc), authRequirements({AuthType::NONE}) {}
+        description(desc), authRequirements({AuthType::NONE}) {
+    checkApiPathWarning(p);
+  }
 
   // Constructors with auth requirements
   WebRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const AuthRequirements &auth)
       : path(p), method(m), unifiedHandler(h), contentType("text/html"),
-        authRequirements(auth) {}
+        authRequirements(auth) {
+    checkApiPathWarning(p);
+  }
 
   WebRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const AuthRequirements &auth,
            const String &ct)
       : path(p), method(m), unifiedHandler(h), contentType(ct),
-        authRequirements(auth) {}
+        authRequirements(auth) {
+    checkApiPathWarning(p);
+  }
 
   WebRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const AuthRequirements &auth,
            const String &ct, const String &desc)
       : path(p), method(m), unifiedHandler(h), contentType(ct),
-        description(desc), authRequirements(auth) {}
+        description(desc), authRequirements(auth) {
+    checkApiPathWarning(p);
+  }
+};
+
+struct ApiRoute {
+  WebRoute webRoute; // Route details
+
+  OpenAPIDocumentation docs; // OpenAPI documentation
+
+public:
+  // Constructors for unified handlers
+  ApiRoute(const String &p, WebModule::Method m,
+           WebModule::UnifiedRouteHandler h)
+      : webRoute(Utils::normalizeApiPath(p), m, h) {}
+
+  ApiRoute(const String &p, WebModule::Method m,
+           WebModule::UnifiedRouteHandler h, const String &ct)
+      : webRoute(Utils::normalizeApiPath(p), m, h, ct) {}
+
+  ApiRoute(const String &p, WebModule::Method m,
+           WebModule::UnifiedRouteHandler h, const String &ct,
+           const String &desc)
+      : webRoute(Utils::normalizeApiPath(p), m, h, ct, desc) {}
+
+  // Constructors with auth requirements
+  ApiRoute(const String &p, WebModule::Method m,
+           WebModule::UnifiedRouteHandler h, const AuthRequirements &auth)
+      : webRoute(Utils::normalizeApiPath(p), m, h, auth) {}
+
+  ApiRoute(const String &p, WebModule::Method m,
+           WebModule::UnifiedRouteHandler h, const AuthRequirements &auth,
+           const String &ct)
+      : webRoute(Utils::normalizeApiPath(p), m, h, auth, ct) {}
+
+  ApiRoute(const String &p, WebModule::Method m,
+           WebModule::UnifiedRouteHandler h, const AuthRequirements &auth,
+           const String &ct, const String &desc)
+      : webRoute(Utils::normalizeApiPath(p), m, h, auth, ct, desc) {}
+
+  // Constructors with OpenAPI documentation
+  ApiRoute(const String &p, WebModule::Method m,
+           WebModule::UnifiedRouteHandler h,
+           const OpenAPIDocumentation &documentation)
+      : webRoute(Utils::normalizeApiPath(p), m, h), docs(documentation) {}
+
+  ApiRoute(const String &p, WebModule::Method m,
+           WebModule::UnifiedRouteHandler h, const AuthRequirements &auth,
+           const OpenAPIDocumentation &documentation)
+      : webRoute(Utils::normalizeApiPath(p), m, h, auth), docs(documentation) {}
+
+  ApiRoute(const String &p, WebModule::Method m,
+           WebModule::UnifiedRouteHandler h, const AuthRequirements &auth,
+           const String &ct, const OpenAPIDocumentation &documentation)
+      : webRoute(Utils::normalizeApiPath(p), m, h, auth, ct),
+        docs(documentation) {}
 };
 
 // Authentication visibility for navigation items
@@ -129,8 +212,6 @@ struct RedirectRule {
 class IWebModule {
 private:
   static std::vector<NavigationItem> navigationMenu;
-  static String
-      currentPath; // Store the current request path for auto-active detection
   static std::map<int, String> errorPages; // Custom error pages by status code
   static std::vector<RedirectRule> redirectRules; // URL redirect rules
 
@@ -138,8 +219,8 @@ public:
   virtual ~IWebModule() = default;
 
   // Required methods - pure virtual to enforce implementation
-  virtual std::vector<WebRoute> getHttpRoutes() = 0;
-  virtual std::vector<WebRoute> getHttpsRoutes() = 0;
+  virtual std::vector<RouteVariant> getHttpRoutes() = 0;
+  virtual std::vector<RouteVariant> getHttpsRoutes() = 0;
   virtual String getModuleName() const = 0;
 
   // Optional methods with default implementations
@@ -147,16 +228,11 @@ public:
   virtual String getModuleDescription() const { return "Web-enabled module"; }
 
   // Convenience method for modules with identical HTTP/HTTPS routes
-  virtual std::vector<WebRoute> getWebRoutes() { return getHttpRoutes(); }
+  virtual std::vector<RouteVariant> getWebRoutes() { return getHttpRoutes(); }
 
-  // Phase 2: Navigation Menu System
   // Navigation menu management
   static void setNavigationMenu(const std::vector<NavigationItem> &items);
   static std::vector<NavigationItem> getNavigationMenu();
-
-  // Set current path for auto-active detection in navigation
-  static void setCurrentPath(const String &path);
-  static String getCurrentPath();
 
   // Helper methods for navigation menu
   static String generateNavigationHtml(bool isAuthenticated = false);
@@ -169,7 +245,6 @@ public:
   static String generateDefaultErrorPage(int statusCode,
                                          const String &message = "");
 
-  // Phase 3: Route Redirection System (simplified for embedded use)
   // Add URL redirect rule (302 temporary redirect)
   static void addRedirect(const String &fromPath, const String &toPath);
 

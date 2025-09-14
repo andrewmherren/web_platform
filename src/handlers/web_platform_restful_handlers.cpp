@@ -537,3 +537,21 @@ void WebPlatform::getModulesApiHandler(WebRequest &req, WebResponse &res) {
   res.setHeader("Content-Type", "application/json");
   res.setContent(json);
 }
+
+void WebPlatform::getOpenAPISpecHandler(WebRequest &req, WebResponse &res) {
+  // Get filter parameter (default to all routes)
+  String filterParam = req.getParam("filter");
+  AuthType filterType = AuthType::NONE;
+
+  if (filterParam == "token") {
+    filterType = AuthType::TOKEN;
+  } else if (filterParam == "session") {
+    filterType = AuthType::SESSION;
+  }
+
+  // Get OpenAPI spec from platform service
+  String openApiSpec = getOpenAPISpec(filterType);
+
+  res.setContent(openApiSpec, "application/json");
+  res.setHeader("Cache-Control", "no-cache");
+}

@@ -6,7 +6,7 @@ std::vector<NavigationItem> IWebModule::navigationMenu;
 std::map<int, String> IWebModule::errorPages;
 std::vector<RedirectRule> IWebModule::redirectRules;
 
-// Phase 2: Navigation Menu System
+// Navigation Menu System
 void IWebModule::setNavigationMenu(const std::vector<NavigationItem> &items) {
   navigationMenu = items;
 }

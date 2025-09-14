@@ -12,7 +12,7 @@
 #include <map>
 
 // Common HTTP headers that should be collected by web servers
-extern const char* COMMON_HTTP_HEADERS[];
+extern const char *COMMON_HTTP_HEADERS[];
 extern const size_t COMMON_HTTP_HEADERS_COUNT;
 
 // Forward declarations to avoid circular dependencies
@@ -41,8 +41,9 @@ private:
   std::map<String, String> params;
   std::map<String, String> headers;
   std::map<String, String> jsonParams;
-  AuthContext authContext; // Authentication information
+  AuthContext authContext;    // Authentication information
   String matchedRoutePattern; // Route pattern that matched this request
+  String moduleBasePath;      // Base path of the module handling this request
 
 public:
   // Constructor for HTTP server (Arduino WebServer)
@@ -91,12 +92,16 @@ public:
   // Authentication context
   const AuthContext &getAuthContext() const { return authContext; }
   void setAuthContext(const AuthContext &context) { authContext = context; }
-  
+
   // Route matching (used by routing system)
   void setMatchedRoute(const String &routePattern) {
     matchedRoutePattern = routePattern;
   }
   String getMatchedRoute() const { return matchedRoutePattern; }
+
+  // Module context (used by template processing)
+  void setModuleBasePath(const String &basePath) { moduleBasePath = basePath; }
+  String getModuleBasePath() const { return moduleBasePath; }
 
 private:
   // Helper method to populate auth context for UI state (not authentication)

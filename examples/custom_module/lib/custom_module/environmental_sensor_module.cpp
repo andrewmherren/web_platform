@@ -32,7 +32,7 @@ bool EnvironmentalSensorModule::isEnabled() const { return sensorEnabled; }
 String EnvironmentalSensorModule::getLocation() const { return sensorLocation; }
 
 // Configuration setters
-void EnvironmentalSensorModule::setLocation(const String& location) {
+void EnvironmentalSensorModule::setLocation(const String &location) {
   sensorLocation = location;
 }
 
@@ -49,7 +49,7 @@ void EnvironmentalSensorModule::setAlertsEnabled(bool enabled) {
 }
 
 // Required IWebModule methods
-std::vector<WebRoute> EnvironmentalSensorModule::getHttpRoutes() {
+std::vector<RouteVariant> EnvironmentalSensorModule::getHttpRoutes() {
   return {
       // Public main page - local network only
       WebRoute("/", WebModule::WM_GET,
@@ -58,13 +58,6 @@ std::vector<WebRoute> EnvironmentalSensorModule::getHttpRoutes() {
                },
                {AuthType::LOCAL_ONLY}),
 
-      // Public API for current readings - session or page token required
-      WebRoute("/api/current", WebModule::WM_GET,
-               [this](WebRequest &req, WebResponse &res) {
-                 getCurrentDataHandler(req, res);
-               },
-               {AuthType::SESSION, AuthType::PAGE_TOKEN}),
-
       // Protected configuration page - requires login
       WebRoute("/config", WebModule::WM_GET,
                [this](WebRequest &req, WebResponse &res) {
@@ -72,22 +65,29 @@ std::vector<WebRoute> EnvironmentalSensorModule::getHttpRoutes() {
                },
                {AuthType::SESSION}),
 
+      // Public API for current readings - session or page token required
+      ApiRoute("/current", WebModule::WM_GET,
+               [this](WebRequest &req, WebResponse &res) {
+                 getCurrentDataHandler(req, res);
+               },
+               {AuthType::SESSION, AuthType::PAGE_TOKEN}),
+
       // Protected configuration API - requires login + CSRF for forms
-      WebRoute("/api/config", WebModule::WM_POST,
+      ApiRoute("/config", WebModule::WM_POST,
                [this](WebRequest &req, WebResponse &res) {
                  updateConfigHandler(req, res);
                },
                {AuthType::SESSION, AuthType::PAGE_TOKEN}),
 
       // API endpoint for external systems (requires API token)
-      WebRoute("/api/data", WebModule::WM_GET,
+      ApiRoute("/data", WebModule::WM_GET,
                [this](WebRequest &req, WebResponse &res) {
                  getDataAPIHandler(req, res);
                },
                {AuthType::TOKEN, AuthType::SESSION, AuthType::PAGE_TOKEN}),
 
       // Administrative control (session or token auth)
-      WebRoute("/api/control", WebModule::WM_POST,
+      ApiRoute("/control", WebModule::WM_POST,
                [this](WebRequest &req, WebResponse &res) {
                  controlAPIHandler(req, res);
                },
@@ -95,7 +95,7 @@ std::vector<WebRoute> EnvironmentalSensorModule::getHttpRoutes() {
   };
 }
 
-std::vector<WebRoute> EnvironmentalSensorModule::getHttpsRoutes() {
+std::vector<RouteVariant> EnvironmentalSensorModule::getHttpsRoutes() {
   // Same routes for HTTPS
   return getHttpRoutes();
 }
@@ -127,8 +127,8 @@ void EnvironmentalSensorModule::updateSensorReadings() {
                      String(temperature) + "°C");
     }
     if (humidity > humidityThreshold) {
-      Serial.println(
-          "ALERT: Humidity threshold exceeded: " + String(humidity) + "%");
+      Serial.println("ALERT: Humidity threshold exceeded: " + String(humidity) +
+                     "%");
     }
   }
 }
@@ -268,7 +268,7 @@ void EnvironmentalSensorModule::getCurrentDataHandler(WebRequest &req,
 }
 
 void EnvironmentalSensorModule::configPageHandler(WebRequest &req,
-                                                   WebResponse &res) {
+                                                  WebResponse &res) {
   // Protected configuration page
   String html = R"(
             <!DOCTYPE html>
@@ -368,7 +368,7 @@ void EnvironmentalSensorModule::configPageHandler(WebRequest &req,
 }
 
 void EnvironmentalSensorModule::updateConfigHandler(WebRequest &req,
-                                                     WebResponse &res) {
+                                                    WebResponse &res) {
   // Handle configuration updates (protected by session + CSRF)
   // note: because we sent application/x-www-form-urlencoded content-type
   // (formdata)
@@ -385,7 +385,8 @@ void EnvironmentalSensorModule::updateConfigHandler(WebRequest &req,
   Serial.println("  Enabled: " + String(newEnabled ? "Yes" : "No"));
   Serial.println("  Temperature Threshold: " + String(newTempThreshold) + "°C");
   Serial.println("  Humidity Threshold: " + String(newHumidityThreshold) + "%");
-  Serial.println("  Alerts: " + String(newAlertsEnabled ? "Enabled" : "Disabled"));
+  Serial.println("  Alerts: " +
+                 String(newAlertsEnabled ? "Enabled" : "Disabled"));
 
   // Validate inputs
   if (newLocation.length() == 0 || newTempThreshold <= 0 ||
@@ -417,7 +418,7 @@ void EnvironmentalSensorModule::updateConfigHandler(WebRequest &req,
 }
 
 void EnvironmentalSensorModule::getDataAPIHandler(WebRequest &req,
-                                                   WebResponse &res) {
+                                                  WebResponse &res) {
   // API endpoint for external systems (requires API token)
   DynamicJsonDocument doc(400);
 
@@ -445,7 +446,7 @@ void EnvironmentalSensorModule::getDataAPIHandler(WebRequest &req,
 }
 
 void EnvironmentalSensorModule::controlAPIHandler(WebRequest &req,
-                                                   WebResponse &res) {
+                                                  WebResponse &res) {
   // Control API for external systems (session or token auth)
   String command = req.getParam("command");
   String response;

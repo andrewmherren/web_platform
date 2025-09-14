@@ -1,6 +1,7 @@
-#include "../../include/interface/web_module_interface.h"
-#include "../../include/route_entry.h"
-#include "../../include/web_platform.h"
+#include "interface/web_module_interface.h"
+#include "route_entry.h"
+#include "utils/utils.h"
+#include "web_platform.h"
 
 #if defined(ESP32)
 #include <WebServer.h>
@@ -19,78 +20,78 @@ void WebPlatform::clearRouteRegistry() {
   routeRegistry.clear();
 }
 
+void WebPlatform::registerWebRoute(const String &path,
+                                   WebModule::UnifiedRouteHandler handler,
+                                   const AuthRequirements &auth,
+                                   WebModule::Method method) {
+  // Check for API path usage warning
+  if (path.startsWith("/api/") || path.startsWith("api/")) {
+    Serial.println(
+        "WARNING: registerWebRoute() path '" + path +
+        "' starts with '/api/' or 'api/'. Consider using registerApiRoute() "
+        "instead for better API documentation and path normalization.");
+  }
+
+  // Create default empty OpenAPIDocumentation and delegate to the documented
+  // version
+  OpenAPIDocumentation emptyDocs;
+  registerRoute(path, handler, auth, method, emptyDocs);
+}
+
+void WebPlatform::registerApiRoute(const String &path,
+                                   WebModule::UnifiedRouteHandler handler,
+                                   const AuthRequirements &auth,
+                                   WebModule::Method method,
+                                   const OpenAPIDocumentation &docs) {
+  // Normalize API path using the same logic as ApiRoute
+  String normalizedPath = Utils::normalizeApiPath(path);
+  registerRoute(normalizedPath, handler, auth, method, docs);
+}
+
 void WebPlatform::registerRoute(const String &path,
                                 WebModule::UnifiedRouteHandler handler,
                                 const AuthRequirements &auth,
-                                WebModule::Method method) {
+                                WebModule::Method method,
+                                const OpenAPIDocumentation &docs) {
   // Check if route already exists
   for (auto &route : routeRegistry) {
     if (route.path == path && route.method == method) {
-      if (route.isOverride) {
-        Serial.printf("WebPlatform: Route %s %s already overridden, ignoring "
-                      "normal registration\n",
-                      wmMethodToString(method).c_str(), path.c_str());
-        return;
-      }
-
       Serial.printf("WebPlatform: Route %s %s already exists, replacing\n",
                     wmMethodToString(method).c_str(), path.c_str());
       route.handler = handler;
-      route.disabled = false;
+      route.authRequirements = auth;
+
+      // Add OpenAPI documentation
+      route.summary = docs.summary;
+      route.operationId = docs.operationId;
+      route.description = docs.description;
+      route.tags = docs.getTagsString();
+      route.requestExample = docs.requestExample;
+      route.responseExample = docs.responseExample;
+      route.requestSchema = docs.requestSchema;
+      route.responseSchema = docs.responseSchema;
+      route.parameters = docs.parametersJson;
+      route.responseInfo = docs.responsesJson;
+
       return;
     }
   }
 
   // Add new route
-  routeRegistry.push_back(RouteEntry(path, method, handler, auth, false));
-}
+  RouteEntry newRoute(path, method, handler, auth);
 
-void WebPlatform::overrideRoute(const String &path,
-                                WebModule::UnifiedRouteHandler handler,
-                                const AuthRequirements &auth,
-                                WebModule::Method method) {
-  // Find existing route and mark as overridden
-  for (auto &route : routeRegistry) {
-    if (route.path == path && route.method == method) {
-      route.handler = handler;
-      route.disabled = false;
-      route.isOverride = true;
+  // Add OpenAPI documentation
+  newRoute.summary = docs.summary;
+  newRoute.operationId = docs.operationId;
+  newRoute.tags = docs.getTagsString();
+  newRoute.requestExample = docs.requestExample;
+  newRoute.responseExample = docs.responseExample;
+  newRoute.requestSchema = docs.requestSchema;
+  newRoute.responseSchema = docs.responseSchema;
+  newRoute.parameters = docs.parametersJson;
+  newRoute.responseInfo = docs.responsesJson;
 
-      Serial.printf("WebPlatform: Overrode existing route %s %s\n",
-                    wmMethodToString(method).c_str(), path.c_str());
-      return;
-    }
-  }
-
-  // Create new override route that will take precedence over future
-  // registrations
-  routeRegistry.push_back(RouteEntry(path, method, handler, auth, true));
-
-  Serial.printf("WebPlatform: Added preemptive override route %s %s\n",
-                wmMethodToString(method).c_str(), path.c_str());
-}
-
-void WebPlatform::disableRoute(const String &path, WebModule::Method method) {
-  // Find route and disable it
-  for (auto &route : routeRegistry) {
-    if (route.path == path && route.method == method) {
-      route.disabled = true;
-
-      Serial.printf("WebPlatform: Disabled route %s %s\n",
-                    wmMethodToString(method).c_str(), path.c_str());
-      return;
-    }
-  }
-
-  // Create a disabled route entry to prevent future registration
-  RouteEntry disabledRoute;
-  disabledRoute.path = path;
-  disabledRoute.method = method;
-  disabledRoute.disabled = true;
-  routeRegistry.push_back(disabledRoute);
-
-  Serial.printf("WebPlatform: Pre-disabled route %s %s\n",
-                wmMethodToString(method).c_str(), path.c_str());
+  routeRegistry.push_back(newRoute);
 }
 
 // Helper function to check if a path matches a route pattern with wildcards
@@ -198,13 +199,6 @@ bool WebPlatform::pathMatchesRoute(const String &routePath,
 // Helper function to check if route should be skipped (shared logic)
 bool WebPlatform::shouldSkipRoute(const RouteEntry &route,
                                   const String &serverType) {
-  if (route.disabled) {
-    Serial.printf("WebPlatform: Skipping disabled %s route %s %s\n",
-                  serverType.c_str(), wmMethodToString(route.method).c_str(),
-                  route.path.c_str());
-    return true;
-  }
-
   if (!route.handler) {
     Serial.printf("WebPlatform: Skipping %s route with null handler %s %s\n",
                   serverType.c_str(), wmMethodToString(route.method).c_str(),
@@ -228,6 +222,20 @@ void WebPlatform::executeRouteWithAuth(const RouteEntry &route,
   // Set the matched route pattern on the request for parameter extraction
   request.setMatchedRoute(route.path);
 
+  // Determine module base path from route path
+  String requestPath = request.getPath();
+  String moduleBasePath = "";
+
+  // Find the registered module that handles this route
+  for (const auto &regModule : registeredModules) {
+    if (requestPath.startsWith(regModule.basePath)) {
+      moduleBasePath = regModule.basePath;
+      break;
+    }
+  }
+
+  request.setModuleBasePath(moduleBasePath);
+
   // Check authentication requirements
   if (this->authenticateRequest(request, response, route.authRequirements)) {
     // Call the unified handler
@@ -250,7 +258,7 @@ bool WebPlatform::dispatchRoute(const String &path, WebModule::Method wmMethod,
                                 WebRequest &request, WebResponse &response,
                                 const char *protocol) {
   for (const auto &route : routeRegistry) {
-    if (route.disabled || !route.handler || route.method != wmMethod) {
+    if (!route.handler || route.method != wmMethod) {
       continue;
     }
 
@@ -373,7 +381,7 @@ void WebPlatform::bindRegisteredRoutes() {
 
     // Check all routes for wildcard matches
     for (const auto &route : routeRegistry) {
-      if (route.disabled || !route.handler || route.method != wmMethod) {
+      if (!route.handler || route.method != wmMethod) {
         continue;
       }
 

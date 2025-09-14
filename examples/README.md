@@ -51,7 +51,7 @@ void setup() {
     webPlatform.begin("MyDevice");
     
     if (webPlatform.isConnected()) {
-        webPlatform.registerRoute("/", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerWebRoute("/", [](WebRequest& req, WebResponse& res) {
             res.setContent("<h1>Hello World!</h1>", "text/html");
         });
     }
@@ -87,8 +87,8 @@ public:
     float getSensorValue() const;
     
     // IWebModule interface
-    std::vector<WebRoute> getHttpRoutes() override;
-    std::vector<WebRoute> getHttpsRoutes() override;
+    std::vector<RouteVariant> getHttpRoutes() override;
+    std::vector<RouteVariant> getHttpsRoutes() override;
     String getModuleName() const override;
     
 private:
@@ -183,7 +183,7 @@ All examples use the built-in CSS framework (`/assets/style.css`). Key classes:
 
 ### Adding Custom Routes
 ```cpp
-webPlatform.registerRoute("/my-page", [](WebRequest& req, WebResponse& res) {
+webPlatform.registerWebRoute("/my-page", [](WebRequest& req, WebResponse& res) {
     String html = "<!DOCTYPE html><html>...";
     res.setContent(html, "text/html");
 });
@@ -191,7 +191,7 @@ webPlatform.registerRoute("/my-page", [](WebRequest& req, WebResponse& res) {
 
 ### API Endpoints
 ```cpp
-webPlatform.registerRoute("/api/data", [](WebRequest& req, WebResponse& res) {
+webPlatform.registerApiRoute("/data", [](WebRequest& req, WebResponse& res) {
     String json = "{\"status\":\"ok\",\"data\":123}";
     res.setContent(json, "application/json");
 }, {AuthType::TOKEN});  // Require API token

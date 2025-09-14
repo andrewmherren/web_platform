@@ -44,26 +44,41 @@ Returns:
 ### Route Management
 
 ```cpp
-// Register a new route
-void registerRoute(const String& path, WebModule::UnifiedRouteHandler handler,
+// Register, replace, or disable a route
+void registerWebRoute(const String& path, WebModule::UnifiedRouteHandler handler,
                   const AuthRequirements& auth = {AuthType::NONE},
-                  WebModule::Method method = WebModule::WM_GET);
-
-// Override an existing route
-void overrideRoute(const String& path, WebModule::UnifiedRouteHandler handler,
-                  const AuthRequirements& auth = {AuthType::NONE},
-                  WebModule::Method method = WebModule::WM_GET);
-                  
-// Disable a route
-void disableRoute(const String& path,
                   WebModule::Method method = WebModule::WM_GET);
 ```
+
+This unified method can be used to:
+- **Register a new route**: When the path doesn't exist yet
+- **Replace an existing route**: When registering a path that already exists
+- **Disable a route**: By passing `nullptr` as the handler
 
 Parameters:
 - `path`: URL path for the route
 - `handler`: Function to handle the request
 - `auth`: Authentication requirements (defaults to public access)
 - `method`: HTTP method (GET, POST, etc.)
+
+```cpp
+// Register, replace, or disable an APIroute
+  void registerApiRoute(const String &path,
+                        WebModule::UnifiedRouteHandler handler,
+                        const AuthRequirements &auth, WebModule::Method method,
+                        const OpenAPIDocumentation &docs);
+```
+This unified method can be used to:
+- **Register a new API route**: When the path doesn't exist yet
+- **Replace an existing API route**: When registering a path that already exists
+- **Disable a API route**: By passing `nullptr` as the handler
+
+Parameters:
+- `path`: URL path for the route
+- `handler`: Function to handle the request
+- `auth`: Authentication requirements (defaults to public access)
+- `method`: HTTP method (GET, POST, etc.)
+- `docs`: OpenAPI documentation details.
 
 ### Request Handling
 
@@ -133,10 +148,10 @@ void validateRoutes() const;
 
 ```cpp
 // Get HTTP routes for this module
-virtual std::vector<WebRoute> getHttpRoutes() = 0;
+virtual std::vector<RouteVariant> getHttpRoutes() = 0;
 
 // Get HTTPS routes for this module
-virtual std::vector<WebRoute> getHttpsRoutes() = 0;
+virtual std::vector<RouteVariant> getHttpsRoutes() = 0;
 
 // Get module name
 virtual String getModuleName() const = 0;
@@ -152,7 +167,7 @@ virtual String getModuleVersion() const;
 virtual String getModuleDescription() const;
 
 // Convenience method for modules with identical HTTP/HTTPS routes
-virtual std::vector<WebRoute> getWebRoutes();
+virtual std::vector<RouteVariant> getWebRoutes();
 ```
 
 ### Static Utility Methods

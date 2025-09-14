@@ -2,8 +2,6 @@
 #include "../include/route_entry.h"
 #include "../include/web_platform.h"
 
-// Enhanced route debugging tools for Phase 2
-
 void WebPlatform::printUnifiedRoutes(const String *moduleBasePath,
                                      IWebModule *module) const {
   // Determine what we're printing based on parameters
@@ -16,10 +14,8 @@ void WebPlatform::printUnifiedRoutes(const String *moduleBasePath,
   }
 
   Serial.printf("\n=== %s ===\n", headerTitle.c_str());
-  Serial.println(
-      "PATH                        METHOD  STATUS     SOURCE    AUTH");
-  Serial.println(
-      "--------------------------- ------- ---------- --------- -------------");
+  Serial.println("PATH                        METHOD  AUTH");
+  Serial.println("--------------------------- ------- -------------");
 
   int routeCount = 0;
   for (const auto &route : routeRegistry) {
@@ -77,17 +73,8 @@ void WebPlatform::printUnifiedRoutes(const String *moduleBasePath,
       authStr += " ";
     }
 
-    // Format status (10 chars)
-    String statusStr = route.disabled ? "DISABLED" : "ENABLED";
-    while (statusStr.length() < 10) {
-      statusStr += " ";
-    }
-
-    // Format source
-    String sourceStr = route.isOverride ? "OVERRIDE" : "DEFAULT";
-
-    Serial.printf("%s %s %s %s %s\n", pathStr.c_str(), methodStr.c_str(),
-                  statusStr.c_str(), sourceStr.c_str(), authStr.c_str());
+    Serial.printf("%s %s %s\n", pathStr.c_str(), methodStr.c_str(),
+                  authStr.c_str());
   }
 
   Serial.println("========================================================");
@@ -101,7 +88,7 @@ void WebPlatform::printUnifiedRoutes(const String *moduleBasePath,
 size_t WebPlatform::getRouteCount() const {
   size_t enabledCount = 0;
   for (const auto &route : routeRegistry) {
-    if (!route.disabled) {
+    if (route.handler) {
       enabledCount++;
     }
   }
@@ -128,14 +115,6 @@ void WebPlatform::validateRoutes() const {
       hasDuplicates = true;
       Serial.printf("WARNING: Duplicate route found: %s\n",
                     entry.first.c_str());
-
-      for (const auto &idx : entry.second) {
-        const auto &route = routeRegistry[idx];
-        Serial.printf("  - %s (Override: %s, Disabled: %s)\n",
-                      route.disabled ? "DISABLED" : "ENABLED",
-                      route.isOverride ? "YES" : "no",
-                      route.disabled ? "YES" : "no");
-      }
     }
   }
 
@@ -146,7 +125,7 @@ void WebPlatform::validateRoutes() const {
   // Check for routes without authentication
   bool hasUnauthenticatedRoutes = false;
   for (const auto &route : routeRegistry) {
-    if (!route.disabled && !AuthUtils::requiresAuth(route.authRequirements)) {
+    if (!AuthUtils::requiresAuth(route.authRequirements)) {
       if (!hasUnauthenticatedRoutes) {
         Serial.println("Routes without authentication requirements:");
         hasUnauthenticatedRoutes = true;

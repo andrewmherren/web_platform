@@ -47,7 +47,7 @@ void setup() {
         // webPlatform.registerModule("/device", &deviceModule);
         
         // Create protected dashboard
-        webPlatform.registerRoute("/", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerWebRoute("/", [](WebRequest& req, WebResponse& res) {
             const AuthContext& auth = req.getAuthContext();
             String html = R"(
                 <!DOCTYPE html>
@@ -65,8 +65,8 @@ void setup() {
             res.setContent(html, "text/html");
         }, {AuthType::SESSION, AuthType::TOKEN});  // Allow both web and API access
         
-        // Override module routes to add authentication if needed
-        // webPlatform.overrideRoute("/device/", protectedHandler, {AuthType::SESSION});
+        // Replace module routes to add authentication if needed
+        // webPlatform.registerWebRoute("/device/", protectedHandler, {AuthType::SESSION});
     }
 }
 ```
@@ -81,7 +81,7 @@ void setup() {
     
     if (webPlatform.isConnected()) {
         // API management page (web interface)
-        webPlatform.registerRoute("/api-tokens", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerWebRoute("/api-tokens", [](WebRequest& req, WebResponse& res) {
             String html = R"(
                 <!DOCTYPE html>
                 <html><head>
@@ -122,13 +122,13 @@ void setup() {
         }, {AuthType::SESSION});
         
         // API endpoints that accept both session and token auth
-        webPlatform.registerRoute("/api/device/status", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerApiRoute("/device/status", [](WebRequest& req, WebResponse& res) {
             // This route can be accessed via web interface OR API token
             String status = "{\"status\":\"online\",\"uptime\":" + String(millis()) + "}";
             res.setContent(status, "application/json");
         }, {AuthType::SESSION, AuthType::TOKEN});
         
-        webPlatform.registerRoute("/api/device/control", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerApiRoute("/device/control", [](WebRequest& req, WebResponse& res) {
             if (req.getMethod() != WebModule::WM_POST) {
                 res.setStatus(405);
                 res.setContent("{\"error\":\"Method not allowed\"}", "application/json");
@@ -196,8 +196,8 @@ void setup() {
     // ... basic setup ...
     
     if (webPlatform.isConnected()) {
-        // Override the default login page
-        webPlatform.overrideRoute("/login", [](WebRequest& req, WebResponse& res) {
+        // Replace the default login page
+        webPlatform.registerWebRoute("/login", [](WebRequest& req, WebResponse& res) {
             if (req.getMethod() == WebModule::WM_POST) {
                 // Handle login submission
                 String username = req.getParam("username");
@@ -266,7 +266,7 @@ As a module developer, you can specify authentication requirements for your rout
 ```cpp
 class MyDeviceModule : public IWebModule {
 public:
-    std::vector<WebRoute> getHttpRoutes() override {
+    std::vector<RouteVariant> getHttpRoutes() override {
         return {
             // Public information page
             WebRoute("/info", WebModule::WM_GET, 
@@ -281,13 +281,13 @@ public:
                 }),
             
             // Configuration API - suggest session auth but allow override
-            WebRoute("/api/config", WebModule::WM_GET, 
+            ApiRoute("/config", WebModule::WM_GET, 
                 [this](WebRequest& req, WebResponse& res) {
                     res.setContent(getConfigJSON(), "application/json");
                 }, {AuthType::SESSION}),
             
             // Dangerous operations - require authentication
-            WebRoute("/api/factory-reset", WebModule::WM_POST, 
+            ApiRoute("/factory-reset", WebModule::WM_POST, 
                 [this](WebRequest& req, WebResponse& res) {
                     bool success = performFactoryReset();
                     res.setContent(success ? "{\"success\":true}" : "{\"error\":\"Failed\"}", 
@@ -296,7 +296,7 @@ public:
         };
     }
     
-    std::vector<WebRoute> getHttpsRoutes() override {
+    std::vector<RouteVariant> getHttpsRoutes() override {
         return getHttpRoutes(); // Same routes for HTTPS
     }
     
@@ -344,7 +344,7 @@ WebRoute("/config", WebModule::WM_GET,
         res.setContent(html, "text/html");
     }),
 
-WebRoute("/api/update-config", WebModule::WM_POST, 
+ApiRoute("/update-config", WebModule::WM_POST, 
     [this](WebRequest& req, WebResponse& res) {
         // Update configuration
         bool success = updateConfig(req.getBody());
@@ -472,13 +472,13 @@ void protectedHandler(WebRequest& req, WebResponse& res) {
 // Good: Clear separation of public and protected routes
 WebRoute("/info", handler, {AuthType::NONE})           // Public information
 WebRoute("/", handler, {AuthType::NONE})               // Let application decide
-WebRoute("/api/status", handler, {AuthType::TOKEN})    // API access only
+ApiRoute("/status", handler, {AuthType::TOKEN})    // API access only
 WebRoute("/config", handler, {AuthType::SESSION})      // Web interface only
-WebRoute("/api/config", handler, {AuthType::SESSION, AuthType::TOKEN})  // Both
+ApiRoute("/config", handler, {AuthType::SESSION, AuthType::TOKEN})  // Both
 
 // Good: Descriptive route paths
-WebRoute("/api/factory-reset", resetHandler, {AuthType::SESSION})
-WebRoute("/api/firmware-update", updateHandler, {AuthType::SESSION})
+ApiRoute("/factory-reset", resetHandler, {AuthType::SESSION})
+ApiRoute("/firmware-update", updateHandler, {AuthType::SESSION})
 ```
 
 ### Error Handling

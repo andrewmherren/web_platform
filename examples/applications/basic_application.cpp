@@ -39,7 +39,7 @@ void setup() {
   // Register routes before calling webPlatform.begin()
 
   // Register custom home page
-  webPlatform.overrideRoute("/", [](WebRequest &req, WebResponse &res) {
+  webPlatform.registerWebRoute("/", [](WebRequest &req, WebResponse &res) {
     String html = R"(
             <!DOCTYPE html>
             <html><head>
@@ -80,7 +80,7 @@ void setup() {
   });
 
   // Register about page
-  webPlatform.registerRoute("/about", [](WebRequest &req, WebResponse &res) {
+  webPlatform.registerWebRoute("/about", [](WebRequest &req, WebResponse &res) {
     String html = R"(
             <!DOCTYPE html>
             <html><head>
@@ -135,8 +135,9 @@ void setup() {
   });
 
   // Register settings page
-  webPlatform.registerRoute("/settings", [](WebRequest &req, WebResponse &res) {
-    String html = R"(
+  webPlatform.registerWebRoute(
+      "/settings", [](WebRequest &req, WebResponse &res) {
+        String html = R"(
             <!DOCTYPE html>
             <html><head>
                 <title>Device Settings</title>
@@ -148,9 +149,9 @@ void setup() {
                     <div class="card">
                         <h2>WiFi Configuration</h2>
                         <p>Current Network: <strong>)" +
-                  WiFi.SSID() + R"(</strong></p>
+                      WiFi.SSID() + R"(</strong></p>
                         <p>Signal Strength: <strong>)" +
-                  String(WiFi.RSSI()) + R"( dBm</strong></p>
+                      String(WiFi.RSSI()) + R"( dBm</strong></p>
                         <button class="btn btn-secondary" onclick="window.location='/wifi'">WiFi Settings</button>
                     </div>
                     
@@ -182,12 +183,12 @@ void setup() {
                 </script>
             </body></html>
         )";
-    res.setContent(html, "text/html");
-  });
+        res.setContent(html, "text/html");
+      });
 
   // Add API endpoints
-  webPlatform.registerRoute(
-      "/api/restart",
+  webPlatform.registerApiRoute(
+      "/restart",
       [](WebRequest &req, WebResponse &res) {
         if (req.getMethod() != WebModule::WM_POST) {
           res.setStatus(405);
@@ -206,8 +207,8 @@ void setup() {
       },
       {AuthType::NONE}, WebModule::WM_POST);
 
-  webPlatform.registerRoute(
-      "/api/factory-reset",
+  webPlatform.registerApiRoute(
+      "/factory-reset",
       [](WebRequest &req, WebResponse &res) {
         if (req.getMethod() != WebModule::WM_POST) {
           res.setStatus(405);

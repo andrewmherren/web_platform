@@ -64,20 +64,20 @@ WebPlatform provides a comprehensive authentication system with multiple authent
 
 ```cpp
 // Public route
-webPlatform.registerRoute("/public", handler, {AuthType::NONE});
+webPlatform.registerWebRoute("/public", handler, {AuthType::NONE});
 
 // Login required
-webPlatform.registerRoute("/admin", handler, {AuthType::SESSION});
+webPlatform.registerWebRoute("/admin", handler, {AuthType::SESSION});
 
 // API access
-webPlatform.registerRoute("/api/data", handler, {AuthType::TOKEN});
+webPlatform.registerApiRoute("/data", handler, {AuthType::TOKEN});
 
 // Form with CSRF protection
-webPlatform.registerRoute("/api/save", handler, 
+webPlatform.registerApiRoute("/save", handler, 
     {AuthType::SESSION, AuthType::PAGE_TOKEN}, WebModule::WM_POST);
 
 // Flexible access (either session or token)
-webPlatform.registerRoute("/api/status", handler, 
+webPlatform.registerApiRoute("/status", handler, 
     {AuthType::SESSION, AuthType::TOKEN});
 ```
 
@@ -92,25 +92,75 @@ WebPlatform creates a default admin account on first boot:
 
 ## Route Management
 
-WebPlatform provides several methods for managing routes:
+WebPlatform provides a unified method for managing routes:
 
-### Register a Route
+### Register a Standard Web Route
 ```cpp
-webPlatform.registerRoute("/path", [](WebRequest& req, WebResponse& res) {
+webPlatform.registerWebRoute("/path", [](WebRequest& req, WebResponse& res) {
     res.setContent("Hello World", "text/html");
 }, {AuthType::NONE});
 ```
 
-### Override a Module Route
+### Register an API Route with OpenAPI Documentation
 ```cpp
-webPlatform.overrideRoute("/module/path", [](WebRequest& req, WebResponse& res) {
+webPlatform.registerApiRoute(
+    "/status", 
+    [](WebRequest& req, WebResponse& res) {
+        res.setContent("{\"status\":\"ok\"}", "application/json");
+    }, 
+    {AuthType::TOKEN}, 
+    WebModule::WM_GET,
+    OpenAPIDocumentation(
+        "Get system status",                // Summary (required)
+        "Returns the current system status", // Description (optional)
+        "getSystemStatus",                  // Operation ID (optional)
+        {"System"}                          // Tags (optional)
+    )
+);
+```
+
+### Replace an Existing Module Route
+```cpp
+// Simply register again with the same path to replace the handler
+webPlatform.registerWebRoute("/module/path", [](WebRequest& req, WebResponse& res) {
     res.setContent("Custom implementation", "text/html");
 }, {AuthType::SESSION});
 ```
 
 ### Disable a Route
 ```cpp
-webPlatform.disableRoute("/path/to/disable");
+// Register with nullptr as the handler to disable a route
+webPlatform.registerWebRoute("/path/to/disable", nullptr, {AuthType::NONE});
+```
+
+### OpenAPI Documentation Structure
+The `OpenAPIDocumentation` object lets you document your API endpoints for better discoverability:
+
+```cpp
+// Basic documentation with just a summary
+OpenAPIDocumentation docs(
+    "Get device status"                     // Summary
+);
+
+// With description and operation ID
+OpenAPIDocumentation docs(
+    "Get device status",                    // Summary
+    "Returns detailed device information",  // Description
+    "getDeviceStatus"                       // Operation ID
+);
+
+// With tags for grouping in documentation tools
+OpenAPIDocumentation docs(
+    "Get device status",
+    "Returns detailed device information",
+    "getDeviceStatus",
+    {"Device", "System"}                    // Tags
+);
+
+// Advanced documentation with examples
+OpenAPIDocumentation docs("Create user");
+docs.requestExample = "{\"username\":\"john\",\"email\":\"john@example.com\"}";
+docs.responseExample = "{\"id\":\"123\",\"username\":\"john\"}";
 ```
 
 ## Template System
@@ -224,6 +274,34 @@ IWebModule::setNavigationMenu(navItems);
 - `Unauthenticated(NavigationItem(...))` - Only shows when user is not logged in
 - Regular `NavigationItem(...)` - Always visible regardless of auth state
 
+## OpenAPI Integration
+
+WebPlatform includes built-in support for OpenAPI 3.0 specification generation, making it easy to document your API endpoints.
+
+### Accessing the OpenAPI Specification
+
+The OpenAPI specification is automatically generated and available at:
+```
+/api/openapi.json
+```
+
+You can also filter the specification by authentication type:
+```
+/api/openapi.json?filter=token  # Only show token-authenticated routes
+/api/openapi.json?filter=session  # Only show session-authenticated routes
+```
+
+### Benefits of Using OpenAPI Documentation
+
+1. **Automatic Documentation**: Your API endpoints are automatically documented based on the information you provide
+2. **Tool Integration**: The generated specification can be imported into tools like Postman, Swagger UI, or code generators
+3. **Self-documenting APIs**: New developers can quickly understand your API without reading code
+4. **Testing Support**: Tools can generate test cases based on your API documentation
+
+### Example: API Documentation with OpenAPI
+
+See the complete [OpenAPI Example](examples/openapi_example.cpp) for a working demonstration.
+
 ## Examples
 
 ### Basic Application
@@ -246,7 +324,7 @@ void setup() {
     
     if (webPlatform.isConnected()) {
         // Add custom routes
-        webPlatform.registerRoute("/", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerWebRoute("/", [](WebRequest& req, WebResponse& res) {
             String html = R"(
                 <!DOCTYPE html>
                 <html><head><title>Home</title></head>
@@ -261,7 +339,7 @@ void setup() {
             res.setContent(html, "text/html");
         });
         
-        webPlatform.registerRoute("/about", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerWebRoute("/about", [](WebRequest& req, WebResponse& res) {
             String html = R"(
                 <!DOCTYPE html>
                 <html><head><title>About</title></head>
@@ -305,7 +383,7 @@ void setup() {
     
     if (webPlatform.isConnected()) {
         // Public route
-        webPlatform.registerRoute("/info", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerWebRoute("/info", [](WebRequest& req, WebResponse& res) {
             String html = R"(
                 <!DOCTYPE html>
                 <html><head><title>Public Info</title></head>
@@ -321,7 +399,7 @@ void setup() {
         }, {AuthType::NONE});
         
         // Protected dashboard
-        webPlatform.registerRoute("/", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerWebRoute("/", [](WebRequest& req, WebResponse& res) {
             const AuthContext& auth = req.getAuthContext();
             String html = R"(
                 <!DOCTYPE html>
@@ -338,7 +416,7 @@ void setup() {
         }, {AuthType::SESSION});
         
         // API endpoint
-        webPlatform.registerRoute("/api/data", [](WebRequest& req, WebResponse& res) {
+        webPlatform.registerApiRoute("/data", [](WebRequest& req, WebResponse& res) {
             String json = "{\"status\":\"ok\",\"data\":123}";
             res.setContent(json, "application/json");
         }, {AuthType::TOKEN});
@@ -367,5 +445,13 @@ void loop() {
 ### Development
 1. **Clear Error Messages**: Provide useful error messages and status codes
 2. **Consistent Route Structure**: Use consistent URL patterns
-3. **Progressive Enhancement**: Ensure basic functionality works without JavaScript
-4. **Test on Both Platforms**: Verify on both ESP32 and ESP8266
+3. **Document API Endpoints**: Use OpenAPIDocumentation to properly document your APIs
+4. **Progressive Enhancement**: Ensure basic functionality works without JavaScript
+5. **Test on Both Platforms**: Verify on both ESP32 and ESP8266
+
+### API Documentation
+1. **Use registerApiRoute**: For all API endpoints that return JSON or other API formats
+2. **Provide Summaries**: Always include at least a summary in OpenAPIDocumentation
+3. **Categorize with Tags**: Use tags to organize endpoints into logical groups
+4. **Add Examples**: Include request and response examples for complex endpoints
+5. **Consistent Naming**: Use consistent operation IDs with camelCase pattern
