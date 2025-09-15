@@ -104,10 +104,17 @@ void WebPlatform::registerConnectedModeRoutes() {
                    {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
                    WebModule::WM_GET, SystemApiDocs::createGetModules());
 
-  // OpenAPI specification endpoint
+  // OpenAPI specification endpoints - cached & fresh versions
   registerApiRoute("/openapi.json",
                    std::bind(&WebPlatform::getOpenAPISpecHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
+                   {{AuthType::NONE}}, // No auth required for API docs
                    WebModule::WM_GET, SystemApiDocs::createGetOpenAPISpec());
+
+  registerApiRoute(
+      "/fresh/openapi.json",
+      std::bind(&WebPlatform::getOpenAPISpecAlwaysFreshHandler, this,
+                std::placeholders::_1, std::placeholders::_2),
+      {{AuthType::NONE}}, // No auth required for API docs
+      WebModule::WM_GET, SystemApiDocs::createGetCachedOpenAPISpec());
 }

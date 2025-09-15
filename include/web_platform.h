@@ -171,9 +171,16 @@ private:                            // Core server components
   void addCsrfCookie(WebResponse &res, const String &token);
   void processCsrfForResponse(WebRequest &req, WebResponse &res);
 
-  // OpenAPI spec
+  // OpenAPI spec with caching
   String getOpenAPISpec() const;
   String getOpenAPISpec(AuthType filterType) const;
+  String getOpenAPISpec(AuthType filterType, bool useCache) const;
+
+  // OpenAPI cache management
+  void initializeOpenAPICache();
+  void invalidateOpenAPICache();
+  bool hasValidOpenAPICache(AuthType filterType) const;
+  String getCachedOpenAPISpec(AuthType filterType) const;
 
   // Handlers
   void rootPageHandler(WebRequest &req, WebResponse &res);
@@ -224,6 +231,7 @@ private:                            // Core server components
   void getNetworkStatusApiHandler(WebRequest &req, WebResponse &res);
   void getModulesApiHandler(WebRequest &req, WebResponse &res);
   void getOpenAPISpecHandler(WebRequest &req, WebResponse &res);
+  void getOpenAPISpecAlwaysFreshHandler(WebRequest &req, WebResponse &res);
 
   // Platform state
   PlatformMode currentMode;
@@ -234,6 +242,10 @@ private:                            // Core server components
 
   // Platform configuration
   PlatformConfig platformConfig;
+
+  // OpenAPI cache
+  mutable std::map<int, String> openApiCache; // int key = (int)AuthType
+  mutable bool openApiCacheInitialized = false;
 
   // Device configuration
   const char *deviceName;

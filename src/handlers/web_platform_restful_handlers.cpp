@@ -529,6 +529,8 @@ void WebPlatform::getModulesApiHandler(WebRequest &req, WebResponse &res) {
         "\"name\":\"" + registeredModules[i].module->getModuleName() + "\",";
     json += "\"version\":\"" + registeredModules[i].module->getModuleVersion() +
             "\",";
+    json += "\"description\":\"" +
+            registeredModules[i].module->getModuleDescription() + "\",";
     json += "\"basePath\":\"" + registeredModules[i].basePath + "\"";
     json += "}";
   }
@@ -549,9 +551,30 @@ void WebPlatform::getOpenAPISpecHandler(WebRequest &req, WebResponse &res) {
     filterType = AuthType::SESSION;
   }
 
-  // Get OpenAPI spec from platform service
-  String openApiSpec = getOpenAPISpec(filterType);
+  // Get cached OpenAPI spec from platform service (uses cache)
+  String openApiSpec = getOpenAPISpec(filterType, true);
+
+  res.setContent(openApiSpec, "application/json");
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.setHeader("X-Cache", "used");
+}
+
+void WebPlatform::getOpenAPISpecAlwaysFreshHandler(WebRequest &req,
+                                                   WebResponse &res) {
+  // Get filter parameter (default to all routes)
+  String filterParam = req.getParam("filter");
+  AuthType filterType = AuthType::NONE;
+
+  if (filterParam == "token") {
+    filterType = AuthType::TOKEN;
+  } else if (filterParam == "session") {
+    filterType = AuthType::SESSION;
+  }
+
+  // Always generate fresh spec and update cache
+  String openApiSpec = getOpenAPISpec(filterType, false);
 
   res.setContent(openApiSpec, "application/json");
   res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("X-Generated-Fresh", "true");
 }

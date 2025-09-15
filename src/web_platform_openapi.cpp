@@ -1,14 +1,32 @@
+#include "../include/storage/storage_manager.h"
 #include "../include/web_platform.h"
 #include <ArduinoJson.h>
+#include <map>
+
+// Use the constant defined in web_platform_openapi_cache.cpp
+extern const char *OPENAPI_CACHE_COLLECTION;
 
 // OpenAPI specification generation
 String WebPlatform::getOpenAPISpec() const {
-  return getOpenAPISpec(AuthType::NONE);
+  return getOpenAPISpec(AuthType::NONE, true); // Use cache by default
 }
 
 String WebPlatform::getOpenAPISpec(AuthType filterType) const {
+  return getOpenAPISpec(filterType, true); // Use cache by default
+}
+
+String WebPlatform::getOpenAPISpec(AuthType filterType, bool useCache) const {
+  // Check cache first if requested
+  if (useCache && hasValidOpenAPICache(filterType)) {
+    Serial.println("Serving OpenAPI spec from cache for filter: " +
+                   String((int)filterType));
+    return getCachedOpenAPISpec(filterType);
+  }
+
+  Serial.println("Generating fresh OpenAPI spec for filter: " +
+                 String((int)filterType));
   // Create the OpenAPI document
-  DynamicJsonDocument doc(32768); // Increased size for enhanced documentation
+  DynamicJsonDocument doc(65536); // Increased size for enhanced documentation
 
   // Basic OpenAPI info
   doc["openapi"] = "3.0.0";
@@ -189,9 +207,49 @@ String WebPlatform::getOpenAPISpec(AuthType filterType) const {
     }
   }
 
-  // Serialize the OpenAPI document
+  // Before serializing, check document size
+  size_t estimatedSize = measureJson(doc);
+  Serial.println("Estimated OpenAPI JSON size: " + String(estimatedSize) +
+                 " bytes");
+
+  if (estimatedSize > doc.capacity() * 0.9) {
+    Serial.println("WARNING: OpenAPI document very close to capacity limit!");
+    // Consider simplifying the output
+    if (paths.size() > 20) {
+      Serial.println("Too many paths, limiting to essential ones only");
+      // Implement simplification logic here
+    }
+  }
+
+  // Serialize with monitoring
   String openApiJson;
   serializeJson(doc, openApiJson);
+
+  Serial.println("Generated OpenAPI JSON: " + String(openApiJson.length()) +
+                 " bytes");
+
+  // Verify serialization was complete (simple validation)
+  if (!openApiJson.endsWith("}")) {
+    Serial.println("ERROR: OpenAPI JSON appears to be truncated!");
+  }
+
+  // Cache only if not truncated and within reasonable size
+  if (useCache && openApiJson.endsWith("}") && openApiJson.length() < 50000) {
+
+    if (!openApiCacheInitialized) {
+      const_cast<WebPlatform *>(this)->initializeOpenAPICache();
+    }
+    const_cast<WebPlatform *>(this)->openApiCache[(int)filterType] =
+        openApiJson;
+
+    // Also save to persistent storage
+    String key = String((int)filterType);
+    StorageManager::query(OPENAPI_CACHE_COLLECTION).store(key, openApiJson);
+
+    Serial.println(
+        "Cached OpenAPI spec for filter: " + String((int)filterType) + " (" +
+        String(openApiJson.length()) + " bytes)");
+  }
 
   return openApiJson;
 }
@@ -303,53 +361,11 @@ void WebPlatform::addParametersToOperation(JsonObject &operation,
                                            const RouteEntry &route) const {
   JsonArray parameters = operation.createNestedArray("parameters");
 
-  // Add path parameters
-  if (route.path.indexOf("{") != -1) {
-    String pathCopy = route.path;
-    int startPos = 0;
-    while ((startPos = pathCopy.indexOf("{", startPos)) != -1) {
-      int endPos = pathCopy.indexOf("}", startPos);
-      if (endPos != -1) {
-        String paramName = pathCopy.substring(startPos + 1, endPos);
+  // Track parameter names to avoid duplicates
+  std::map<String, bool> parameterNames;
 
-        JsonObject param = parameters.createNestedObject();
-        param["name"] = paramName;
-        param["in"] = "path";
-        param["required"] = true;
-        param["description"] = "Path parameter: " + paramName;
-
-        JsonObject schema = param.createNestedObject("schema");
-        schema["type"] = "string";
-
-        // Add parameter constraints if available
-        if (!route.parameterConstraints.isEmpty()) {
-          // Parse parameter constraints JSON and apply to matching parameters
-          DynamicJsonDocument constraintsDoc(1024);
-          if (deserializeJson(constraintsDoc, route.parameterConstraints) ==
-              DeserializationError::Ok) {
-            if (constraintsDoc.containsKey(paramName)) {
-              JsonObject constraints = constraintsDoc[paramName];
-              if (constraints.containsKey("pattern")) {
-                schema["pattern"] = constraints["pattern"];
-              }
-              if (constraints.containsKey("minLength")) {
-                schema["minLength"] = constraints["minLength"];
-              }
-              if (constraints.containsKey("maxLength")) {
-                schema["maxLength"] = constraints["maxLength"];
-              }
-            }
-          }
-        }
-
-        startPos = endPos + 1;
-      } else {
-        break;
-      }
-    }
-  }
-
-  // Add custom parameters from module documentation
+  // First, add custom parameters from module documentation
+  // These take precedence and may override auto-generated ones
   if (!route.parameters.isEmpty()) {
     DynamicJsonDocument paramDoc(2048);
     if (deserializeJson(paramDoc, route.parameters) ==
@@ -357,8 +373,72 @@ void WebPlatform::addParametersToOperation(JsonObject &operation,
       if (paramDoc.is<JsonArray>()) {
         JsonArray customParams = paramDoc.as<JsonArray>();
         for (JsonVariant param : customParams) {
-          parameters.add(param);
+          if (param.is<JsonObject>()) {
+            JsonObject paramObj = param.as<JsonObject>();
+            if (paramObj.containsKey("name") && paramObj.containsKey("in")) {
+              String paramName = paramObj["name"].as<String>();
+              String paramIn = paramObj["in"].as<String>();
+              String paramKey = paramName + ":" + paramIn;
+
+              if (parameterNames.find(paramKey) == parameterNames.end()) {
+                parameters.add(param);
+                parameterNames[paramKey] = true;
+              }
+            }
+          }
         }
+      }
+    }
+  }
+
+  // Then add auto-generated path parameters only if not already defined
+  if (route.path.indexOf("{") != -1) {
+    String pathCopy = route.path;
+    int startPos = 0;
+    while ((startPos = pathCopy.indexOf("{", startPos)) != -1) {
+      int endPos = pathCopy.indexOf("}", startPos);
+      if (endPos != -1) {
+        String paramName = pathCopy.substring(startPos + 1, endPos);
+        String paramKey = paramName + ":path";
+
+        // Only add if not already defined by custom parameters
+        if (parameterNames.find(paramKey) == parameterNames.end()) {
+          JsonObject param = parameters.createNestedObject();
+          param["name"] = paramName;
+          param["in"] = "path";
+          param["required"] = true;
+          param["description"] = "Path parameter: " + paramName;
+
+          JsonObject schema = param.createNestedObject("schema");
+          schema["type"] = "string";
+
+          // Add parameter constraints if available
+          if (!route.parameterConstraints.isEmpty()) {
+            // Parse parameter constraints JSON and apply to matching parameters
+            DynamicJsonDocument constraintsDoc(1024);
+            if (deserializeJson(constraintsDoc, route.parameterConstraints) ==
+                DeserializationError::Ok) {
+              if (constraintsDoc.containsKey(paramName)) {
+                JsonObject constraints = constraintsDoc[paramName];
+                if (constraints.containsKey("pattern")) {
+                  schema["pattern"] = constraints["pattern"];
+                }
+                if (constraints.containsKey("minLength")) {
+                  schema["minLength"] = constraints["minLength"];
+                }
+                if (constraints.containsKey("maxLength")) {
+                  schema["maxLength"] = constraints["maxLength"];
+                }
+              }
+            }
+          }
+
+          parameterNames[paramKey] = true;
+        }
+
+        startPos = endPos + 1;
+      } else {
+        break;
       }
     }
   }

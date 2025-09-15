@@ -14,7 +14,7 @@ struct OpenAPIDocumentation {
   String responseExample;   // JSON string containing example response body
   String requestSchema;     // JSON string containing request schema definition
   String responseSchema;    // JSON string containing response schema definition
-  String parametersJson;    // JSON string containing parameter definitions
+  String parameters;        // JSON string containing parameter definitions
   String responsesJson;     // JSON string containing response definitions
 
   // Default constructor
@@ -36,7 +36,7 @@ struct OpenAPIDocumentation {
            !operationId.isEmpty() || !tags.empty() ||
            !requestExample.isEmpty() || !responseExample.isEmpty() ||
            !requestSchema.isEmpty() || !responseSchema.isEmpty() ||
-           !parametersJson.isEmpty() || !responsesJson.isEmpty();
+           !parameters.isEmpty() || !responsesJson.isEmpty();
   }
 
   // Helper to get tags as comma-separated string

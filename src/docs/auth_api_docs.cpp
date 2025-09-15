@@ -1,20 +1,20 @@
 #include "../../include/docs/auth_api_docs.h"
 
 // Define module-specific tags
-const std::vector<String> AuthApiDocs::USER_MANAGEMENT_TAGS = {"User Management"};
-const std::vector<String> AuthApiDocs::TOKEN_MANAGEMENT_TAGS = {"Token Management"};
+const std::vector<String> AuthApiDocs::USER_MANAGEMENT_TAGS = {
+    "User Management"};
+const std::vector<String> AuthApiDocs::TOKEN_MANAGEMENT_TAGS = {
+    "Token Management"};
 
 // User Management Documentation
 
 OpenAPIDocumentation AuthApiDocs::createListUsers() {
-    OpenAPIDocumentation doc = OpenAPIFactory::create(
-        "List all users",
-        "Retrieves all user accounts. Admin privileges required.",
-        "listUsers",
-        USER_MANAGEMENT_TAGS
-    );
-    
-    doc.responseExample = R"({
+  OpenAPIDocumentation doc = OpenAPIFactory::create(
+      "List all users",
+      "Retrieves all user accounts. Admin privileges required.", "listUsers",
+      USER_MANAGEMENT_TAGS);
+
+  doc.responseExample = R"({
       "success": true,
       "users": [
         {
@@ -25,26 +25,25 @@ OpenAPIDocumentation AuthApiDocs::createListUsers() {
         }
       ]
     })";
-    
-    doc.responseSchema = OpenAPIFactory::createSuccessResponse("List of user accounts");
-    
-    return doc;
+
+  doc.responseSchema =
+      OpenAPIFactory::createSuccessResponse("List of user accounts");
+
+  return doc;
 }
 
 OpenAPIDocumentation AuthApiDocs::createCreateUser() {
-    OpenAPIDocumentation doc = OpenAPIFactory::create(
-        "Create a new user",
-        "Creates a new user account. Admin privileges required.",
-        "createUser",
-        USER_MANAGEMENT_TAGS
-    );
-    
-    doc.requestExample = R"({
+  OpenAPIDocumentation doc = OpenAPIFactory::create(
+      "Create a new user",
+      "Creates a new user account. Admin privileges required.", "createUser",
+      USER_MANAGEMENT_TAGS);
+
+  doc.requestExample = R"({
       "username": "newuser",
       "password": "securepassword123"
     })";
-    
-    doc.responseExample = R"({
+
+  doc.responseExample = R"({
       "success": true,
       "user": {
         "id": "550e8400-e29b-41d4-a716-446655440001",
@@ -53,8 +52,8 @@ OpenAPIDocumentation AuthApiDocs::createCreateUser() {
         "createdAt": "2024-01-01T12:00:00Z"
       }
     })";
-    
-    doc.requestSchema = R"({
+
+  doc.requestSchema = R"({
       "type": "object",
       "required": ["username", "password"],
       "properties": {
@@ -71,21 +70,20 @@ OpenAPIDocumentation AuthApiDocs::createCreateUser() {
         }
       }
     })";
-    
-    doc.responseSchema = OpenAPIFactory::createSuccessResponse("Created user account details");
-    
-    return doc;
+
+  doc.responseSchema =
+      OpenAPIFactory::createSuccessResponse("Created user account details");
+
+  return doc;
 }
 
 OpenAPIDocumentation AuthApiDocs::createGetUserById() {
-    OpenAPIDocumentation doc = OpenAPIFactory::create(
-        "Get user by ID",
-        "Retrieves detailed information about a specific user by their UUID.",
-        "getUserById",
-        USER_MANAGEMENT_TAGS
-    );
-    
-    doc.parametersJson = R"([
+  OpenAPIDocumentation doc = OpenAPIFactory::create(
+      "Get user by ID",
+      "Retrieves detailed information about a specific user by their UUID.",
+      "getUserById", USER_MANAGEMENT_TAGS);
+
+  doc.parameters = R"([
       {
         "name": "id",
         "in": "path",
@@ -97,8 +95,8 @@ OpenAPIDocumentation AuthApiDocs::createGetUserById() {
         }
       }
     ])";
-    
-    doc.responseExample = R"({
+
+  doc.responseExample = R"({
       "success": true,
       "user": {
         "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -107,21 +105,21 @@ OpenAPIDocumentation AuthApiDocs::createGetUserById() {
         "createdAt": "2024-01-01T00:00:00Z"
       }
     })";
-    
-    doc.responseSchema = OpenAPIFactory::createSuccessResponse("User account details");
-    
-    return doc;
+
+  doc.responseSchema =
+      OpenAPIFactory::createSuccessResponse("User account details");
+
+  return doc;
 }
 
 OpenAPIDocumentation AuthApiDocs::createUpdateUserById() {
-    OpenAPIDocumentation doc = OpenAPIFactory::create(
-        "Update user by ID",
-        "Updates user information. Users can update their own account, admins can update any account.",
-        "updateUserById",
-        USER_MANAGEMENT_TAGS
-    );
-    
-    doc.parametersJson = R"([
+  OpenAPIDocumentation doc =
+      OpenAPIFactory::create("Update user by ID",
+                             "Updates user information. Users can update their "
+                             "own account, admins can update any account.",
+                             "updateUserById", USER_MANAGEMENT_TAGS);
+
+  doc.parameters = R"([
       {
         "name": "id",
         "in": "path",
@@ -133,12 +131,12 @@ OpenAPIDocumentation AuthApiDocs::createUpdateUserById() {
         }
       }
     ])";
-    
-    doc.requestExample = R"({
+
+  doc.requestExample = R"({
       "password": "newsecurepassword123"
     })";
-    
-    doc.requestSchema = R"({
+
+  doc.requestSchema = R"({
       "type": "object",
       "properties": {
         "password": {
@@ -148,26 +146,26 @@ OpenAPIDocumentation AuthApiDocs::createUpdateUserById() {
         }
       }
     })";
-    
-    doc.responseExample = R"({
+
+  doc.responseExample = R"({
       "success": true,
       "message": "User updated successfully"
     })";
-    
-    doc.responseSchema = OpenAPIFactory::createSuccessResponse("Update confirmation");
-    
-    return doc;
+
+  doc.responseSchema =
+      OpenAPIFactory::createSuccessResponse("Update confirmation");
+
+  return doc;
 }
 
 OpenAPIDocumentation AuthApiDocs::createDeleteUserById() {
-    OpenAPIDocumentation doc = OpenAPIFactory::create(
-        "Delete user by ID",
-        "Permanently removes a user account. Admin privileges required. Cannot delete the last admin user.",
-        "deleteUserById",
-        USER_MANAGEMENT_TAGS
-    );
-    
-    doc.parametersJson = R"([
+  OpenAPIDocumentation doc = OpenAPIFactory::create(
+      "Delete user by ID",
+      "Permanently removes a user account. Admin privileges required. Cannot "
+      "delete the last admin user.",
+      "deleteUserById", USER_MANAGEMENT_TAGS);
+
+  doc.parameters = R"([
       {
         "name": "id",
         "in": "path",
@@ -179,28 +177,28 @@ OpenAPIDocumentation AuthApiDocs::createDeleteUserById() {
         }
       }
     ])";
-    
-    doc.responseExample = R"({
+
+  doc.responseExample = R"({
       "success": true,
       "message": "User deleted successfully"
     })";
-    
-    doc.responseSchema = OpenAPIFactory::createSuccessResponse("Deletion confirmation");
-    
-    return doc;
+
+  doc.responseSchema =
+      OpenAPIFactory::createSuccessResponse("Deletion confirmation");
+
+  return doc;
 }
 
 // Current User Convenience Endpoints
 
 OpenAPIDocumentation AuthApiDocs::createGetCurrentUser() {
-    OpenAPIDocumentation doc = OpenAPIFactory::create(
-        "Get current user",
-        "Retrieves information about the currently authenticated user based on session or token.",
-        "getCurrentUser",
-        USER_MANAGEMENT_TAGS
-    );
-    
-    doc.responseExample = R"({
+  OpenAPIDocumentation doc =
+      OpenAPIFactory::create("Get current user",
+                             "Retrieves information about the currently "
+                             "authenticated user based on session or token.",
+                             "getCurrentUser", USER_MANAGEMENT_TAGS);
+
+  doc.responseExample = R"({
       "success": true,
       "user": {
         "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -209,25 +207,24 @@ OpenAPIDocumentation AuthApiDocs::createGetCurrentUser() {
         "createdAt": "2024-01-01T00:00:00Z"
       }
     })";
-    
-    doc.responseSchema = OpenAPIFactory::createSuccessResponse("Current user account details");
-    
-    return doc;
+
+  doc.responseSchema =
+      OpenAPIFactory::createSuccessResponse("Current user account details");
+
+  return doc;
 }
 
 OpenAPIDocumentation AuthApiDocs::createUpdateCurrentUser() {
-    OpenAPIDocumentation doc = OpenAPIFactory::create(
-        "Update current user",
-        "Updates the currently authenticated user's account information.",
-        "updateCurrentUser",
-        USER_MANAGEMENT_TAGS
-    );
-    
-    doc.requestExample = R"({
+  OpenAPIDocumentation doc = OpenAPIFactory::create(
+      "Update current user",
+      "Updates the currently authenticated user's account information.",
+      "updateCurrentUser", USER_MANAGEMENT_TAGS);
+
+  doc.requestExample = R"({
       "password": "mynewsecurepassword123"
     })";
-    
-    doc.requestSchema = R"({
+
+  doc.requestSchema = R"({
       "type": "object",
       "properties": {
         "password": {
@@ -237,28 +234,28 @@ OpenAPIDocumentation AuthApiDocs::createUpdateCurrentUser() {
         }
       }
     })";
-    
-    doc.responseExample = R"({
+
+  doc.responseExample = R"({
       "success": true,
       "message": "User updated successfully"
     })";
-    
-    doc.responseSchema = OpenAPIFactory::createSuccessResponse("Update confirmation");
-    
-    return doc;
+
+  doc.responseSchema =
+      OpenAPIFactory::createSuccessResponse("Update confirmation");
+
+  return doc;
 }
 
 // Token Management Documentation
 
 OpenAPIDocumentation AuthApiDocs::createGetUserTokens() {
-    OpenAPIDocumentation doc = OpenAPIFactory::create(
-        "Get user tokens",
-        "Retrieves all API tokens for a specific user. Users can only access their own tokens, admins can access any user's tokens.",
-        "getUserTokens",
-        TOKEN_MANAGEMENT_TAGS
-    );
-    
-    doc.parametersJson = R"([
+  OpenAPIDocumentation doc = OpenAPIFactory::create(
+      "Get user tokens",
+      "Retrieves all API tokens for a specific user. Users can only access "
+      "their own tokens, admins can access any user's tokens.",
+      "getUserTokens", TOKEN_MANAGEMENT_TAGS);
+
+  doc.parameters = R"([
       {
         "name": "id",
         "in": "path",
@@ -270,8 +267,8 @@ OpenAPIDocumentation AuthApiDocs::createGetUserTokens() {
         }
       }
     ])";
-    
-    doc.responseExample = R"({
+
+  doc.responseExample = R"({
       "success": true,
       "tokens": [
         {
@@ -282,21 +279,21 @@ OpenAPIDocumentation AuthApiDocs::createGetUserTokens() {
         }
       ]
     })";
-    
-    doc.responseSchema = OpenAPIFactory::createListResponse("API tokens for the user");
-    
-    return doc;
+
+  doc.responseSchema =
+      OpenAPIFactory::createListResponse("API tokens for the user");
+
+  return doc;
 }
 
 OpenAPIDocumentation AuthApiDocs::createCreateUserToken() {
-    OpenAPIDocumentation doc = OpenAPIFactory::create(
-        "Create user token",
-        "Creates a new API token for a specific user. Users can create tokens for themselves, admins can create tokens for any user.",
-        "createUserToken",
-        TOKEN_MANAGEMENT_TAGS
-    );
-    
-    doc.parametersJson = R"([
+  OpenAPIDocumentation doc = OpenAPIFactory::create(
+      "Create user token",
+      "Creates a new API token for a specific user. Users can create tokens "
+      "for themselves, admins can create tokens for any user.",
+      "createUserToken", TOKEN_MANAGEMENT_TAGS);
+
+  doc.parameters = R"([
       {
         "name": "id",
         "in": "path",
@@ -308,12 +305,12 @@ OpenAPIDocumentation AuthApiDocs::createCreateUserToken() {
         }
       }
     ])";
-    
-    doc.requestExample = R"({
+
+  doc.requestExample = R"({
       "name": "Production API Token"
     })";
-    
-    doc.requestSchema = R"({
+
+  doc.requestSchema = R"({
       "type": "object",
       "required": ["name"],
       "properties": {
@@ -325,8 +322,8 @@ OpenAPIDocumentation AuthApiDocs::createCreateUserToken() {
         }
       }
     })";
-    
-    doc.responseExample = R"({
+
+  doc.responseExample = R"({
       "success": true,
       "token": "tok_550e8400e29b41d4a716446655440000",
       "tokenInfo": {
@@ -336,21 +333,21 @@ OpenAPIDocumentation AuthApiDocs::createCreateUserToken() {
       },
       "warning": "Save this token now - it will not be shown again"
     })";
-    
-    doc.responseSchema = OpenAPIFactory::createSuccessResponse("Created API token details");
-    
-    return doc;
+
+  doc.responseSchema =
+      OpenAPIFactory::createSuccessResponse("Created API token details");
+
+  return doc;
 }
 
 OpenAPIDocumentation AuthApiDocs::createDeleteToken() {
-    OpenAPIDocumentation doc = OpenAPIFactory::create(
-        "Delete token",
-        "Permanently removes an API token. Users can delete their own tokens, admins can delete any token.",
-        "deleteToken",
-        TOKEN_MANAGEMENT_TAGS
-    );
-    
-    doc.parametersJson = R"([
+  OpenAPIDocumentation doc = OpenAPIFactory::create(
+      "Delete token",
+      "Permanently removes an API token. Users can delete their own tokens, "
+      "admins can delete any token.",
+      "deleteToken", TOKEN_MANAGEMENT_TAGS);
+
+  doc.parameters = R"([
       {
         "name": "id",
         "in": "path",
@@ -362,13 +359,14 @@ OpenAPIDocumentation AuthApiDocs::createDeleteToken() {
         }
       }
     ])";
-    
-    doc.responseExample = R"({
+
+  doc.responseExample = R"({
       "success": true,
       "message": "Token deleted successfully"
     })";
-    
-    doc.responseSchema = OpenAPIFactory::createSuccessResponse("Deletion confirmation");
-    
-    return doc;
+
+  doc.responseSchema =
+      OpenAPIFactory::createSuccessResponse("Deletion confirmation");
+
+  return doc;
 }

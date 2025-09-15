@@ -126,7 +126,7 @@ void WebResponse::sendProgmemChunked(const char *data, WebServerClass *server) {
     return;
 
   size_t len = strlen_P(data);
-  const size_t CHUNK_SIZE = 1024;
+  const size_t CHUNK_SIZE = 512;
 
   // Set content length unknown to enable chunked transfer
   server->setContentLength(CONTENT_LENGTH_UNKNOWN);
@@ -152,7 +152,7 @@ esp_err_t WebResponse::sendProgmemChunked(const char *data, httpd_req *req) {
     return ESP_FAIL;
 
   size_t len = strlen_P(data);
-  const size_t CHUNK_SIZE = 1024;
+  const size_t CHUNK_SIZE = 512;
 
   // Send data in chunks
   for (size_t i = 0; i < len; i += CHUNK_SIZE) {

@@ -92,7 +92,7 @@ void WebPlatform::registerRoute(const String &path,
       route.responseExample = docs.responseExample;
       route.requestSchema = docs.requestSchema;
       route.responseSchema = docs.responseSchema;
-      route.parameters = docs.parametersJson;
+      route.parameters = docs.parameters;
       route.responseInfo = docs.responsesJson;
 
       return;
@@ -110,7 +110,7 @@ void WebPlatform::registerRoute(const String &path,
   newRoute.responseExample = docs.responseExample;
   newRoute.requestSchema = docs.requestSchema;
   newRoute.responseSchema = docs.responseSchema;
-  newRoute.parameters = docs.parametersJson;
+  newRoute.parameters = docs.parameters;
   newRoute.responseInfo = docs.responsesJson;
 
   routeRegistry.push_back(newRoute);
