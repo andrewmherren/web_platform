@@ -481,3 +481,97 @@ void errorHandler(WebRequest& req, WebResponse& res) {
     res.setContent("{\"error\":\"Bad request\",\"message\":\"Missing required parameter\"}", 
                    "application/json");
 }
+
+## OpenAPI Documentation
+
+### OpenAPIDocumentation Class
+
+```cpp
+class OpenAPIDocumentation {
+public:
+    // Constructors
+    OpenAPIDocumentation(
+        const String& summary,
+        const String& description = "",
+        const String& operationId = "",
+        const std::vector<String>& tags = {}
+    );
+    
+    // Properties
+    String summary;                // Brief summary of the endpoint
+    String description;            // Detailed description
+    String operationId;            // Unique operation identifier
+    std::vector<String> tags;      // Tags for grouping endpoints
+    
+    // Examples and schema
+    String requestExample;         // Example request body
+    String responseExample;        // Example response body
+    String requestSchema;          // JSON Schema for request
+    String responseSchema;         // JSON Schema for response
+    String parametersJson;         // JSON array of parameter objects
+};
+```
+
+### OpenAPIFactory
+
+```cpp
+class OpenAPIFactory {
+public:
+    // Create OpenAPI documentation object
+    static OpenAPIDocumentation create(
+        const String& summary,
+        const String& description = "",
+        const String& operationId = "",
+        const std::vector<String>& tags = {}
+    );
+    
+    // Create standard response schemas
+    static String createSuccessResponse(const String& description = "Operation successful");
+    static String createErrorResponse(const String& description = "Error details");
+    static String createListResponse(const String& itemDescription);
+    
+    // Create standard request schemas
+    static String createJsonRequest(const String& description, const String& properties);
+    static String createStringRequest(const String& description, int minLength = 1);
+    
+    // Create parameter definitions
+    static String createIdParameter(const String& name, const String& description);
+    
+    // Utility methods
+    static String generateOperationId(const String& method, const String& resource);
+    static String formatTag(const String& moduleName);
+};
+```
+
+### Documentation Factory Pattern
+
+The recommended pattern for organizing API documentation:
+
+```cpp
+// Documentation class
+class ModuleNameDocs {
+public:
+    // Define module-specific tags
+    static const std::vector<String> MODULE_TAGS;
+    
+    // Factory methods for each endpoint
+    static OpenAPIDocumentation createGetResource();
+    static OpenAPIDocumentation createUpdateResource();
+    static OpenAPIDocumentation createDeleteResource();
+};
+
+// Implementation
+const std::vector<String> ModuleNameDocs::MODULE_TAGS = {"Module Category"};
+
+OpenAPIDocumentation ModuleNameDocs::createGetResource() {
+    OpenAPIDocumentation doc = OpenAPIFactory::create(
+        "Get resource details",
+        "Returns detailed information about the resource",
+        "getResource",
+        MODULE_TAGS
+    );
+    
+    // Define examples and schemas...
+    
+    return doc;
+}

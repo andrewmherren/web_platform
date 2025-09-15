@@ -1,3 +1,4 @@
+#include "../../include/docs/system_api_docs.h"
 #include "../../include/interface/web_module_interface.h"
 #include "../../include/web_platform.h"
 
@@ -60,92 +61,53 @@ void WebPlatform::registerConnectedModeRoutes() {
                              std::placeholders::_1, std::placeholders::_2),
                    {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
-  registerApiRoute(
-      "/scan",
-      std::bind(&WebPlatform::scanApiHandler, this, std::placeholders::_1,
-                std::placeholders::_2),
-      {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-      WebModule::WM_GET,
-      OpenAPIDocumentation(
-          "Scan WiFi networks",
-          "Scans for available WiFi networks and returns the results",
-          "scanWifi", {"WiFi Management"}));
+  registerApiRoute("/scan",
+                   std::bind(&WebPlatform::scanApiHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
+                   WebModule::WM_GET, SystemApiDocs::createScanWifi());
 
-  registerApiRoute(
-      "/status",
-      std::bind(&WebPlatform::statusApiHandler, this, std::placeholders::_1,
-                std::placeholders::_2),
-      {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-      WebModule::WM_GET,
-      OpenAPIDocumentation("Get device status",
-                           "Returns the current status of the device "
-                           "including WiFi connection details",
-                           "getStatus", {"System"}));
+  registerApiRoute("/status",
+                   std::bind(&WebPlatform::statusApiHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
+                   WebModule::WM_GET, SystemApiDocs::createGetStatus());
 
-  registerApiRoute(
-      "/reset",
-      std::bind(&WebPlatform::resetApiHandler, this, std::placeholders::_1,
-                std::placeholders::_2),
-      {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-      WebModule::WM_POST,
-      OpenAPIDocumentation("Reset device",
-                           "Resets the device WiFi configuration and "
-                           "restarts in configuration portal mode",
-                           "resetDevice", {"System"}));
+  registerApiRoute("/reset",
+                   std::bind(&WebPlatform::resetApiHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
+                   WebModule::WM_POST, SystemApiDocs::createResetDevice());
 
-  registerApiRoute(
-      "/wifi",
-      std::bind(&WebPlatform::wifiConfigHandler, this, std::placeholders::_1,
-                std::placeholders::_2),
-      {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-      WebModule::WM_POST,
-      OpenAPIDocumentation(
-          "Configure WiFi",
-          "Updates the device's WiFi configuration with new credentials",
-          "configureWifi", {"WiFi Management"}));
+  registerApiRoute("/wifi",
+                   std::bind(&WebPlatform::wifiConfigHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
+                   WebModule::WM_POST, SystemApiDocs::createConfigureWifi());
 
   // Register RESTful API routes for system status data
-  registerApiRoute(
-      "/system",
-      std::bind(&WebPlatform::getSystemStatusApiHandler, this,
-                std::placeholders::_1, std::placeholders::_2),
-      {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-      WebModule::WM_GET,
-      OpenAPIDocumentation("Get system status",
-                           "Returns system information including uptime, "
-                           "memory usage, and firmware details",
-                           "getSystemStatus", {"System"}));
+  registerApiRoute("/system",
+                   std::bind(&WebPlatform::getSystemStatusApiHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
+                   WebModule::WM_GET, SystemApiDocs::createGetSystemStatus());
 
-  registerApiRoute(
-      "/network",
-      std::bind(&WebPlatform::getNetworkStatusApiHandler, this,
-                std::placeholders::_1, std::placeholders::_2),
-      {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-      WebModule::WM_GET,
-      OpenAPIDocumentation("Get network status",
-                           "Returns network status including IP address, "
-                           "signal strength, and connection details",
-                           "getNetworkStatus", {"Network"}));
+  registerApiRoute("/network",
+                   std::bind(&WebPlatform::getNetworkStatusApiHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
+                   WebModule::WM_GET, SystemApiDocs::createGetNetworkStatus());
 
-  registerApiRoute(
-      "/modules",
-      std::bind(&WebPlatform::getModulesApiHandler, this, std::placeholders::_1,
-                std::placeholders::_2),
-      {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-      WebModule::WM_GET,
-      OpenAPIDocumentation("Get registered modules",
-                           "Returns information about all registered "
-                           "web modules and their routes",
-                           "getModules", {"System"}));
+  registerApiRoute("/modules",
+                   std::bind(&WebPlatform::getModulesApiHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
+                   WebModule::WM_GET, SystemApiDocs::createGetModules());
 
   // OpenAPI specification endpoint
   registerApiRoute("/openapi.json",
                    std::bind(&WebPlatform::getOpenAPISpecHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-                   WebModule::WM_GET,
-                   OpenAPIDocumentation("Get OpenAPI specification",
-                                        "Returns the OpenAPI 3.0 specification "
-                                        "for all registered API routes",
-                                        "getOpenAPISpec", {"System"}));
+                   WebModule::WM_GET, SystemApiDocs::createGetOpenAPISpec());
 }

@@ -1,6 +1,5 @@
 #include "interface/web_module_interface.h"
 #include "route_entry.h"
-#include "utils/utils.h"
 #include "web_platform.h"
 
 #if defined(ESP32)
@@ -43,9 +42,32 @@ void WebPlatform::registerApiRoute(const String &path,
                                    const AuthRequirements &auth,
                                    WebModule::Method method,
                                    const OpenAPIDocumentation &docs) {
-  // Normalize API path using the same logic as ApiRoute
-  String normalizedPath = Utils::normalizeApiPath(path);
-  registerRoute(normalizedPath, handler, auth, method, docs);
+  // Ensure API routes always start with /api/
+  String apiPath = path;
+
+  // Remove leading slash if present for normalization
+  if (apiPath.startsWith("/")) {
+    apiPath = apiPath.substring(1);
+  }
+
+  // Remove api/ prefix if present (with or without leading slash)
+  if (apiPath.startsWith("api/")) {
+    apiPath = apiPath.substring(4);
+  }
+
+  String finalPath;
+  if (apiPath.indexOf("/api/") == -1) {
+    // Build final API path with /api/ prefix
+    finalPath = "/api/";
+    finalPath += apiPath;
+  } else {
+    // this is a module path already containing api which now looks like
+    // module_prefix/api/some_path so we need to simply add the leading /
+    finalPath = "/";
+    finalPath += apiPath;
+  }
+
+  registerRoute(finalPath, handler, auth, method, docs);
 }
 
 void WebPlatform::registerRoute(const String &path,

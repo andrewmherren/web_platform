@@ -45,6 +45,19 @@ enum WiFiConnectionState {
   WIFI_CONNECTION_FAILED // Failed to connect to WiFi
 };
 
+// Platform configuration structure
+struct PlatformConfig {
+  uint16_t maxUriHandlers = 60; // ESP32 HTTPS server route limit
+  uint16_t stackSize = 8192;    // Server task stack size
+  bool forceHttpsOnly = false;  // Force HTTPS-only mode
+
+  // Constructor for easy initialization
+  PlatformConfig() = default;
+
+  // Convenience constructor for common case
+  PlatformConfig(bool httpsOnly) : forceHttpsOnly(httpsOnly) {}
+};
+
 // Callback function types
 typedef std::function<void()> WiFiSetupCompleteCallback;
 
@@ -71,6 +84,7 @@ public:
 
   // Primary initialization - auto-detects mode and capabilities
   void begin(const char *deviceName = "Device", bool forceHttpsOnly = false);
+  void begin(const char *deviceName, const PlatformConfig &config);
 
   // Module registration (only works in CONNECTED mode)
   bool registerModule(const char *basePath, IWebModule *module);
@@ -217,6 +231,9 @@ private:                            // Core server components
   bool httpsEnabled;
   bool running;
   int serverPort;
+
+  // Platform configuration
+  PlatformConfig platformConfig;
 
   // Device configuration
   const char *deviceName;

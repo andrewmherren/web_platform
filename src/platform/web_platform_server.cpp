@@ -142,9 +142,9 @@ void WebPlatform::configureHttpsServer() {
   // Configure HTTPS server
   httpd_ssl_config_t config = HTTPD_SSL_CONFIG_DEFAULT();
   config.httpd.server_port = serverPort;
-  config.httpd.max_uri_handlers = 50; // Generous limit
+  config.httpd.max_uri_handlers = platformConfig.maxUriHandlers;
   config.httpd.task_priority = 5;
-  config.httpd.stack_size = 8192;
+  config.httpd.stack_size = platformConfig.stackSize;
   config.httpd.lru_purge_enable = true;
 
   // Set certificates

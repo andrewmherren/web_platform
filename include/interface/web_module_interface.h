@@ -3,10 +3,10 @@
 
 #include "../../assets/web_ui_styles.h"
 #include "auth_types.h"
+#include "openapi_factory.h"
 #include "openapi_types.h"
 #include "platform_service.h"
 #include "utils/route_variant.h"
-#include "utils/utils.h"
 #include "web_module_types.h"
 #include "web_request.h"
 #include "web_response.h"
@@ -108,52 +108,69 @@ struct ApiRoute {
 
   OpenAPIDocumentation docs; // OpenAPI documentation
 
+private:
+  // Helper function to normalize API paths by removing /api or api prefix
+  static String normalizeApiPath(const String &path) {
+    // If starts with /api/, remove the /api part
+    if (path.startsWith("/api/")) {
+      return path.substring(4); // Remove "/api" keeping the "/"
+    }
+    // If just "api", return "/"
+    if (path.equals("api")) {
+      return "/";
+    }
+    // Otherwise return as-is, ensuring it has a leading slash
+    if (path.startsWith("/")) {
+      return path;
+    }
+    return "/" + path;
+  }
+
 public:
   // Constructors for unified handlers
   ApiRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h)
-      : webRoute(Utils::normalizeApiPath(p), m, h) {}
+      : webRoute(normalizeApiPath(p), m, h) {}
 
   ApiRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const String &ct)
-      : webRoute(Utils::normalizeApiPath(p), m, h, ct) {}
+      : webRoute(normalizeApiPath(p), m, h, ct) {}
 
   ApiRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const String &ct,
            const String &desc)
-      : webRoute(Utils::normalizeApiPath(p), m, h, ct, desc) {}
+      : webRoute(normalizeApiPath(p), m, h, ct, desc) {}
 
   // Constructors with auth requirements
   ApiRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const AuthRequirements &auth)
-      : webRoute(Utils::normalizeApiPath(p), m, h, auth) {}
+      : webRoute(normalizeApiPath(p), m, h, auth) {}
 
   ApiRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const AuthRequirements &auth,
            const String &ct)
-      : webRoute(Utils::normalizeApiPath(p), m, h, auth, ct) {}
+      : webRoute(normalizeApiPath(p), m, h, auth, ct) {}
 
   ApiRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const AuthRequirements &auth,
            const String &ct, const String &desc)
-      : webRoute(Utils::normalizeApiPath(p), m, h, auth, ct, desc) {}
+      : webRoute(normalizeApiPath(p), m, h, auth, ct, desc) {}
 
   // Constructors with OpenAPI documentation
   ApiRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h,
            const OpenAPIDocumentation &documentation)
-      : webRoute(Utils::normalizeApiPath(p), m, h), docs(documentation) {}
+      : webRoute(normalizeApiPath(p), m, h), docs(documentation) {}
 
   ApiRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const AuthRequirements &auth,
            const OpenAPIDocumentation &documentation)
-      : webRoute(Utils::normalizeApiPath(p), m, h, auth), docs(documentation) {}
+      : webRoute(normalizeApiPath(p), m, h, auth), docs(documentation) {}
 
   ApiRoute(const String &p, WebModule::Method m,
            WebModule::UnifiedRouteHandler h, const AuthRequirements &auth,
            const String &ct, const OpenAPIDocumentation &documentation)
-      : webRoute(Utils::normalizeApiPath(p), m, h, auth, ct),
-        docs(documentation) {}
+      : webRoute(normalizeApiPath(p), m, h, auth, ct), docs(documentation) {}
 };
 
 // Authentication visibility for navigation items

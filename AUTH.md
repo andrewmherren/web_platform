@@ -150,40 +150,44 @@ void setup() {
 }
 ```
 
-### CSRF Protection in JavaScript
+### CSRF Protection with AuthUtils
 
-WebPlatform automatically injects CSRF tokens into all HTML pages. Access them in your JavaScript:
+WebPlatform provides built-in JavaScript utilities for handling authentication and CSRF tokens:
 
 ```javascript
-// Get CSRF token from automatically injected meta tag
-function getCsrfToken() {
-    const metaTag = document.querySelector('meta[name="csrf-token"]');
-    return metaTag ? metaTag.getAttribute('content') : null;
-}
-
-// Use in fetch requests
-async function makeSecureRequest(url, data) {
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': getCsrfToken()
-        },
-        body: JSON.stringify(data)
+// Using the AuthUtils helper for fetch requests with CSRF protection
+async function updateConfig(settings) {
+  try {
+    const result = await AuthUtils.fetch('/api/device/update-config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(settings)
     });
-    return await response.json();
+    
+    // AuthUtils.fetch automatically handles CSRF tokens
+    const data = await result.json();
+    UIUtils.showAlert('Success', 'Configuration updated', 'success');
+    return data;
+  } catch (error) {
+    UIUtils.showAlert('Error', error.message, 'error');
+    console.error('Failed to update config:', error);
+  }
 }
 
-// Use in forms
-document.querySelector('form').addEventListener('submit', function(e) {
-    const csrf = getCsrfToken();
-    if (csrf) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = '_csrf';
-        input.value = csrf;
-        this.appendChild(input);
-    }
+// For form submissions, simply use the form's action and method
+document.getElementById('config-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  // AuthUtils.submitForm handles CSRF tokens automatically
+  const result = await AuthUtils.submitForm(this);
+  
+  if (result.success) {
+    UIUtils.showAlert('Success', 'Form submitted successfully', 'success');
+  } else {
+    UIUtils.showAlert('Error', result.error, 'error');
+  }
 });
 ```
 
@@ -352,6 +356,50 @@ ApiRoute("/update-config", WebModule::WM_POST,
                      "application/json");
     }, {AuthType::SESSION, AuthType::PAGE_TOKEN})  // Requires both session and CSRF
 ```
+
+### Combining Authentication and API Documentation
+
+When creating API endpoints that require authentication, combine proper authentication requirements with clear documentation:
+
+```cpp
+class DeviceApiDocs {
+public:
+  static const std::vector<String> DEVICE_TAGS;
+  
+  static OpenAPIDocumentation createGetDeviceStatus() {
+    OpenAPIDocumentation doc = OpenAPIFactory::create(
+      "Get device status",
+      "Returns the current status of the device with authentication details",
+      "getDeviceStatus", 
+      DEVICE_TAGS
+    );
+    
+    doc.responseExample = R"({
+      "status": "online",
+      "uptime": 3600,
+      "auth_method": "session"
+    })";
+    
+    return doc;
+  }
+};
+
+// Define tags
+const std::vector<String> DeviceApiDocs::DEVICE_TAGS = {"Device"};
+
+// Use in API route with authentication
+ApiRoute("/status", 
+  [this](WebRequest& req, WebResponse& res) {
+    const AuthContext& auth = req.getAuthContext();
+    String authMethod = (auth.authenticatedVia == AuthType::SESSION) ? "session" : "token";
+    
+    String json = "{\"status\":\"online\",\"uptime\":" + String(millis()/1000) + 
+                 ",\"auth_method\":\"" + authMethod + "\"}";
+    res.setContent(json, "application/json");
+  }, 
+  {AuthType::SESSION, AuthType::TOKEN},
+  DeviceApiDocs::createGetDeviceStatus()
+)
 
 ## API Usage Examples
 

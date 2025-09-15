@@ -103,6 +103,42 @@ webPlatform.registerWebRoute("/path", [](WebRequest& req, WebResponse& res) {
 
 ### Register an API Route with OpenAPI Documentation
 ```cpp
+// First, create a documentation factory class
+class SystemApiDocs {
+public:
+  static const std::vector<String> SYSTEM_TAGS;
+  
+  static OpenAPIDocumentation createGetSystemStatus() {
+    OpenAPIDocumentation doc = OpenAPIFactory::create(
+        "Get system status",
+        "Returns the current system status",
+        "getSystemStatus",
+        SYSTEM_TAGS
+    );
+    
+    doc.responseExample = R"({
+      "status": "ok",
+      "uptime": 3600,
+      "memory": 40000
+    })";
+    
+    doc.responseSchema = R"({
+      "type": "object",
+      "properties": {
+        "status": {"type": "string", "description": "System status"},
+        "uptime": {"type": "number", "description": "Uptime in seconds"},
+        "memory": {"type": "number", "description": "Free memory in bytes"}
+      }
+    })";
+    
+    return doc;
+  }
+};
+
+// Define tags
+const std::vector<String> SystemApiDocs::SYSTEM_TAGS = {"System"};
+
+// Then use the factory in your route registration
 webPlatform.registerApiRoute(
     "/status", 
     [](WebRequest& req, WebResponse& res) {
@@ -110,14 +146,37 @@ webPlatform.registerApiRoute(
     }, 
     {AuthType::TOKEN}, 
     WebModule::WM_GET,
-    OpenAPIDocumentation(
-        "Get system status",                // Summary (required)
-        "Returns the current system status", // Description (optional)
-        "getSystemStatus",                  // Operation ID (optional)
-        {"System"}                          // Tags (optional)
-    )
+    SystemApiDocs::createGetSystemStatus()
 );
 ```
+
+## OpenAPIFactory
+
+The WebPlatform library provides an `OpenAPIFactory` class that simplifies creating documentation:
+
+```cpp
+// Create basic documentation
+OpenAPIDocumentation doc = OpenAPIFactory::create(
+    "Create user",                      // Summary
+    "Creates a new user in the system", // Description
+    "createUser",                       // Operation ID
+    {"User Management"}                 // Tags
+);
+
+// Create standard success response
+String schema = OpenAPIFactory::createSuccessResponse("User created successfully");
+
+// Create standard error response
+String errorSchema = OpenAPIFactory::createErrorResponse("Error description");
+
+// Create list response
+String listSchema = OpenAPIFactory::createListResponse("users");
+
+// Create string request
+String stringSchema = OpenAPIFactory::createStringRequest("API token to validate", 10);
+
+// Generate operation ID using factory utility
+String operationId = OpenAPIFactory::generateOperationId("create", "user");
 
 ### Replace an Existing Module Route
 ```cpp
@@ -450,8 +509,8 @@ void loop() {
 5. **Test on Both Platforms**: Verify on both ESP32 and ESP8266
 
 ### API Documentation
-1. **Use registerApiRoute**: For all API endpoints that return JSON or other API formats
-2. **Provide Summaries**: Always include at least a summary in OpenAPIDocumentation
-3. **Categorize with Tags**: Use tags to organize endpoints into logical groups
-4. **Add Examples**: Include request and response examples for complex endpoints
-5. **Consistent Naming**: Use consistent operation IDs with camelCase pattern
+1. **Use Documentation Classes**: Create dedicated classes for API documentation using the pattern `ModuleNameDocs`
+2. **Organize by Feature**: Group related API documentation methods in the same class
+3. **Use Factory Methods**: Create static factory methods that return complete `OpenAPIDocumentation` objects
+4. **Follow Naming Conventions**: Use method names like `createEndpointName()` for documentation factories
+5. **Separate from Implementation**: Keep documentation separate from implementation code

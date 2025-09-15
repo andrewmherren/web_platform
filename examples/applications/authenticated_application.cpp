@@ -20,28 +20,21 @@
 
 void setup() {
   Serial.begin(115200);
-  Serial.println(
-      "Starting Authenticated WebPlatform Application..."); // Initialize NTP
-                                                            // client for
-                                                            // accurate
-                                                            // timestamps//
-                                                            // Initialize NTP
-                                                            // client for
-                                                            // accurate
-                                                            // timestamps//
-                                                            // Configure time
-                                                            // zone with
-                                                            // automatic DST
-                                                            // adjustment
-  //   NTPClient::setTimeZone(TimeZone::AMERICA_NEW_YORK, DSTRules::US_CANADA);
+  Serial.println("Starting Authenticated WebPlatform Application...");
+
+  // Initialize NTP client for accurate timestamps
+  // Configure time zone with automatic DST adjustment
+  NTPClient::setTimeZone(TimeZone::AMERICA_NEW_YORK, DSTRules::US_CANADA);
 
   // Other examples with automatic DST:
+  // Pacific Time with DST:
   // NTPClient::setTimeZone(TimeZone::AMERICA_LOS_ANGELES, DSTRules::US_CANADA);
-  // // Pacific Time with DST NTPClient::setTimeZone(TimeZone::EUROPE_LONDON,
-  // DSTRules::EU);              // GMT/BST with EU DST rules
-  // NTPClient::setTimeZone(TimeZone::AUSTRALIA_SYDNEY, DSTRules::AUSTRALIA); //
-  // Australian Eastern Time with DST
-  // NTPClient::setTimeZone(TimeZone::ASIA_TOKYO); // Japan (no DST needed)
+  // GMT/BST with EU DST rules:
+  // NTPClient::setTimeZone(TimeZone::EUROPE_LONDON,DSTRules::EU);
+  // Australian Eastern Time with DST:
+  // NTPClient::setTimeZone(TimeZone::AUSTRALIA_SYDNEY, DSTRules::AUSTRALIA);
+  // Japan (no DST needed)
+  // NTPClient::setTimeZone(TimeZone::ASIA_TOKYO);
 
   // Set up navigation menu with authentication-aware
   // items

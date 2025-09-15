@@ -106,6 +106,26 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
      "http://yourdevice.local/sensors/api/control"
 ```
 
+## API Documentation
+
+The module uses the new OpenAPIDocumentation system to document endpoints:
+
+```cpp
+ApiRoute(
+    "/current", WebModule::WM_GET,
+    [this](WebRequest &req, WebResponse &res) {
+      getCurrentDataHandler(req, res);
+    },
+    {AuthType::SESSION, AuthType::PAGE_TOKEN},
+    EnvironmentalSensorDocs::createGetCurrentReadings()
+),
+```
+
+This approach:
+- Separates documentation from implementation code
+- Provides structured API documentation that can be consumed by OpenAPI tools
+- Creates consistency across all module APIs
+
 ## Configuration Options
 
 The module includes a web-based configuration interface with the following settings:

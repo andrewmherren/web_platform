@@ -3,6 +3,7 @@
  */
 
 #include "environmental_sensor_module.h"
+#include "environmental_sensor_docs.h"
 
 // Constructor
 EnvironmentalSensorModule::EnvironmentalSensorModule()
@@ -58,6 +59,15 @@ std::vector<RouteVariant> EnvironmentalSensorModule::getHttpRoutes() {
                },
                {AuthType::LOCAL_ONLY}),
 
+      // Public API for current readings - session or page token required
+      ApiRoute(
+          "/current", WebModule::WM_GET,
+          [this](WebRequest &req, WebResponse &res) {
+            getCurrentDataHandler(req, res);
+          },
+          {AuthType::SESSION, AuthType::PAGE_TOKEN},
+          EnvironmentalSensorDocs::createGetCurrentReadings()),
+
       // Protected configuration page - requires login
       WebRoute("/config", WebModule::WM_GET,
                [this](WebRequest &req, WebResponse &res) {
@@ -65,33 +75,32 @@ std::vector<RouteVariant> EnvironmentalSensorModule::getHttpRoutes() {
                },
                {AuthType::SESSION}),
 
-      // Public API for current readings - session or page token required
-      ApiRoute("/current", WebModule::WM_GET,
-               [this](WebRequest &req, WebResponse &res) {
-                 getCurrentDataHandler(req, res);
-               },
-               {AuthType::SESSION, AuthType::PAGE_TOKEN}),
-
       // Protected configuration API - requires login + CSRF for forms
-      ApiRoute("/config", WebModule::WM_POST,
-               [this](WebRequest &req, WebResponse &res) {
-                 updateConfigHandler(req, res);
-               },
-               {AuthType::SESSION, AuthType::PAGE_TOKEN}),
+      ApiRoute(
+          "/config", WebModule::WM_POST,
+          [this](WebRequest &req, WebResponse &res) {
+            updateConfigHandler(req, res);
+          },
+          {AuthType::SESSION, AuthType::PAGE_TOKEN},
+          EnvironmentalSensorDocs::createUpdateSensorConfig()),
 
       // API endpoint for external systems (requires API token)
-      ApiRoute("/data", WebModule::WM_GET,
-               [this](WebRequest &req, WebResponse &res) {
-                 getDataAPIHandler(req, res);
-               },
-               {AuthType::TOKEN, AuthType::SESSION, AuthType::PAGE_TOKEN}),
+      ApiRoute(
+          "/data", WebModule::WM_GET,
+          [this](WebRequest &req, WebResponse &res) {
+            getDataAPIHandler(req, res);
+          },
+          {AuthType::TOKEN, AuthType::SESSION, AuthType::PAGE_TOKEN},
+          EnvironmentalSensorDocs::createGetDetailedSensorData()),
 
       // Administrative control (session or token auth)
-      ApiRoute("/control", WebModule::WM_POST,
-               [this](WebRequest &req, WebResponse &res) {
-                 controlAPIHandler(req, res);
-               },
-               {AuthType::TOKEN, AuthType::SESSION, AuthType::PAGE_TOKEN}),
+      ApiRoute(
+          "/control", WebModule::WM_POST,
+          [this](WebRequest &req, WebResponse &res) {
+            controlAPIHandler(req, res);
+          },
+          {AuthType::TOKEN, AuthType::SESSION, AuthType::PAGE_TOKEN},
+          EnvironmentalSensorDocs::createControlSensor()),
   };
 }
 

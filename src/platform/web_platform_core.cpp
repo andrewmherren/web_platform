@@ -54,6 +54,11 @@ WebPlatform::~WebPlatform() {
 #endif
 }
 
+void WebPlatform::begin(const char *deviceName, const PlatformConfig &config) {
+  this->platformConfig = config;
+  begin(deviceName, config.forceHttpsOnly);
+}
+
 void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
   Serial.println("WebPlatform: Starting initialization...");
 
@@ -373,32 +378,65 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
     if (!webRoute)
       continue;
 
-    // Create full path using the WebRoute path
-    String fullPath = basePath;
-    String routePath = webRoute->path;
+    // Normalize paths by removing leading/trailing slashes for consistent
+    // processing
+    String normalizedBasePath = basePath;
+    String normalizedRoutePath = webRoute->path;
 
-    // Special case for root path
-    if (routePath == "/" || routePath.isEmpty()) {
-      // For root path, ensure the base path ends with a slash
-      if (!fullPath.endsWith("/")) {
-        fullPath += "/";
-      }
-    } else if (!fullPath.endsWith("/") && !routePath.startsWith("/")) {
-      // Neither has slash, add one between
-      fullPath += "/" + routePath;
-    } else if (fullPath.endsWith("/") && routePath.startsWith("/")) {
-      // Both have slash, remove duplicate
-      fullPath += routePath.substring(1);
-    } else {
-      // One has slash, just concatenate
-      fullPath += routePath;
+    // Remove leading and trailing slashes from both paths
+    if (normalizedBasePath.startsWith("/")) {
+      normalizedBasePath = normalizedBasePath.substring(1);
+    }
+    if (normalizedBasePath.endsWith("/")) {
+      normalizedBasePath =
+          normalizedBasePath.substring(0, normalizedBasePath.length() - 1);
     }
 
-    // Register with appropriate method based on whether we have docs
+    if (normalizedRoutePath.startsWith("/")) {
+      normalizedRoutePath = normalizedRoutePath.substring(1);
+    }
+    if (normalizedRoutePath.endsWith("/")) {
+      normalizedRoutePath =
+          normalizedRoutePath.substring(0, normalizedRoutePath.length() - 1);
+    }
+
+    // Build the final path based on whether it's an API route or regular route
+    String fullPath;
+
     if (docs.hasDocumentation()) {
+      // API route: /basePath/api/routePath or /api/routePath (if no basePath)
+      if (normalizedBasePath.length() > 0) {
+        if (normalizedRoutePath.length() > 0) {
+          fullPath = "/" + normalizedBasePath + "/api/" + normalizedRoutePath;
+        } else {
+          fullPath = "/" + normalizedBasePath + "/api";
+        }
+      } else {
+        if (normalizedRoutePath.length() > 0) {
+          fullPath = "/api/" + normalizedRoutePath;
+        } else {
+          fullPath = "/api";
+        }
+      }
+
       registerApiRoute(fullPath, webRoute->unifiedHandler,
                        webRoute->authRequirements, webRoute->method, docs);
     } else {
+      // Regular route: /basePath/routePath or /routePath (if no basePath)
+      if (normalizedBasePath.length() > 0) {
+        if (normalizedRoutePath.length() > 0) {
+          fullPath = "/" + normalizedBasePath + "/" + normalizedRoutePath;
+        } else {
+          fullPath = "/" + normalizedBasePath + "/";
+        }
+      } else {
+        if (normalizedRoutePath.length() > 0) {
+          fullPath = "/" + normalizedRoutePath;
+        } else {
+          fullPath = "/";
+        }
+      }
+
       registerWebRoute(fullPath, webRoute->unifiedHandler,
                        webRoute->authRequirements, webRoute->method);
     }

@@ -1,3 +1,4 @@
+#include "../../include/docs/system_api_docs.h"
 #include "../../include/web_platform.h"
 #include <ArduinoJson.h>
 
@@ -49,21 +50,25 @@ void WebPlatform::registerConfigPortalRoutes() {
   registerApiRoute("/wifi",
                    std::bind(&WebPlatform::wifiConfigHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::PAGE_TOKEN}, WebModule::WM_POST);
+                   {AuthType::PAGE_TOKEN}, WebModule::WM_POST,
+                   SystemApiDocs::createConfigureWifi());
 
   // API endpoints - no authentication required in captive portal mode
   registerApiRoute("/status",
                    std::bind(&WebPlatform::statusApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::PAGE_TOKEN}, WebModule::WM_GET);
+                   {AuthType::PAGE_TOKEN}, WebModule::WM_GET,
+                   SystemApiDocs::createGetStatus());
 
   registerApiRoute("/scan",
                    std::bind(&WebPlatform::scanApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::PAGE_TOKEN}, WebModule::WM_GET);
+                   {AuthType::PAGE_TOKEN}, WebModule::WM_GET,
+                   SystemApiDocs::createScanWifi());
 
   registerApiRoute("/reset",
                    std::bind(&WebPlatform::resetApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::PAGE_TOKEN}, WebModule::WM_POST);
+                   {AuthType::PAGE_TOKEN}, WebModule::WM_POST,
+                   SystemApiDocs::createResetDevice());
 }
