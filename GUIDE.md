@@ -497,9 +497,21 @@ void loop() {
 5. **API Security**: Use `{AuthType::TOKEN}` for programmatic access
 
 ### Performance
-1. **Minimize Dynamic HTML**: Pre-generate HTML strings where possible
-2. **Use Static Assets**: Serve CSS/JS from embedded assets
+1. **Use PROGMEM Streaming**: Always use `setProgmemContent()` for embedded assets
+2. **Minimize Dynamic HTML**: Pre-generate HTML strings where possible
 3. **Efficient Route Structure**: Organize routes logically to minimize search time
+
+### Asset Management
+```cpp
+// Correct: Use setProgmemContent for all embedded assets
+res.setProgmemContent(STYLESHEET_CSS, "text/css");
+res.setProgmemContent(SCRIPT_JS, "application/javascript");
+res.setProgmemContent(PAGE_HTML, "text/html");
+
+// Only use setContent for dynamic content
+res.setContent(jsonResponse, "application/json");
+res.setContent(dynamicHtml, "text/html");
+```
 
 ### Development
 1. **Clear Error Messages**: Provide useful error messages and status codes

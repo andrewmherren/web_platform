@@ -130,7 +130,7 @@ void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::accountPageJSAssetHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(FPSTR(ACCOUNT_PAGE_JS), "application/javascript");
+  res.setProgmemContent(ACCOUNT_PAGE_JS, "application/javascript");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 

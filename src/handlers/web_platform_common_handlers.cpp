@@ -7,26 +7,26 @@
 
 void WebPlatform::webPlatformCSSAssetHandler(WebRequest &req,
                                              WebResponse &res) {
-  res.setContent(FPSTR(WEB_PLATFORM_STYLES_CSS), "text/css");
+  res.setProgmemContent(WEB_PLATFORM_STYLES_CSS, "text/css");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 
 void WebPlatform::webPlatformJSAssetHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(FPSTR(WEB_PLATFORM_UTILS_JS), "application/javascript");
+  res.setProgmemContent(WEB_PLATFORM_UTILS_JS, "application/javascript");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 
 void WebPlatform::styleCSSAssetHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(WEB_UI_DEFAULT_CSS, "text/css");
+  res.setProgmemContent(WEB_UI_DEFAULT_CSS, "text/css");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 
 void WebPlatform::webPlatformFaviconHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(String(FPSTR(WEB_PLATFORM_FAVICON)), "image/svg+xml");
+  res.setProgmemContent(WEB_PLATFORM_FAVICON, "image/svg+xml");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 
 void WebPlatform::wifiJSAssetHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(FPSTR(WIFI_JS), "application/javascript");
+  res.setProgmemContent(WIFI_JS, "application/javascript");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }

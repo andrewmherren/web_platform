@@ -182,6 +182,7 @@ For more information on WebPlatform features, see the [User Guide](GUIDE.md).
 - **Template System**: HTML templates with automatic bookmark replacement
 - **Storage System**: Flexible database drivers with query builder
 - **HTTPS Support**: Automatic HTTPS when certificates available
+- **Asset Streaming**: Memory-efficient serving of embedded assets using PROGMEM streaming
 
 ## Learn More
 

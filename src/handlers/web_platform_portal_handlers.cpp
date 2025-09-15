@@ -6,12 +6,12 @@
 #include <ArduinoJson.h>
 
 void WebPlatform::configPortalPageHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(FPSTR(CONFIG_PORTAL_HTML), "text/html");
+  res.setProgmemContent(CONFIG_PORTAL_HTML, "text/html");
 };
 
 void WebPlatform::configPortalSuccessJSAssetHandler(WebRequest &req,
                                                     WebResponse &res) {
-  res.setContent(FPSTR(CONFIG_PORTAL_SUCCESS_JS), "application/javascript");
+  res.setProgmemContent(CONFIG_PORTAL_SUCCESS_JS, "application/javascript");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 

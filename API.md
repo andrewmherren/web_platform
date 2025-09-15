@@ -279,6 +279,9 @@ public:
     // Set response content and content type
     void setContent(const String& content, const String& contentType);
     
+    // Set PROGMEM content for memory-efficient streaming
+    void setProgmemContent(const char* progmemData, const String& mimeType);
+    
     // Set response status code
     void setStatus(int code);
     
@@ -304,6 +307,13 @@ public:
     std::map<String, String> getHeaders() const;
 };
 ```
+
+### Asset Serving Methods
+
+- **`setContent(content, mimeType)`**: Use for dynamic content, JSON responses, and computed strings
+- **`setProgmemContent(progmemData, mimeType)`**: Use for all embedded assets stored as `const char PROGMEM` arrays
+
+The `setProgmemContent` method provides memory-efficient streaming that prevents fragmentation with large assets while maintaining optimal performance for smaller ones.
 
 ## Authentication API
 

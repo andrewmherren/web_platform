@@ -28,6 +28,8 @@ private:
   std::map<String, String> headers;
   bool headersSent;
   bool responseSent;
+  const char *progmemData;
+  bool isProgmemContent;
 
 public:
   WebResponse();
@@ -35,6 +37,7 @@ public:
   // Response configuration
   void setStatus(int code);
   void setContent(const String &content, const String &mimeType = "text/html");
+  void setProgmemContent(const char *progmemData, const String &mimeType);
   void setHeader(const String &name, const String &value);
   void redirect(const String &url, int code = 302);
 
@@ -59,6 +62,12 @@ public:
 private:
   void markHeadersSent() { headersSent = true; }
   void markResponseSent() { responseSent = true; }
+
+  // Helper methods for PROGMEM streaming
+  void sendProgmemChunked(const char *data, WebServerClass *server);
+#if defined(ESP32)
+  esp_err_t sendProgmemChunked(const char *data, httpd_req *req);
+#endif
 
   // Allow WebPlatform to call private methods
   friend class WebPlatform;

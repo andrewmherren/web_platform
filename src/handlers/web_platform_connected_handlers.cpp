@@ -15,12 +15,12 @@
 
 void WebPlatform::systemStatusJSAssetHandler(WebRequest &req,
                                              WebResponse &res) {
-  res.setContent(FPSTR(SYSTEM_STATUS_JS), "application/javascript");
+  res.setProgmemContent(SYSTEM_STATUS_JS, "application/javascript");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 
 void WebPlatform::homePageJSAssetHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(FPSTR(HOME_PAGE_JS), "application/javascript");
+  res.setProgmemContent(HOME_PAGE_JS, "application/javascript");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 
@@ -35,13 +35,13 @@ void WebPlatform::homePageJSAssetHandler(WebRequest &req, WebResponse &res) {
 #endif
 
 void WebPlatform::rootPageHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(FPSTR(CONNECTED_HOME_HTML), "text/html");
+  res.setProgmemContent(CONNECTED_HOME_HTML, "text/html");
 }
 
 void WebPlatform::statusPageHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(FPSTR(SYSTEM_STATUS_HTML), "text/html");
+  res.setProgmemContent(SYSTEM_STATUS_HTML, "text/html");
 }
 
 void WebPlatform::wifiPageHandler(WebRequest &req, WebResponse &res) {
-  res.setContent(FPSTR(WIFI_MANAGEMENT_HTML), "text/html");
+  res.setProgmemContent(WIFI_MANAGEMENT_HTML, "text/html");
 }
