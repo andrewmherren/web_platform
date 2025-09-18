@@ -180,26 +180,35 @@ enum class NavAuthVisibility {
   UNAUTHENTICATED // Only visible when user is not authenticated
 };
 
-// Navigation menu item structure
+// Navigation menu item structure (optimized for PROGMEM)
 struct NavigationItem {
-  String name;   // Display name for the menu item
-  String url;    // URL the menu item links to
-  String target; // Optional: target attribute for the link (e.g., "_blank")
+  const char *name; // Display name for the menu item (PROGMEM pointer)
+  const char *url;  // URL the menu item links to (PROGMEM pointer)
+  const char
+      *target; // Optional: target attribute for the link (PROGMEM pointer)
   NavAuthVisibility visibility; // When this item should be visible
 
-  // Constructors for convenience
-  NavigationItem(const String &n, const String &u)
+  // Constructors for const char* (PROGMEM-friendly)
+  NavigationItem(const char *n, const char *u)
       : name(n), url(u), target(""), visibility(NavAuthVisibility::ALWAYS) {}
 
-  NavigationItem(const String &n, const String &u, const String &t)
+  NavigationItem(const char *n, const char *u, const char *t)
       : name(n), url(u), target(t), visibility(NavAuthVisibility::ALWAYS) {}
 
-  NavigationItem(const String &n, const String &u, NavAuthVisibility vis)
+  NavigationItem(const char *n, const char *u, NavAuthVisibility vis)
       : name(n), url(u), target(""), visibility(vis) {}
 
-  NavigationItem(const String &n, const String &u, const String &t,
+  NavigationItem(const char *n, const char *u, const char *t,
                  NavAuthVisibility vis)
       : name(n), url(u), target(t), visibility(vis) {}
+
+  // Legacy String constructors (for backward compatibility - creates heap
+  // allocations)
+  NavigationItem(const String &n, const String &u);
+  NavigationItem(const String &n, const String &u, const String &t);
+  NavigationItem(const String &n, const String &u, NavAuthVisibility vis);
+  NavigationItem(const String &n, const String &u, const String &t,
+                 NavAuthVisibility vis);
 };
 
 // Convenience wrapper functions for cleaner syntax
@@ -217,12 +226,14 @@ inline NavigationItem Unauthenticated(const NavigationItem &item) {
 
 // Redirect structure for managing URL redirects (simplified for embedded use)
 struct RedirectRule {
-  String fromPath; // Source path to redirect from
-  String toPath;   // Destination path to redirect to
+  const char *fromPath; // Source path to redirect from (PROGMEM pointer)
+  const char *toPath;   // Destination path to redirect to (PROGMEM pointer)
 
-  // Constructor for convenience
-  RedirectRule(const String &from, const String &to)
-      : fromPath(from), toPath(to) {}
+  // Constructor for const char* (PROGMEM-friendly)
+  RedirectRule(const char *from, const char *to) : fromPath(from), toPath(to) {}
+
+  // Legacy String constructor (for backward compatibility)
+  RedirectRule(const String &from, const String &to);
 };
 
 // Abstract interface that all web modules must implement

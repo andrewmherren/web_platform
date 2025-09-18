@@ -2,7 +2,7 @@
 #define ROUTE_ENTRY_H
 #include "interface/auth_types.h"
 #include "interface/web_module_interface.h"
-#include "route_string_pool.h"
+#include "platform/route_string_pool.h"
 #include <Arduino.h>
 
 // Complete RouteEntry definition - optimized for memory efficiency

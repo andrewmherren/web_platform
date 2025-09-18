@@ -1,6 +1,6 @@
 #include "interface/web_module_interface.h"
+#include "platform/route_string_pool.h"
 #include "route_entry.h"
-#include "route_string_pool.h"
 #include "web_platform.h"
 
 #if defined(ESP32)
@@ -124,7 +124,6 @@ void WebPlatform::registerRoute(const String &path,
   routeRegistry.push_back(newRoute);
 }
 
-// Helper function to check if a path matches a route pattern with wildcards
 // Helper function to check if a path matches a route pattern with wildcards
 bool WebPlatform::pathMatchesRoute(const char *routePath,
                                    const String &requestPath) {
@@ -437,6 +436,8 @@ void WebPlatform::bindRegisteredRoutes() {
     // Fall back to original handleNotFound logic
     this->handleNotFound();
   });
+
+  RouteStringPool::seal();
 }
 
 // Internal method to register unified routes with HTTPS server

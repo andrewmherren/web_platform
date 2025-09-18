@@ -1,52 +1,94 @@
-#include "route_string_pool.h"
+#include "platform/route_string_pool.h"
+#include <Arduino.h>
+#include <vector>
 
-// Static storage for route strings
-std::vector<String> RouteStringPool::stringStorage;
+// Pre-allocated string storage with fixed capacity to prevent reallocations
+class StableStringStorage {
+private:
+  std::vector<String> strings;
+  bool sealed = false;
 
-const char* RouteStringPool::store(const String& str) {
-    if (str.isEmpty()) {
-        return nullptr;
+public:
+  StableStringStorage() {
+    // Pre-allocate maximum expected capacity - this prevents ANY reallocation
+    strings.reserve(256); // Generous capacity for all routes + documentation
+  }
+
+  const char *store(const String &str) {
+    if (str.length() == 0) {
+      return nullptr;
     }
-    
-    // Check if string already exists to avoid duplicates
-    for (const auto& existing : stringStorage) {
-        if (existing == str) {
-            return existing.c_str();
-        }
+
+    if (sealed) {
+      Serial.println(
+          "ERROR: Attempted to store string in sealed RouteStringPool");
+      return nullptr;
     }
-    
-    // Store new string
-    stringStorage.push_back(str);
-    return stringStorage.back().c_str();
+
+    // Check if we already have this string to avoid duplicates
+    for (const auto &existing : strings) {
+      if (existing == str) {
+        return existing.c_str();
+      }
+    }
+
+    // Safety check - never exceed reserved capacity
+    if (strings.size() >= strings.capacity()) {
+      Serial.printf("ERROR: RouteStringPool capacity exceeded (%d/%d)\n",
+                    strings.size(), strings.capacity());
+      return nullptr;
+    }
+
+    // Store the new string
+    strings.push_back(str);
+    return strings.back().c_str();
+  }
+
+  void seal() {
+    sealed = true;
+    Serial.printf("RouteStringPool: Sealed with %d strings, capacity %d\n",
+                  strings.size(), strings.capacity());
+  }
+
+  size_t size() const { return strings.size(); }
+
+  size_t memoryUsage() const {
+    size_t total = 0;
+    for (const auto &str : strings) {
+      total += str.length() + 1; // +1 for null terminator
+    }
+    return total;
+  }
+
+  void clear() {
+    if (!sealed) {
+      strings.clear();
+    }
+  }
+};
+
+// Static singleton instance
+static StableStringStorage storage;
+
+const char *RouteStringPool::store(const String &str) {
+  return storage.store(str);
 }
 
-const char* RouteStringPool::store(const char* str) {
-    if (!str || strlen(str) == 0) {
-        return nullptr;
-    }
-    
-    // For const char*, we assume it's already in stable memory (PROGMEM or static)
-    // so we can return it directly without storing
-    return str;
-}
-
-const char* RouteStringPool::empty() {
+const char *RouteStringPool::store(const char *str) {
+  if (!str || strlen(str) == 0) {
     return nullptr;
+  }
+  return storage.store(String(str));
 }
 
-void RouteStringPool::clear() {
-    Serial.printf("RouteStringPool: Clearing %d stored strings\n", stringStorage.size());
-    stringStorage.clear();
-}
+const char *RouteStringPool::empty() { return nullptr; }
 
-size_t RouteStringPool::getStorageCount() {
-    return stringStorage.size();
-}
+void RouteStringPool::seal() { storage.seal(); }
+
+void RouteStringPool::clear() { storage.clear(); }
+
+size_t RouteStringPool::getStorageCount() { return storage.size(); }
 
 size_t RouteStringPool::getEstimatedMemoryUsage() {
-    size_t totalSize = 0;
-    for (const auto& str : stringStorage) {
-        totalSize += str.length() + 1; // +1 for null terminator
-    }
-    return totalSize;
+  return storage.memoryUsage();
 }

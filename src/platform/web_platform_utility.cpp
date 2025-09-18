@@ -1,93 +1,187 @@
 #include "../../include/storage/auth_storage.h"
 #include "../../include/web_platform.h"
 
-String WebPlatform::prepareHtml(
-    String html, WebRequest req,
-    const String
-        &csrfToken) { // Navigation menu injection with authentication awareness
-
+String WebPlatform::prepareHtml(String html, WebRequest req,
+                                const String &csrfToken) {
   Serial.println("Original content size: " + String(html.length()));
 
-  if (html.indexOf("{{NAV_MENU}}") >= 0) {
-    const AuthContext &auth = req.getAuthContext();
-    bool isAuthenticated = auth.hasValidSession();
+  // Optimized template processing with minimal heap allocations
+  const size_t inputLength = html.length();
+  if (inputLength == 0) {
+    return html;
+  }
 
-    // Manual session check as a fallback for routes that don't require auth
-    if (!isAuthenticated) {
-      // Try to extract session from cookie for pages that don't require auth
-      String sessionCookie = req.getHeader("Cookie");
-      if (sessionCookie.indexOf("session=") >= 0) {
-        int start = sessionCookie.indexOf("session=") + 8;
-        int end = sessionCookie.indexOf(";", start);
-        if (end < 0)
-          end = sessionCookie.length();
-        String sessionId = sessionCookie.substring(start, end);
+  // More accurate size estimation based on typical template expansion
+  // NAV_MENU (~300-500 bytes), SECURITY_NOTICE (~200-300), others smaller
+  const size_t estimatedExpansion = 800;
+  String result;
+  result.reserve(inputLength + estimatedExpansion);
 
-        // Check if this is a valid session
-        if (AuthStorage::validateSession(sessionId, req.getClientIp()) != "") {
-          isAuthenticated = true;
-        }
-      }
+  // Cache for replacement values - computed only once when needed
+  struct TemplateCache {
+    String navHtml;
+    String csrfTokenValue;
+    String securityNotice;
+    String username;
+    String modulePrefix;
+    String deviceName;
+    bool computed = false;
+  } cache;
+
+  // Pre-compute values that are always needed
+  cache.modulePrefix = req.getModuleBasePath();
+  cache.deviceName = getDeviceName();
+
+  const char *src = html.c_str();
+  size_t pos = 0;
+
+  while (pos < inputLength) {
+    // Fast path: look for template marker start
+    const char *markerStart = strchr(src + pos, '{');
+    if (!markerStart) {
+      // No more markers, copy rest of string
+      result += (src + pos);
+      break;
     }
 
-    String navHtml = IWebModule::generateNavigationHtml(isAuthenticated);
-    html.replace("{{NAV_MENU}}", navHtml);
-  }
+    // Copy content before marker
+    size_t copyLen = markerStart - (src + pos);
+    if (copyLen > 0) {
+      result.concat(src + pos, copyLen);
+    }
 
-  // Automatic CSRF meta tag injection for HTML
-  // documents
-  if (html.indexOf("<head>") >= 0) {
-    String token = csrfToken == ""
-                       ? AuthStorage::createPageToken(req.getClientIp())
-                       : csrfToken;
-    String csrfMetaTag = "\n    <meta name=\"csrf-token\" "
-                         "content=\"" +
-                         token + "\">";
-    html.replace("<head>", "<head>" + csrfMetaTag);
-  }
+    pos = markerStart - src;
 
-  // Legacy csrf token bookmark injection (for
-  // backwards compatibility)
-  if (html.indexOf("{{csrfToken}}") >= 0) {
-    String token = csrfToken == ""
-                       ? AuthStorage::createPageToken(req.getClientIp())
-                       : csrfToken;
-    html.replace("{{csrfToken}}", token);
-  }
+    // Check for template marker
+    if (pos < inputLength - 1 && src[pos] == '{' && src[pos + 1] == '{') {
+      // Find closing marker
+      const char *markerEnd = strstr(src + pos + 2, "}}");
+      if (markerEnd) {
+        size_t markerLen = (markerEnd + 2) - (src + pos);
 
-  // security notice injection
-  if (html.indexOf("{{SECURITY_NOTICE}}") >= 0) {
-    String securityNotice;
-    if (isHttpsEnabled()) {
-      securityNotice = R"(
-        <div class="security-notice https">
+        // Extract marker content efficiently
+        size_t contentStart = pos + 2;
+        size_t contentLen = (markerEnd - src) - contentStart;
+
+        // Lazy computation of auth-dependent values
+        if (!cache.computed) {
+          const AuthContext &auth = req.getAuthContext();
+          bool isAuthenticated = auth.hasValidSession();
+
+          // Fallback session check for routes without auth requirement
+          if (!isAuthenticated) {
+            const String sessionCookie = req.getHeader("Cookie");
+            int sessionStart = sessionCookie.indexOf("session=");
+            if (sessionStart >= 0) {
+              sessionStart += 8;
+              int sessionEnd = sessionCookie.indexOf(";", sessionStart);
+              if (sessionEnd < 0)
+                sessionEnd = sessionCookie.length();
+              String sessionId =
+                  sessionCookie.substring(sessionStart, sessionEnd);
+              isAuthenticated = (AuthStorage::validateSession(
+                                     sessionId, req.getClientIp()) != "");
+            }
+          }
+
+          cache.navHtml = IWebModule::generateNavigationHtml(isAuthenticated);
+          cache.csrfTokenValue =
+              csrfToken.isEmpty()
+                  ? AuthStorage::createPageToken(req.getClientIp())
+                  : csrfToken;
+
+          // PROGMEM security notices to avoid heap allocation
+          if (isHttpsEnabled()) {
+            cache.securityNotice = F(R"(<div class="security-notice https">
             <h4><span class="security-icon-large">🔒</span> Secure Connection</h4>
             <p>This connection is secured with HTTPS encryption. Your WiFi password will be transmitted securely.</p>
-        </div>)";
-    } else {
-      securityNotice = R"(
-        <div class="security-notice">
+        </div>)");
+          } else {
+            cache.securityNotice = F(R"(<div class="security-notice">
             <h4><span class="security-icon-large">ℹ️</span> Connection Notice</h4>
             <p>This is a direct device connection. Only enter WiFi credentials on your trusted private network.</p>
-        </div>)";
+        </div>)");
+          }
+
+          cache.username = auth.username;
+          cache.computed = true;
+        }
+
+        // Fast marker matching using first character and length
+        const char *markerContent = src + contentStart;
+        switch (contentLen) {
+        case 8: // NAV_MENU
+          if (strncmp(markerContent, "NAV_MENU", 8) == 0) {
+            result += cache.navHtml;
+          } else if (strncmp(markerContent, "username", 8) == 0) {
+            result += cache.username;
+          } else {
+            result.concat(src + pos, markerLen); // Unknown marker
+          }
+          break;
+        case 9: // csrfToken
+          if (strncmp(markerContent, "csrfToken", 9) == 0) {
+            result += cache.csrfTokenValue;
+          } else {
+            result.concat(src + pos, markerLen);
+          }
+          break;
+        case 11: // DEVICE_NAME
+          if (strncmp(markerContent, "DEVICE_NAME", 11) == 0) {
+            result += cache.deviceName;
+          } else {
+            result.concat(src + pos, markerLen);
+          }
+          break;
+        case 13: // MODULE_PREFIX
+          if (strncmp(markerContent, "MODULE_PREFIX", 13) == 0) {
+            result += cache.modulePrefix;
+          } else {
+            result.concat(src + pos, markerLen);
+          }
+          break;
+        case 15: // SECURITY_NOTICE
+          if (strncmp(markerContent, "SECURITY_NOTICE", 15) == 0) {
+            result += cache.securityNotice;
+          } else {
+            result.concat(src + pos, markerLen);
+          }
+          break;
+        default:
+          // Unknown marker, preserve as-is
+          result.concat(src + pos, markerLen);
+          break;
+        }
+
+        pos += markerLen;
+      } else {
+        // Incomplete marker, copy single character
+        result += src[pos];
+        pos++;
+      }
+    } else if (pos <= inputLength - 6 && strncmp(src + pos, "<head>", 6) == 0) {
+      // CSRF meta tag injection
+      if (!cache.computed) {
+        cache.csrfTokenValue =
+            csrfToken.isEmpty()
+                ? AuthStorage::createPageToken(req.getClientIp())
+                : csrfToken;
+        cache.computed = true;
+      }
+
+      result += F("<head>\n    <meta name=\"csrf-token\" content=\"");
+      result += cache.csrfTokenValue;
+      result += F("\">");
+      pos += 6;
+    } else {
+      // Regular character
+      result += src[pos];
+      pos++;
     }
-    html.replace("{{SECURITY_NOTICE}}", securityNotice);
   }
 
-  // authenticated user name injection
-  if (html.indexOf("{{username}}") >= 0) {
-    const AuthContext &auth = req.getAuthContext();
-    html.replace("{{username}}", auth.username);
-  }
-
-  html.replace("{{MODULE_PREFIX}}", req.getModuleBasePath());
-
-  // device name injection
-  html.replace("{{DEVICE_NAME}}", getDeviceName());
-
-  Serial.println("Processed content size: " + String(html.length()));
-
-  return html;
+  Serial.println("Processed content size: " + String(result.length()));
+  return result;
 }
 
 // Template processing helpers
