@@ -97,29 +97,6 @@ bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
           authSuccess = true;
           authContext.isAuthenticated = true;
           authContext.authenticatedVia = AuthType::PAGE_TOKEN;
-        } else {
-          Serial.printf(
-              "PAGE_TOKEN validation failed for %s %s - Token invalid\n",
-              wmMethodToString(req.getMethod()).c_str(), req.getPath().c_str());
-        }
-      } else {
-        // Log the missing token for debugging
-        Serial.printf("PAGE_TOKEN auth failed for %s %s - No token found\n",
-                      wmMethodToString(req.getMethod()).c_str(),
-                      req.getPath().c_str());
-
-        // Print available headers for debugging
-        Serial.println("Available request headers:");
-        // List common headers for debugging
-        const char *commonHeaders[] = {"Host", "User-Agent", "X-CSRF-Token",
-                                       "Content-Type", "Accept"};
-        for (const char *headerName : commonHeaders) {
-          String value = req.getHeader(headerName);
-          if (!value.isEmpty()) {
-            Serial.printf("  %s: %s\n", headerName,
-                          String(headerName).equals("Cookie") ? "[hidden]"
-                                                              : value.c_str());
-          }
         }
       }
     } else if (authType == AuthType::LOCAL_ONLY) {
@@ -133,15 +110,7 @@ bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
           authSuccess = true;
           authContext.isAuthenticated = true;
           authContext.authenticatedVia = AuthType::LOCAL_ONLY;
-        } else {
-          Serial.printf(
-              "LOCAL_ONLY auth failed for %s - IP %s is not in local network\n",
-              req.getPath().c_str(), clientIp.c_str());
         }
-      } else {
-        Serial.printf(
-            "LOCAL_ONLY auth failed for %s - Invalid IP address: %s\n",
-            req.getPath().c_str(), clientIp.c_str());
       }
     }
 

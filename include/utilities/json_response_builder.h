@@ -33,15 +33,13 @@ public:
   static void createResponse(WebResponse &res,
                              std::function<void(JsonObject &)> builder) {
     StaticJsonDocument<N> doc;
-    JsonObject root = doc.createNestedObject();
+    JsonObject root = doc.template to<ArduinoJson::JsonObject>();
 
-    // Let the handler populate the JSON
     builder(root);
 
-    // Serialize directly to response without intermediate String
     String jsonStr;
     size_t jsonSize = measureJson(doc);
-    jsonStr.reserve(jsonSize + 10); // Reserve with small buffer
+    jsonStr.reserve(jsonSize + 10);
     serializeJson(doc, jsonStr);
     res.setContent(jsonStr, "application/json");
   }
@@ -53,14 +51,11 @@ public:
   static void createDynamicResponse(WebResponse &res,
                                     std::function<void(JsonObject &)> builder,
                                     size_t estimatedSize = MEDIUM_JSON_SIZE) {
-    // Check available memory before allocation
     size_t freeHeap = ESP.getFreeHeap();
 
     if (estimatedSize > LARGE_JSON_THRESHOLD || freeHeap < estimatedSize * 3) {
-      // Use streaming approach for large content or low memory
       createStreamingResponse(res, builder, estimatedSize);
     } else {
-      // Use regular dynamic document
       createMediumResponse(res, builder, estimatedSize);
     }
   }
@@ -100,7 +95,7 @@ public:
   static void createErrorResponse(WebResponse &res, const String &error,
                                   int statusCode = 400) {
     StaticJsonDocument<256> doc;
-    JsonObject root = doc.createNestedObject();
+    JsonObject root = doc.template to<ArduinoJson::JsonObject>();
     root["success"] = false;
     root["error"] = error;
 
@@ -116,7 +111,7 @@ public:
   static void createSuccessResponse(WebResponse &res,
                                     const String &message = "Success") {
     StaticJsonDocument<256> doc;
-    JsonObject root = doc.createNestedObject();
+    JsonObject root = doc.template to<ArduinoJson::JsonObject>();
     root["success"] = true;
     root["message"] = message;
 
@@ -132,22 +127,19 @@ private:
   static void createMediumResponse(WebResponse &res,
                                    std::function<void(JsonObject &)> builder,
                                    size_t size) {
-    // Pre-flight memory check
     size_t freeHeap = ESP.getFreeHeap();
     if (freeHeap < size * 2) {
-      Serial.println("WARNING: Low memory for JSON response, using fallback");
       createErrorResponse(res, "Insufficient memory for response", 503);
       return;
     }
 
     DynamicJsonDocument doc(size);
     if (doc.capacity() == 0) {
-      Serial.println("ERROR: Failed to allocate JSON document");
       createErrorResponse(res, "Memory allocation failed", 503);
       return;
     }
 
-    JsonObject root = doc.createNestedObject();
+    JsonObject root = doc.template to<ArduinoJson::JsonObject>();
     builder(root);
 
     String jsonStr;
@@ -163,8 +155,7 @@ private:
   static void createStreamingResponse(WebResponse &res,
                                       std::function<void(JsonObject &)> builder,
                                       size_t estimatedSize) {
-    // For now, fall back to medium response with reduced size
-    // TODO: Implement true streaming JSON generation
+    // Fallback to medium response with reduced size for now
     size_t reducedSize = min(estimatedSize, MEDIUM_JSON_SIZE);
     createMediumResponse(res, builder, reducedSize);
   }
