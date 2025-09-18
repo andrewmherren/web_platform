@@ -24,10 +24,11 @@ void WebPlatform::printUnifiedRoutes(const String *moduleBasePath,
     bool shouldShow = true;
     if (moduleBasePath && module) {
       // Only show routes that start with the module's base path
-      shouldShow = route.path.startsWith(*moduleBasePath);
+      String routePathStr = route.path ? String(route.path) : "";
+      shouldShow = routePathStr.startsWith(*moduleBasePath);
 
       // Special case for module root path
-      if (*moduleBasePath != "/" && route.path == *moduleBasePath) {
+      if (*moduleBasePath != "/" && routePathStr == *moduleBasePath) {
         shouldShow = true;
       }
     }
@@ -104,7 +105,8 @@ void WebPlatform::validateRoutes() const {
 
   for (size_t i = 0; i < routeRegistry.size(); i++) {
     const auto &route = routeRegistry[i];
-    String key = route.path + ":" + wmMethodToString(route.method);
+    String key = String(route.path ? route.path : "") + ":" +
+                 wmMethodToString(route.method);
     pathMethodMap[key].push_back(i);
   }
 
@@ -131,7 +133,7 @@ void WebPlatform::validateRoutes() const {
         hasUnauthenticatedRoutes = true;
       }
       Serial.printf("  - %s %s\n", wmMethodToString(route.method).c_str(),
-                    route.path.c_str());
+                    route.path ? route.path : "<null>");
     }
   }
 

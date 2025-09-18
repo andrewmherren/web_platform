@@ -1,7 +1,7 @@
-
 #include "../../assets/config_portal_html.h"
 #include "../../assets/config_portal_success_html.h"
 #include "../../assets/config_portal_success_js.h"
+#include "../../include/utilities/json_response_builder.h"
 #include "../../include/web_platform.h"
 #include <ArduinoJson.h>
 
@@ -31,6 +31,9 @@ void WebPlatform::configPortalSavePageHandler(WebRequest &req,
 
     // Create success page with device restart countdown
     String html = FPSTR(CONFIG_PORTAL_SUCCESS_HTML);
+    // Pre-allocate the string to prevent reallocations
+    html.reserve(strlen_P(CONFIG_PORTAL_SUCCESS_HTML) + ssid.length() + 10);
+
     html.replace("{{NETWORK_SSID}}", ssid);
 
     // Reset and re-save credentials

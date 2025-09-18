@@ -94,8 +94,8 @@ public:
   void setAuthContext(const AuthContext &context) { authContext = context; }
 
   // Route matching (used by routing system)
-  void setMatchedRoute(const String &routePattern) {
-    matchedRoutePattern = routePattern;
+  void setMatchedRoute(const char *routePattern) {
+    matchedRoutePattern = routePattern ? String(routePattern) : "";
   }
   String getMatchedRoute() const { return matchedRoutePattern; }
 

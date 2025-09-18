@@ -1,4 +1,5 @@
 #include "../../include/interface/web_module_interface.h"
+#include "../../include/utilities/json_response_builder.h"
 #include "../../include/web_platform.h"
 #include <ArduinoJson.h>
 
@@ -56,28 +57,29 @@ void WebPlatform::scanApiHandler(WebRequest &req, WebResponse &res) {
     netObj["encryption"] = network.encryption;
   }
 
+  // Serialize with memory safety
   String response;
+  size_t jsonSize = measureJson(doc);
+  response.reserve(jsonSize + 10); // Reserve with small buffer
   serializeJson(doc, response);
 
   res.setContent(response, "application/json");
+  // Document automatically cleaned up when going out of scope
 }
 
 void WebPlatform::statusApiHandler(WebRequest &req, WebResponse &res) {
-
-  DynamicJsonDocument doc(512);
-  doc["connected"] = (WiFi.status() == WL_CONNECTED);
-  doc["ssid"] = WiFi.SSID();
-  doc["ip"] = WiFi.localIP().toString();
-  doc["rssi"] = WiFi.RSSI();
-  doc["mode"] = (currentMode == CONFIG_PORTAL) ? "config" : "connected";
-  doc["https_enabled"] = httpsEnabled;
-  doc["device_name"] = deviceName;
-
-  String response;
-  serializeJson(doc, response);
-
-  res.setContent(response, "application/json");
+  // Use JsonResponseBuilder for automatic memory management
+  JsonResponseBuilder::createResponse<512>(res, [&](JsonObject &json) {
+    json["connected"] = (WiFi.status() == WL_CONNECTED);
+    json["ssid"] = WiFi.SSID();
+    json["ip"] = WiFi.localIP().toString();
+    json["rssi"] = WiFi.RSSI();
+    json["mode"] = (currentMode == CONFIG_PORTAL) ? "config" : "connected";
+    json["https_enabled"] = httpsEnabled;
+    json["device_name"] = deviceName;
+  });
 }
+
 void WebPlatform::resetApiHandler(WebRequest &req, WebResponse &res) {
   // Clear WiFi credentials
   EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
@@ -112,16 +114,13 @@ void WebPlatform::wifiConfigHandler(WebRequest &req, WebResponse &res) {
                   credentialsValid ? "passed" : "failed",
                   checkSsid == ssid ? "yes" : "no");
 
-    // Return success response
-    DynamicJsonDocument doc(256);
-    doc["success"] = true;
-    doc["message"] = "WiFi credentials saved successfully";
-    doc["ssid"] = ssid;
-    doc["restart_required"] = true;
-
-    String response;
-    serializeJson(doc, response);
-    res.setContent(response, "application/json");
+    // Return success response using JsonResponseBuilder
+    JsonResponseBuilder::createResponse<256>(res, [&](JsonObject &json) {
+      json["success"] = true;
+      json["message"] = "WiFi credentials saved successfully";
+      json["ssid"] = ssid;
+      json["restart_required"] = true;
+    });
 
     // Schedule restart after response is sent
     Serial.println(
@@ -135,13 +134,6 @@ void WebPlatform::wifiConfigHandler(WebRequest &req, WebResponse &res) {
   } else {
     Serial.println("WebPlatform: No SSID provided in API request");
 
-    DynamicJsonDocument doc(256);
-    doc["success"] = false;
-    doc["error"] = "SSID is required";
-
-    String response;
-    serializeJson(doc, response);
-    res.setContent(response, "application/json");
-    res.setStatus(400);
+    JsonResponseBuilder::createErrorResponse(res, "SSID is required", 400);
   }
 }

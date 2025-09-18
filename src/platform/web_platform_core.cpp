@@ -181,8 +181,9 @@ void WebPlatform::handleNotFound() {
       continue;
     }
 
+    String routePathStr = route.path ? String(route.path) : "";
     bool hasWildcard =
-        route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
+        routePathStr.indexOf('*') >= 0 || routePathStr.indexOf('{') >= 0;
     bool pathMatches = this->pathMatchesRoute(route.path, requestPath);
 
     if (hasWildcard && pathMatches) {

@@ -1,58 +1,45 @@
 #include "../../include/storage/auth_storage.h"
+#include "../../include/utilities/json_response_builder.h"
 #include "../../include/web_platform.h"
 #include <functional>
 
 // RESTful API Handlers - User Management
 
 void WebPlatform::getUsersApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_GET) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
 
   // Check if user is admin (for now, assume username "admin" is admin)
   const AuthContext &auth = req.getAuthContext();
   if (auth.username != "admin") {
-    res.setStatus(403);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Admin access required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
 
   std::vector<AuthUser> users = AuthStorage::getAllUsers();
 
-  String json = "{\"success\":true,\"users\":[";
-  for (size_t i = 0; i < users.size(); i++) {
-    if (i > 0)
-      json += ",";
-    json += "{";
-    json += "\"id\":\"" + users[i].id + "\",";
-    json += "\"username\":\"" + users[i].username + "\",";
-    json += "\"createdAt\":" + String(users[i].createdAt);
-    json += "}";
-  }
-  json += "]}";
+  // Use JsonResponseBuilder with automatic sizing based on user count
+  size_t estimatedSize = 256 + (users.size() * 128);
+  JsonResponseBuilder::createDynamicResponse(
+      res,
+      [&](JsonObject &root) {
+        root["success"] = true;
+        JsonArray usersArray = root.createNestedArray("users");
 
-  res.setHeader("Content-Type", "application/json");
-  res.setContent(json);
+        for (const auto &user : users) {
+          JsonObject userObj = usersArray.createNestedObject();
+          userObj["id"] = user.id;
+          userObj["username"] = user.username;
+          userObj["createdAt"] = user.createdAt;
+        }
+      },
+      estimatedSize);
 }
 
 void WebPlatform::createUserApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_POST) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
 
   // Check if user is admin
   const AuthContext &auth = req.getAuthContext();
   if (auth.username != "admin") {
-    res.setStatus(403);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Admin access required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
 
@@ -60,57 +47,44 @@ void WebPlatform::createUserApiHandler(WebRequest &req, WebResponse &res) {
   String password = req.getJsonParam("password");
 
   if (username.isEmpty() || password.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent(
-        "{\"success\":false,\"message\":\"Username and password required\"}");
+    JsonResponseBuilder::createErrorResponse(
+        res, "Username and password required", 400);
     return;
   }
 
   if (password.length() < 4) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Password must be at least "
-                   "4 characters\"}");
+    JsonResponseBuilder::createErrorResponse(
+        res, "Password must be at least 4 characters", 400);
     return;
   }
 
   // Check if user already exists
   AuthUser existingUser = AuthStorage::findUserByUsername(username);
   if (existingUser.isValid()) {
-    res.setStatus(409);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"User already exists\"}");
+    JsonResponseBuilder::createErrorResponse(res, "User already exists", 409);
     return;
   }
 
   String userId = AuthStorage::createUser(username, password);
   if (userId.isEmpty()) {
-    res.setStatus(500);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Failed to create user\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Failed to create user", 500);
     return;
   }
 
+  // Success response
+  JsonResponseBuilder::createResponse<256>(res, [&](JsonObject &root) {
+    root["success"] = true;
+    root["message"] = "User created";
+    root["id"] = userId;
+  });
   res.setStatus(201);
-  res.setHeader("Content-Type", "application/json");
-  res.setContent("{\"success\":true,\"message\":\"User created\",\"id\":\"" +
-                 userId + "\"}");
 }
 
 void WebPlatform::getUserByIdApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_GET) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
 
   String userId = req.getRouteParameter("id");
   if (userId.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"User ID required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "User ID required", 400);
     return;
   }
 
@@ -119,43 +93,33 @@ void WebPlatform::getUserByIdApiHandler(WebRequest &req, WebResponse &res) {
 
   // Users can only access their own data unless they are admin
   if (userId != currentUser.id && auth.username != "admin") {
-    res.setStatus(403);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Access denied\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
 
   AuthUser user = AuthStorage::findUserById(userId);
   if (!user.isValid()) {
-    res.setStatus(404);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"User not found\"}");
+    JsonResponseBuilder::createErrorResponse(res, "User not found", 404);
     return;
   }
 
-  String json = "{\"success\":true,\"user\":{";
-  json += "\"id\":\"" + user.id + "\",";
-  json += "\"username\":\"" + user.username + "\",";
-  json += "\"createdAt\":" + String(user.createdAt);
-  json += "}}";
-
-  res.setHeader("Content-Type", "application/json");
-  res.setContent(json);
+  size_t estimatedSize = 384;
+  JsonResponseBuilder::createDynamicResponse(
+      res,
+      [&](JsonObject &root) {
+        root["success"] = true;
+        JsonObject userObj = root.createNestedObject("user");
+        userObj["id"] = user.id;
+        userObj["username"] = user.username;
+        userObj["createdAt"] = user.createdAt;
+      },
+      estimatedSize);
 }
 
 void WebPlatform::updateUserByIdApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_PUT) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
-
   String userId = req.getRouteParameter("id");
   if (userId.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"User ID required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "User ID required", 400);
     return;
   }
 
@@ -164,169 +128,131 @@ void WebPlatform::updateUserByIdApiHandler(WebRequest &req, WebResponse &res) {
 
   // Users can only update their own data unless they are admin
   if (userId != currentUser.id && auth.username != "admin") {
-    res.setStatus(403);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Access denied\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
 
   String password = req.getJsonParam("password");
   if (password.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Password is required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Password is required", 400);
     return;
   }
 
   if (password.length() < 4) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Password must be at least "
-                   "4 characters\"}");
+    JsonResponseBuilder::createErrorResponse(
+        res, "Password must be at least 4 characters", 400);
     return;
   }
 
   bool success = AuthStorage::updateUserPassword(userId, password);
 
-  res.setHeader("Content-Type", "application/json");
   if (success) {
+    JsonResponseBuilder::createResponse<256>(res, [&](JsonObject &root) {
+      root["success"] = true;
+      root["message"] = "User updated";
+    });
     res.setContent("{\"success\":true,\"message\":\"User updated\"}");
   } else {
-    res.setStatus(500);
-    res.setContent("{\"success\":false,\"message\":\"Failed to update user\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Failed to update user", 500);
   }
 }
 
 void WebPlatform::deleteUserByIdApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_DELETE) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
 
   // Check if user is admin
   const AuthContext &auth = req.getAuthContext();
   if (auth.username != "admin") {
-    res.setStatus(403);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Admin access required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
 
   String userId = req.getRouteParameter("id");
   if (userId.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"User ID required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "User ID required", 400);
     return;
   }
 
   // Don't allow deleting the admin user
   AuthUser targetUser = AuthStorage::findUserById(userId);
   if (targetUser.username == "admin") {
-    res.setStatus(403);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent(
-        "{\"success\":false,\"message\":\"Cannot delete admin user\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Cannot delete admin user",
+                                             403);
     return;
   }
 
   bool success = AuthStorage::deleteUser(userId);
 
-  res.setHeader("Content-Type", "application/json");
   if (success) {
-    res.setContent("{\"success\":true,\"message\":\"User deleted\"}");
+    JsonResponseBuilder::createResponse<256>(res, [&](JsonObject &root) {
+      root["success"] = true;
+      root["message"] = "User deleted";
+    });
   } else {
-    res.setStatus(500);
-    res.setContent("{\"success\":false,\"message\":\"Failed to delete user\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Failed to delete user", 500);
   }
 }
 
 // Current User Convenience Handlers
 
 void WebPlatform::getCurrentUserApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_GET) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
 
   const AuthContext &auth = req.getAuthContext();
   AuthUser user = AuthStorage::findUserByUsername(auth.username);
 
   if (!user.isValid()) {
-    res.setStatus(404);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"User not found\"}");
+    JsonResponseBuilder::createErrorResponse(res, "User nt found", 404);
     return;
   }
 
-  String json = "{\"success\":true,\"user\":{";
-  json += "\"id\":\"" + user.id + "\",";
-  json += "\"username\":\"" + user.username + "\",";
-  json += "\"createdAt\":" + String(user.createdAt);
-  json += "}}";
-
-  res.setHeader("Content-Type", "application/json");
-  res.setContent(json);
+  size_t estimatedSize = 384;
+  JsonResponseBuilder::createDynamicResponse(
+      res,
+      [&](JsonObject &root) {
+        root["success"] = true;
+        JsonObject userObj = root.createNestedObject("user");
+        userObj["id"] = user.id;
+        userObj["username"] = user.username;
+        userObj["createdAt"] = user.createdAt;
+      },
+      estimatedSize);
 }
 
 void WebPlatform::updateCurrentUserApiHandler(WebRequest &req,
                                               WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_PUT) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
-
   const AuthContext &auth = req.getAuthContext();
   AuthUser user = AuthStorage::findUserByUsername(auth.username);
   String password = req.getJsonParam("password");
 
   if (password.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Password is required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Password is required", 404);
     return;
   }
 
   if (password.length() < 4) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Password must be at least "
-                   "4 characters\"}");
+    JsonResponseBuilder::createErrorResponse(
+        res, "Password must be at least 4 characters", 404);
     return;
   }
 
   bool success = AuthStorage::updateUserPassword(user.id, password);
 
-  res.setHeader("Content-Type", "application/json");
   if (success) {
-    res.setContent("{\"success\":true,\"message\":\"User updated\"}");
+    JsonResponseBuilder::createResponse<256>(res, [&](JsonObject &root) {
+      root["success"] = true;
+      root["message"] = "User updated";
+    });
   } else {
-    res.setStatus(500);
-    res.setContent("{\"success\":false,\"message\":\"Failed to update user\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Failed to update user", 500);
   }
 }
 
 // Token Management Handlers
 
 void WebPlatform::getUserTokensApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_GET) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
 
   String userId = req.getRouteParameter("id");
   if (userId.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"User ID required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "User ID required", 400);
     return;
   }
 
@@ -335,45 +261,36 @@ void WebPlatform::getUserTokensApiHandler(WebRequest &req, WebResponse &res) {
 
   // Users can only access their own tokens unless they are admin
   if (userId != currentUser.id && auth.username != "admin") {
-    res.setStatus(403);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Access denied\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
 
   std::vector<AuthApiToken> tokens = AuthStorage::getUserApiTokens(userId);
 
-  String json = "{\"success\":true,\"tokens\":[";
-  for (size_t i = 0; i < tokens.size(); i++) {
-    if (i > 0)
-      json += ",";
-    json += "{";
-    json += "\"id\":\"" + tokens[i].id + "\",";
-    json += "\"token\":\"" + tokens[i].token + "\",";
-    json += "\"name\":\"" + tokens[i].name + "\",";
-    json += "\"createdAt\":" + String(tokens[i].createdAt) + ",";
-    json += "\"expiresAt\":" + String(tokens[i].expiresAt);
-    json += "}";
-  }
-  json += "]}";
+  // Use JsonResponseBuilder with dynamic sizing based on token count
+  size_t estimatedSize = 256 + (tokens.size() * 256);
+  JsonResponseBuilder::createDynamicResponse(
+      res,
+      [&](JsonObject &root) {
+        root["success"] = true;
+        JsonArray tokensArray = root.createNestedArray("tokens");
 
-  res.setHeader("Content-Type", "application/json");
-  res.setContent(json);
+        for (const auto &token : tokens) {
+          JsonObject tokenObj = tokensArray.createNestedObject();
+          tokenObj["id"] = token.id;
+          tokenObj["token"] = token.token;
+          tokenObj["name"] = token.name;
+          tokenObj["createdAt"] = token.createdAt;
+          tokenObj["expiresAt"] = token.expiresAt;
+        }
+      },
+      estimatedSize);
 }
 
 void WebPlatform::createUserTokenApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_POST) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
-
   String userId = req.getRouteParameter("id");
   if (userId.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"User ID required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "User ID required", 400);
     return;
   }
 
@@ -382,44 +299,34 @@ void WebPlatform::createUserTokenApiHandler(WebRequest &req, WebResponse &res) {
 
   // Users can only create tokens for themselves unless they are admin
   if (userId != currentUser.id && auth.username != "admin") {
-    res.setStatus(403);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Access denied\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
 
   String tokenName = req.getJsonParam("name");
   if (tokenName.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent(
-        "{\"success\":false,\"message\":\"Token name is required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Token name is required",
+                                             400);
     return;
   }
 
   String token = AuthStorage::createApiToken(userId, tokenName);
   if (token.isEmpty()) {
-    res.setStatus(500);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent(
-        "{\"success\":false,\"message\":\"Failed to create token\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Failed to create token",
+                                             500);
     return;
   }
 
-  res.setStatus(201);
-  res.setHeader("Content-Type", "application/json");
-  res.setContent("{\"success\":true,\"token\":\"" + token + "\"}");
+  JsonResponseBuilder::createResponse<256>(res, [&](JsonObject &root) {
+    root["success"] = true;
+    root["message"] = "Token created";
+    root["token"] = token;
+  });
 }
 
 // System Status API Endpoints
 
 void WebPlatform::getSystemStatusApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_GET) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
 
   // Memory information
   uint32_t freeHeap = ESP.getFreeHeap();
@@ -461,120 +368,71 @@ void WebPlatform::getSystemStatusApiHandler(WebRequest &req, WebResponse &res) {
     spaceColor = "warning";
   }
 
-  // Build JSON response
-  String json = "{\"success\":true,\"status\":{";
-  json += "\"uptime\":" + String(millis() / 1000) + ",";
-  json += "\"memory\":{";
-  json += "\"freeHeap\":" + String(freeHeap) + ",";
-  json += "\"freeHeapPercent\":" + String(freeHeapPercent) + ",";
-  json += "\"color\":\"" + heapColor + "\"";
-  json += "},";
-  json += "\"storage\":{";
-  json += "\"flashSize\":" + String(flashSize) + ",";
-  json += "\"usedSpace\":" + String(usedSpace) + ",";
-  json += "\"availableSpace\":" + String(availableSpace) + ",";
-  json += "\"usedSpacePercent\":" + String(usedSpacePercent) + ",";
-  json += "\"color\":\"" + spaceColor + "\"";
-  json += "},";
-  json += "\"platform\":{";
-  json += "\"mode\":\"" +
-          String(currentMode == CONNECTED ? "Connected" : "Config Portal") +
-          "\",";
-  json += "\"httpsEnabled\":" + String(httpsEnabled ? "true" : "false") + ",";
-  json += "\"serverPort\":" + String(serverPort) + ",";
-  json += "\"hostname\":\"" + getHostname() + "\",";
-  json += "\"moduleCount\":" + String(registeredModules.size()) + ",";
-  json += "\"routeCount\":" + String(getRouteCount());
-  json += "}";
-  json += "}}";
+  // Build JSON response with builder
+  JsonResponseBuilder::createResponse<1024>(res, [&](JsonObject &root) {
+    root["success"] = true;
 
-  res.setHeader("Content-Type", "application/json");
-  res.setContent(json);
+    JsonObject status = root.createNestedObject("status");
+    status["uptime"] = millis() / 1000;
+
+    JsonObject memory = status.createNestedObject("memory");
+    memory["freeHeap"] = freeHeap;
+    memory["freeHeapPercent"] = freeHeapPercent;
+    memory["color"] = heapColor;
+
+    JsonObject storage = status.createNestedObject("storage");
+    storage["flashSize"] = flashSize;
+    storage["usedSpace"] = usedSpace;
+    storage["availableSpace"] = availableSpace;
+    storage["usedSpacePercent"] = usedSpacePercent;
+    storage["color"] = spaceColor;
+
+    JsonObject platform = status.createNestedObject("platform");
+    platform["mode"] =
+        (currentMode == CONNECTED) ? "Connected" : "Config Portal";
+    platform["httpsEnabled"] = httpsEnabled;
+    platform["serverPort"] = serverPort;
+    platform["hostname"] = getHostname();
+    platform["moduleCount"] = registeredModules.size();
+    platform["routeCount"] = getRouteCount();
+  });
 }
 
 void WebPlatform::getNetworkStatusApiHandler(WebRequest &req,
                                              WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_GET) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
+  // Use JsonResponseBuilder for simple response
+  JsonResponseBuilder::createResponse<512>(res, [&](JsonObject &root) {
+    root["success"] = true;
 
-  String json = "{\"success\":true,\"network\":{";
-  json += "\"ssid\":\"" + WiFi.SSID() + "\",";
-  json += "\"ipAddress\":\"" + WiFi.localIP().toString() + "\",";
-  json += "\"macAddress\":\"" + WiFi.macAddress() + "\",";
-  json += "\"signalStrength\":" + String(WiFi.RSSI());
-  json += "}}";
-
-  res.setHeader("Content-Type", "application/json");
-  res.setContent(json);
+    JsonObject network = root.createNestedObject("network");
+    network["ssid"] = WiFi.SSID();
+    network["ipAddress"] = WiFi.localIP().toString();
+    network["macAddress"] = WiFi.macAddress();
+    network["signalStrength"] = WiFi.RSSI();
+  });
 }
 
 void WebPlatform::getModulesApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_GET) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
+  // Size based on number of modules
+  size_t estimatedSize = 256 + (registeredModules.size() * 256);
+  JsonResponseBuilder::createDynamicResponse(
+      res,
+      [&](JsonObject &root) {
+        root["success"] = true;
 
-  String json = "{\"success\":true,\"modules\":[";
-  for (size_t i = 0; i < registeredModules.size(); i++) {
-    if (i > 0)
-      json += ",";
-    json += "{";
-    json +=
-        "\"name\":\"" + registeredModules[i].module->getModuleName() + "\",";
-    json += "\"version\":\"" + registeredModules[i].module->getModuleVersion() +
-            "\",";
-    json += "\"description\":\"" +
-            registeredModules[i].module->getModuleDescription() + "\",";
-    json += "\"basePath\":\"" + registeredModules[i].basePath + "\"";
-    json += "}";
-  }
-  json += "]}";
-
-  res.setHeader("Content-Type", "application/json");
-  res.setContent(json);
+        JsonArray modules = root.createNestedArray("modules");
+        for (const auto &regModule : registeredModules) {
+          JsonObject module = modules.createNestedObject();
+          module["name"] = regModule.module->getModuleName();
+          module["version"] = regModule.module->getModuleVersion();
+          module["description"] = regModule.module->getModuleDescription();
+          module["basePath"] = regModule.basePath;
+        }
+      },
+      estimatedSize);
 }
 
 void WebPlatform::getOpenAPISpecHandler(WebRequest &req, WebResponse &res) {
-  // Get filter parameter (default to all routes)
-  String filterParam = req.getParam("filter");
-  AuthType filterType = AuthType::NONE;
-
-  if (filterParam == "token") {
-    filterType = AuthType::TOKEN;
-  } else if (filterParam == "session") {
-    filterType = AuthType::SESSION;
-  }
-
-  // Get cached OpenAPI spec from platform service (uses cache)
-  String openApiSpec = getOpenAPISpec(filterType, true);
-
-  res.setContent(openApiSpec, "application/json");
-  res.setHeader("Cache-Control", "public, max-age=300");
-  res.setHeader("X-Cache", "used");
-}
-
-void WebPlatform::getOpenAPISpecAlwaysFreshHandler(WebRequest &req,
-                                                   WebResponse &res) {
-  // Get filter parameter (default to all routes)
-  String filterParam = req.getParam("filter");
-  AuthType filterType = AuthType::NONE;
-
-  if (filterParam == "token") {
-    filterType = AuthType::TOKEN;
-  } else if (filterParam == "session") {
-    filterType = AuthType::SESSION;
-  }
-
-  // Always generate fresh spec and update cache
-  String openApiSpec = getOpenAPISpec(filterType, false);
-
-  res.setContent(openApiSpec, "application/json");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("X-Generated-Fresh", "true");
+  // Stream OpenAPI spec directly to response (bypasses String storage)
+  streamOpenAPISpec(res);
 }

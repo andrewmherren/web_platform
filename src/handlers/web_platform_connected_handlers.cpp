@@ -35,7 +35,10 @@ void WebPlatform::homePageJSAssetHandler(WebRequest &req, WebResponse &res) {
 #endif
 
 void WebPlatform::rootPageHandler(WebRequest &req, WebResponse &res) {
+  Serial.println("Loading CONNECTED_HOME_HTML, length: " +
+                 String(strlen_P(CONNECTED_HOME_HTML)));
   res.setProgmemContent(CONNECTED_HOME_HTML, "text/html");
+  Serial.println("Content set in response");
 }
 
 void WebPlatform::statusPageHandler(WebRequest &req, WebResponse &res) {

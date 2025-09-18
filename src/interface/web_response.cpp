@@ -34,8 +34,13 @@ void WebResponse::setContent(const String &content, const String &mimeType) {
 
 void WebResponse::setProgmemContent(const char *progmemData,
                                     const String &mimeType) {
-  if (responseSent)
+  if (responseSent || !progmemData)
     return;
+
+  // Add debug output
+  Serial.print("Setting PROGMEM content, length: ");
+  Serial.println(strlen_P(progmemData));
+
   this->progmemData = progmemData;
   this->mimeType = mimeType;
   this->isProgmemContent = true;
@@ -67,6 +72,15 @@ void WebResponse::sendTo(WebServerClass *server) {
   if (!server || responseSent)
     return;
 
+  // Add debug output
+  if (isProgmemContent && progmemData) {
+    Serial.print("Sending PROGMEM content, length: ");
+    Serial.println(strlen_P(progmemData));
+  } else {
+    Serial.print("Sending regular content, length: ");
+    Serial.println(content.length());
+  }
+
   // Send all custom headers
   for (const auto &header : headers) {
     server->sendHeader(header.first, header.second);
@@ -76,13 +90,16 @@ void WebResponse::sendTo(WebServerClass *server) {
 
   // Send response - use streaming for PROGMEM content
   if (isProgmemContent && progmemData != nullptr) {
+    Serial.println("Using PROGMEM streaming");
     sendProgmemChunked(progmemData, server);
   } else {
+    Serial.println("Using regular content send");
     server->send(statusCode, mimeType, content);
   }
 
   markResponseSent();
 }
+
 // Send response to ESP-IDF HTTPS server
 #if defined(ESP32)
 esp_err_t WebResponse::sendTo(httpd_req *req) {
@@ -118,6 +135,25 @@ esp_err_t WebResponse::sendTo(httpd_req *req) {
 
   return ret;
 }
+
+// JSON streaming implementation (future enhancement)
+void WebResponse::streamJsonContent(const JsonDocument &doc,
+                                    WebServerClass *server) {
+  // This would stream JSON directly without creating a String
+  // For now, fall back to String serialization
+  String jsonString;
+  serializeJson(doc, jsonString);
+  server->send(statusCode, mimeType, jsonString);
+}
+
+esp_err_t WebResponse::streamJsonContent(const JsonDocument &doc,
+                                         httpd_req *req) {
+  // This would stream JSON directly without creating a String
+  // For now, fall back to String serialization
+  String jsonString;
+  serializeJson(doc, jsonString);
+  return httpd_resp_send(req, jsonString.c_str(), jsonString.length());
+}
 #endif
 
 // PROGMEM streaming implementation for Arduino WebServer
@@ -128,21 +164,41 @@ void WebResponse::sendProgmemChunked(const char *data, WebServerClass *server) {
   size_t len = strlen_P(data);
   const size_t CHUNK_SIZE = 512;
 
-  // Set content length unknown to enable chunked transfer
-  server->setContentLength(CONTENT_LENGTH_UNKNOWN);
+  Serial.println("PROGMEM content length: " + String(len));
+
+  if (len == 0) {
+    Serial.println("WARNING: Zero-length PROGMEM content detected!");
+    return;
+  }
+
+  // Pre-calculate content length and send it directly instead of chunked
+  server->setContentLength(len);
   server->send(statusCode, mimeType, "");
 
-  // Send data in chunks
+  // Allocate buffer once and reuse
+  char *buffer = (char *)malloc(CHUNK_SIZE + 1);
+  if (!buffer) {
+    Serial.println("ERROR: Failed to allocate buffer for PROGMEM streaming");
+    return;
+  }
+
+  // Send data in chunks with explicit buffer management
   for (size_t i = 0; i < len; i += CHUNK_SIZE) {
-    char buffer[CHUNK_SIZE + 1];
     size_t chunk_len = min(CHUNK_SIZE, len - i);
     memcpy_P(buffer, data + i, chunk_len);
     buffer[chunk_len] = 0;
     server->sendContent(buffer);
+
+    // Yield to prevent watchdog timeout on large files
+    if (i % (CHUNK_SIZE * 10) == 0) {
+      yield();
+    }
   }
 
-  // End chunked transfer
-  server->sendContent("");
+  // Clean up allocated memory
+  free(buffer);
+
+  Serial.println("PROGMEM streaming completed, buffer freed");
 }
 
 #if defined(ESP32)
@@ -154,19 +210,40 @@ esp_err_t WebResponse::sendProgmemChunked(const char *data, httpd_req *req) {
   size_t len = strlen_P(data);
   const size_t CHUNK_SIZE = 512;
 
-  // Send data in chunks
-  for (size_t i = 0; i < len; i += CHUNK_SIZE) {
-    char buffer[CHUNK_SIZE + 1];
+  // Allocate buffer once and reuse
+  char *buffer = (char *)malloc(CHUNK_SIZE + 1);
+  if (!buffer) {
+    Serial.println(
+        "ERROR: Failed to allocate buffer for PROGMEM HTTPS streaming");
+    return ESP_ERR_NO_MEM;
+  }
+
+  // Send data in chunks with explicit buffer management
+  esp_err_t ret = ESP_OK;
+  for (size_t i = 0; i < len && ret == ESP_OK; i += CHUNK_SIZE) {
     size_t chunk_len = min(CHUNK_SIZE, len - i);
     memcpy_P(buffer, data + i, chunk_len);
     buffer[chunk_len] = 0;
 
-    esp_err_t ret = httpd_resp_send_chunk(req, buffer, chunk_len);
-    if (ret != ESP_OK)
-      return ret;
+    ret = httpd_resp_send_chunk(req, buffer, chunk_len);
+
+    // Yield periodically to prevent watchdog timeout
+    if (i % (CHUNK_SIZE * 10) == 0) {
+      yield();
+    }
   }
 
-  // End chunked transfer
-  return httpd_resp_send_chunk(req, NULL, 0);
+  // Clean up allocated memory
+  free(buffer);
+
+  if (ret == ESP_OK) {
+    // End chunked transfer
+    ret = httpd_resp_send_chunk(req, NULL, 0);
+    Serial.println("PROGMEM HTTPS streaming completed, buffer freed");
+  } else {
+    Serial.println("ERROR: PROGMEM HTTPS streaming failed, buffer freed");
+  }
+
+  return ret;
 }
 #endif

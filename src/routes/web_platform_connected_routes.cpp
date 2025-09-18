@@ -110,11 +110,4 @@ void WebPlatform::registerConnectedModeRoutes() {
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::NONE}}, // No auth required for API docs
                    WebModule::WM_GET, SystemApiDocs::createGetOpenAPISpec());
-
-  registerApiRoute(
-      "/fresh/openapi.json",
-      std::bind(&WebPlatform::getOpenAPISpecAlwaysFreshHandler, this,
-                std::placeholders::_1, std::placeholders::_2),
-      {{AuthType::NONE}}, // No auth required for API docs
-      WebModule::WM_GET, SystemApiDocs::createGetCachedOpenAPISpec());
 }

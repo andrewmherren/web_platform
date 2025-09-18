@@ -2,6 +2,7 @@
 #define WEB_RESPONSE_H
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <map>
 
 // Forward declarations to avoid circular dependencies
@@ -38,8 +39,12 @@ public:
   void setStatus(int code);
   void setContent(const String &content, const String &mimeType = "text/html");
   void setProgmemContent(const char *progmemData, const String &mimeType);
+  void setJsonContent(const JsonDocument &doc);
   void setHeader(const String &name, const String &value);
   void redirect(const String &url, int code = 302);
+
+  bool hasProgmemContent() const { return isProgmemContent; }
+  const char *getProgmemData() const { return progmemData; }
 
   // Send response (called internally by WebPlatform)
   void sendTo(WebServerClass *server);
@@ -67,6 +72,12 @@ private:
   void sendProgmemChunked(const char *data, WebServerClass *server);
 #if defined(ESP32)
   esp_err_t sendProgmemChunked(const char *data, httpd_req *req);
+#endif
+
+  // JSON streaming helper
+  void streamJsonContent(const JsonDocument &doc, WebServerClass *server);
+#if defined(ESP32)
+  esp_err_t streamJsonContent(const JsonDocument &doc, httpd_req *req);
 #endif
 
   // Allow WebPlatform to call private methods

@@ -4,6 +4,7 @@
 #include "../../include/auth/auth_constants.h"
 #include "../../include/interface/auth_types.h"
 #include "../../include/storage/auth_storage.h"
+#include "../../include/utilities/json_response_builder.h"
 #include "../../include/web_platform.h"
 #include <functional>
 
@@ -24,11 +25,8 @@ void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
   String clientIp = req.getClientIp();
   String csrfToken = AuthStorage::createPageToken(clientIp);
 
-  // Show login form
-  String loginHtml = String(LOGIN_PAGE_HTML);
-  loginHtml.replace("{{redirectUrl}}", redirectUrl);
-
-  res.setContent(loginHtml);
+  // Show login form - use progmem content directly
+  res.setProgmemContent(LOGIN_PAGE_HTML, "text/html");
 
   // Set HttpOnly cookie with page token (CSRF protection)
   res.setHeader("Set-Cookie",
@@ -135,30 +133,19 @@ void WebPlatform::accountPageJSAssetHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::updateUserApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_PUT) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
-
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
   String password = req.getJsonParam("password");
 
   // Currently only password updates are supported
   if (password.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Password is required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Password is required", 400);
     return;
   }
 
   if (password.length() < 4) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Password must be at "
-                   "least 4 characters\"}");
+    JsonResponseBuilder::createErrorResponse(
+        res, "Password must be at least 4 characters", 400);
     return;
   }
 
@@ -166,23 +153,14 @@ void WebPlatform::updateUserApiHandler(WebRequest &req, WebResponse &res) {
   AuthUser user = AuthStorage::findUserByUsername(username);
   bool success = AuthStorage::updateUserPassword(user.id, password);
 
-  res.setHeader("Content-Type", "application/json");
   if (success) {
-    res.setContent("{\"success\":true,\"message\":\"User updated\"}");
+    JsonResponseBuilder::createSuccessResponse(res, "User updated");
   } else {
-    res.setStatus(500);
-    res.setContent("{\"success\":false,\"message\":\"Failed to update user\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Failed to update user", 500);
   }
 }
 
 void WebPlatform::createTokenApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_POST) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
-
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
 
@@ -195,10 +173,8 @@ void WebPlatform::createTokenApiHandler(WebRequest &req, WebResponse &res) {
   }
 
   if (tokenName.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent(
-        "{\"success\":false,\"message\":\"Token name is required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Token name is required",
+                                             400);
     return;
   }
 
@@ -206,18 +182,13 @@ void WebPlatform::createTokenApiHandler(WebRequest &req, WebResponse &res) {
   AuthUser user = AuthStorage::findUserByUsername(username);
   String token = AuthStorage::createApiToken(user.id, tokenName);
 
-  res.setHeader("Content-Type", "application/json");
-  res.setContent("{\"success\":true,\"token\":\"" + token + "\"}");
+  JsonResponseBuilder::createResponse<256>(res, [&](JsonObject &json) {
+    json["success"] = true;
+    json["token"] = token;
+  });
 }
 
 void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
-  if (req.getMethod() != WebModule::WM_DELETE) {
-    res.setStatus(405);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Method not allowed\"}");
-    return;
-  }
-
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
 
@@ -225,9 +196,7 @@ void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
   String tokenId = req.getRouteParameter("id");
 
   if (tokenId.isEmpty()) {
-    res.setStatus(400);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Token ID is required\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Token ID is required", 400);
     return;
   }
 
@@ -245,29 +214,23 @@ void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
   }
 
   if (!targetToken.isValid()) {
-    res.setStatus(404);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Token not found\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Token not found", 404);
     return;
   }
 
   // Verify token belongs to user
   if (targetToken.username != username) {
-    res.setStatus(403);
-    res.setHeader("Content-Type", "application/json");
-    res.setContent("{\"success\":false,\"message\":\"Not authorized to delete "
-                   "this token\"}");
+    JsonResponseBuilder::createErrorResponse(
+        res, "Not authorized to delete this token", 403);
     return;
   }
 
   bool success = AuthStorage::deleteApiToken(targetToken.token);
 
-  res.setHeader("Content-Type", "application/json");
   if (success) {
-    res.setContent("{\"success\":true,\"message\":\"Token deleted\"}");
+    JsonResponseBuilder::createSuccessResponse(res, "Token deleted");
   } else {
-    res.setStatus(500);
-    res.setContent(
-        "{\"success\":false,\"message\":\"Failed to delete token\"}");
+    JsonResponseBuilder::createErrorResponse(res, "Failed to delete token",
+                                             500);
   }
 }

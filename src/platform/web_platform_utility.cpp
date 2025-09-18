@@ -5,6 +5,9 @@ String WebPlatform::prepareHtml(
     String html, WebRequest req,
     const String
         &csrfToken) { // Navigation menu injection with authentication awareness
+
+  Serial.println("Original content size: " + String(html.length()));
+
   if (html.indexOf("{{NAV_MENU}}") >= 0) {
     const AuthContext &auth = req.getAuthContext();
     bool isAuthenticated = auth.hasValidSession();
@@ -81,6 +84,9 @@ String WebPlatform::prepareHtml(
 
   // device name injection
   html.replace("{{DEVICE_NAME}}", getDeviceName());
+
+  Serial.println("Processed content size: " + String(html.length()));
+
   return html;
 }
 
@@ -104,6 +110,25 @@ void WebPlatform::processResponseTemplates(WebRequest &request,
     return;
   }
 
-  String processedContent = prepareHtml(response.getContent(), request);
-  response.setContent(processedContent, response.getMimeType());
+  String content;
+
+  // Check if we have PROGMEM content
+  if (response.hasProgmemContent() && response.getProgmemData() != nullptr) {
+    // Convert PROGMEM content to String for processing
+    Serial.println("Converting PROGMEM content for template processing");
+    content = FPSTR(response.getProgmemData());
+  } else {
+    // Use regular content
+    content = response.getContent();
+  }
+
+  Serial.println("Processing templates for response, content length: " +
+                 String(content.length()));
+
+  // Process templates only if we have content
+  if (content.length() > 0) {
+    String processedContent = prepareHtml(content, request);
+    // Always store as regular content after processing
+    response.setContent(processedContent, response.getMimeType());
+  }
 }

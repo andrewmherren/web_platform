@@ -1,5 +1,6 @@
 #include "interface/web_module_interface.h"
 #include "route_entry.h"
+#include "route_string_pool.h"
 #include "web_platform.h"
 
 #if defined(ESP32)
@@ -75,65 +76,78 @@ void WebPlatform::registerRoute(const String &path,
                                 const AuthRequirements &auth,
                                 WebModule::Method method,
                                 const OpenAPIDocumentation &docs) {
+  // Convert path to const char* and store it
+  const char *storedPath = RouteStringPool::store(path);
+
   // Check if route already exists
   for (auto &route : routeRegistry) {
-    if (route.path == path && route.method == method) {
+    if (strcmp(route.path ? route.path : "", storedPath ? storedPath : "") ==
+            0 &&
+        route.method == method) {
       Serial.printf("WebPlatform: Route %s %s already exists, replacing\n",
-                    wmMethodToString(method).c_str(), path.c_str());
+                    wmMethodToString(method).c_str(),
+                    storedPath ? storedPath : "null");
       route.handler = handler;
       route.authRequirements = auth;
 
-      // Add OpenAPI documentation
-      route.summary = docs.summary;
-      route.operationId = docs.operationId;
-      route.description = docs.description;
-      route.tags = docs.getTagsString();
-      route.requestExample = docs.requestExample;
-      route.responseExample = docs.responseExample;
-      route.requestSchema = docs.requestSchema;
-      route.responseSchema = docs.responseSchema;
-      route.parameters = docs.parameters;
-      route.responseInfo = docs.responsesJson;
+      // Add OpenAPI documentation - store strings in pool
+      route.summary = RouteStringPool::store(docs.summary);
+      route.operationId = RouteStringPool::store(docs.operationId);
+      route.description = RouteStringPool::store(docs.description);
+      route.tags = RouteStringPool::store(docs.getTagsString());
+      route.requestExample = RouteStringPool::store(docs.requestExample);
+      route.responseExample = RouteStringPool::store(docs.responseExample);
+      route.requestSchema = RouteStringPool::store(docs.requestSchema);
+      route.responseSchema = RouteStringPool::store(docs.responseSchema);
+      route.parameters = RouteStringPool::store(docs.parameters);
+      route.responseInfo = RouteStringPool::store(docs.responsesJson);
 
       return;
     }
   }
 
   // Add new route
-  RouteEntry newRoute(path, method, handler, auth);
+  RouteEntry newRoute(storedPath, method, handler, auth);
 
-  // Add OpenAPI documentation
-  newRoute.summary = docs.summary;
-  newRoute.operationId = docs.operationId;
-  newRoute.tags = docs.getTagsString();
-  newRoute.requestExample = docs.requestExample;
-  newRoute.responseExample = docs.responseExample;
-  newRoute.requestSchema = docs.requestSchema;
-  newRoute.responseSchema = docs.responseSchema;
-  newRoute.parameters = docs.parameters;
-  newRoute.responseInfo = docs.responsesJson;
+  // Add OpenAPI documentation - store strings in pool
+  newRoute.summary = RouteStringPool::store(docs.summary);
+  newRoute.operationId = RouteStringPool::store(docs.operationId);
+  newRoute.description = RouteStringPool::store(docs.description);
+  newRoute.tags = RouteStringPool::store(docs.getTagsString());
+  newRoute.requestExample = RouteStringPool::store(docs.requestExample);
+  newRoute.responseExample = RouteStringPool::store(docs.responseExample);
+  newRoute.requestSchema = RouteStringPool::store(docs.requestSchema);
+  newRoute.responseSchema = RouteStringPool::store(docs.responseSchema);
+  newRoute.parameters = RouteStringPool::store(docs.parameters);
+  newRoute.responseInfo = RouteStringPool::store(docs.responsesJson);
 
   routeRegistry.push_back(newRoute);
 }
 
 // Helper function to check if a path matches a route pattern with wildcards
-bool WebPlatform::pathMatchesRoute(const String &routePath,
+// Helper function to check if a path matches a route pattern with wildcards
+bool WebPlatform::pathMatchesRoute(const char *routePath,
                                    const String &requestPath) {
   // Check for exact match first
-  if (routePath == requestPath) {
+  if (routePath && requestPath == routePath) {
     return true;
-  } // Simple pattern matching instead of regex (ESP32 doesn't fully support
-    // std::regex)
+  }
+
+  // Convert to String for complex pattern matching
+  String routePathStr = routePath ? String(routePath) : String("");
+
+  // Simple pattern matching instead of regex (ESP32 doesn't fully support
+  // std::regex)
 
   // First, handle simple wildcards
-  if (routePath.endsWith("/*")) {
+  if (routePathStr.endsWith("/*")) {
     // Check if path starts with the part before the wildcard
-    String prefix = routePath.substring(0, routePath.length() - 1);
+    String prefix = routePathStr.substring(0, routePathStr.length() - 1);
     return requestPath.startsWith(prefix);
   }
 
   // Handle parameter pattern matching {param}
-  if (routePath.indexOf('{') < 0) {
+  if (routePathStr.indexOf('{') < 0) {
     // No parameters, return false (already checked for exact match above)
     return false;
   }
@@ -145,14 +159,14 @@ bool WebPlatform::pathMatchesRoute(const String &routePath,
   // Split route path
   int start = 0;
   int end = 0;
-  while ((end = routePath.indexOf('/', start)) >= 0) {
+  while ((end = routePathStr.indexOf('/', start)) >= 0) {
     if (end > start) {
-      routeSegments.push_back(routePath.substring(start, end));
+      routeSegments.push_back(routePathStr.substring(start, end));
     }
     start = end + 1;
   }
-  if (start < (int)routePath.length()) {
-    routeSegments.push_back(routePath.substring(start));
+  if (start < (int)routePathStr.length()) {
+    routeSegments.push_back(routePathStr.substring(start));
   }
 
   // Split request path
@@ -218,19 +232,6 @@ bool WebPlatform::pathMatchesRoute(const String &routePath,
   return true;
 }
 
-// Helper function to check if route should be skipped (shared logic)
-bool WebPlatform::shouldSkipRoute(const RouteEntry &route,
-                                  const String &serverType) {
-  if (!route.handler) {
-    Serial.printf("WebPlatform: Skipping %s route with null handler %s %s\n",
-                  serverType.c_str(), wmMethodToString(route.method).c_str(),
-                  route.path.c_str());
-    return true;
-  }
-
-  return false;
-}
-
 // Helper function to execute route with authentication and CSRF processing
 // (shared logic)
 void WebPlatform::executeRouteWithAuth(const RouteEntry &route,
@@ -238,8 +239,7 @@ void WebPlatform::executeRouteWithAuth(const RouteEntry &route,
                                        WebResponse &response,
                                        const String &serverType) {
   Serial.printf("%s handling request: %s with route pattern: %s\n",
-                serverType.c_str(), request.getPath().c_str(),
-                route.path.c_str());
+                serverType.c_str(), request.getPath().c_str(), route.path);
 
   // Set the matched route pattern on the request for parameter extraction
   request.setMatchedRoute(route.path);
@@ -284,8 +284,9 @@ bool WebPlatform::dispatchRoute(const String &path, WebModule::Method wmMethod,
       continue;
     }
 
+    String routePathStr = route.path ? String(route.path) : String("");
     bool matches = pathMatchesRoute(route.path, path) ||
-                   (!route.path.endsWith("/") && route.path + "/" == path);
+                   (!routePathStr.endsWith("/") && routePathStr + "/" == path);
 
     if (matches) {
       executeRouteWithAuth(route, request, response, protocol);
@@ -294,6 +295,18 @@ bool WebPlatform::dispatchRoute(const String &path, WebModule::Method wmMethod,
   }
 
   return false; // not handled
+}
+
+bool WebPlatform::shouldSkipRoute(const RouteEntry &route,
+                                  const String &serverType) {
+  if (!route.handler) {
+    Serial.printf("WebPlatform: Skipping %s route with null handler %s %s\n",
+                  serverType.c_str(), wmMethodToString(route.method).c_str(),
+                  route.path ? route.path : "<null>");
+    return true;
+  }
+
+  return false;
 }
 
 // Internal method to register unified routes with actual server
@@ -327,8 +340,8 @@ void WebPlatform::bindRegisteredRoutes() {
 
     HTTPMethod httpMethod = wmMethodToHttpMethod(route.method);
 
-    bool hasWildcard =
-        route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
+    bool hasWildcard = String(route.path ? route.path : "").indexOf('*') >= 0 ||
+                       String(route.path ? route.path : "").indexOf('{') >= 0;
 
     if (hasWildcard) {
       // will be handled in 404 handler.
@@ -336,8 +349,8 @@ void WebPlatform::bindRegisteredRoutes() {
     }
 
     // Special case: root
-    if (route.path == "/") {
-      server->on(route.path.c_str(), httpMethod, [this, route]() {
+    if (route.path && strcmp(route.path, "/") == 0) {
+      server->on(route.path, httpMethod, [this, route]() {
         WebRequest request(server);
         WebResponse response;
 
@@ -348,14 +361,16 @@ void WebPlatform::bindRegisteredRoutes() {
     }
 
     // Determine if the route looks like a "file" (has extension)
-    bool looksLikeFile =
-        route.path.lastIndexOf('.') > route.path.lastIndexOf('/');
+    bool looksLikeFile = String(route.path ? route.path : "").lastIndexOf('.') >
+                         String(route.path ? route.path : "").lastIndexOf('/');
 
     // Detect REST API routes
-    bool isApiRoute = route.path.indexOf("/api/") != -1;
+    bool isApiRoute =
+        String(route.path ? route.path : "").indexOf("/api/") != -1;
 
-    String routeWithSlash = route.path;
-    // Only apply trailing-slash redirect for page-like routes that are not API
+    String routeWithSlash = route.path ? String(route.path) : String("");
+    // Only apply trailing-slash redirect for page-like routes that are not
+    // API
     if (!looksLikeFile && !isApiRoute && !routeWithSlash.endsWith("/")) {
       routeWithSlash += "/";
     }
@@ -376,7 +391,8 @@ void WebPlatform::bindRegisteredRoutes() {
     server->on(routeWithSlash.c_str(), httpMethod, wrapperHandler);
 
     // Redirect from no-slash to slash, only for directory-like routes
-    if (!looksLikeFile && !isApiRoute && route.path != "/") {
+    if (!looksLikeFile && !isApiRoute &&
+        (route.path == nullptr || strcmp(route.path, "/") != 0)) {
       server->on(routeNoSlash.c_str(), httpMethod, [routeWithSlash, this]() {
         server->sendHeader("Location", routeWithSlash, true);
         server->send(301);
@@ -408,7 +424,8 @@ void WebPlatform::bindRegisteredRoutes() {
       }
 
       bool hasWildcard =
-          route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
+          String(route.path ? route.path : "").indexOf('*') >= 0 ||
+          String(route.path ? route.path : "").indexOf('{') >= 0;
       if (hasWildcard && this->pathMatchesRoute(route.path, requestPath)) {
         WebResponse response;
         this->executeRouteWithAuth(route, request, response, "HTTP");
@@ -438,8 +455,8 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
 
     httpd_method_t httpdMethod = wmMethodToHttpMethod(route.method);
 
-    bool hasWildcard =
-        route.path.indexOf('*') >= 0 || route.path.indexOf('{') >= 0;
+    bool hasWildcard = String(route.path ? route.path : "").indexOf('*') >= 0 ||
+                       String(route.path ? route.path : "").indexOf('{') >= 0;
 
     if (hasWildcard) {
       continue; // handled by catch-all
@@ -480,7 +497,8 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
         registrationPath.lastIndexOf('.') > registrationPath.lastIndexOf('/');
 
     // Detect REST API routes
-    bool isApiRoute = route.path.indexOf("/api/") != -1;
+    bool isApiRoute =
+        String(route.path ? route.path : "").indexOf("/api/") != -1;
 
     if (!looksLikeFile && !isApiRoute && !routeWithSlash.endsWith("/")) {
       routeWithSlash += "/";

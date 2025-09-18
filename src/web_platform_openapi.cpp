@@ -1,32 +1,89 @@
-#include "../include/storage/storage_manager.h"
 #include "../include/web_platform.h"
 #include <ArduinoJson.h>
 #include <map>
 
-// Use the constant defined in web_platform_openapi_cache.cpp
-extern const char *OPENAPI_CACHE_COLLECTION;
+void WebPlatform::streamOpenAPISpec(WebResponse &res) const {
+  Serial.println("Streaming OpenAPI spec");
 
-// OpenAPI specification generation
-String WebPlatform::getOpenAPISpec() const {
-  return getOpenAPISpec(AuthType::NONE, true); // Use cache by default
-}
+  // Force garbage collection and memory cleanup first
+  ESP.getFreeHeap(); // Can trigger cleanup
 
-String WebPlatform::getOpenAPISpec(AuthType filterType) const {
-  return getOpenAPISpec(filterType, true); // Use cache by default
-}
+  // Small delay to allow cleanup
+  delay(50);
 
-String WebPlatform::getOpenAPISpec(AuthType filterType, bool useCache) const {
-  // Check cache first if requested
-  if (useCache && hasValidOpenAPICache(filterType)) {
-    Serial.println("Serving OpenAPI spec from cache for filter: " +
-                   String((int)filterType));
-    return getCachedOpenAPISpec(filterType);
+  // Check available heap memory before allocation
+  size_t freeHeap = ESP.getFreeHeap();
+  Serial.println("Free heap before allocation: " + String(freeHeap) + " bytes");
+#if defined(ESP32)
+  size_t maxBlock = ESP.getMaxAllocHeap();
+  Serial.println("Largest free block: " + String(maxBlock) + " bytes");
+
+  // Log heap fragmentation ratio
+  double fragmentation = 1.0 - ((double)maxBlock / (double)freeHeap);
+  Serial.println("Heap fragmentation: " + String(fragmentation * 100, 1) + "%");
+#endif
+
+  // Use progressive allocation strategy - start smaller and only grow if needed
+  size_t targetSize;
+
+#if defined(ESP32)
+  // On ESP32, use largest available block minus safety margin
+  size_t maxAllowable = (size_t)(maxBlock * 0.8);
+  targetSize = (maxAllowable < 24576)
+                   ? maxAllowable
+                   : 24576; // Max 24KB or 80% of largest block
+#else
+  // On ESP8266, be more conservative due to smaller heap
+  size_t maxAllowable = (size_t)(freeHeap * 0.3);
+  targetSize = (maxAllowable < 16384) ? maxAllowable
+                                      : 16384; // Max 16KB or 30% of free heap
+#endif
+
+  // Minimum viable size - must be at least 8KB for basic OpenAPI structure
+  if (targetSize < 8192) {
+    Serial.println("ERROR: Insufficient memory for OpenAPI generation!");
+    Serial.println("Available: " + String(freeHeap) +
+                   " bytes, minimum required: 8192 bytes");
+    res.setStatus(503);                 // Service Unavailable
+    res.setHeader("Retry-After", "60"); // Suggest retry after 60 seconds
+    res.setContent("{\"error\":\"Insufficient memory for OpenAPI "
+                   "generation\",\"required\":8192,\"available\":" +
+                       String(freeHeap) +
+                       ",\"suggestion\":\"Try again in a few moments or "
+                       "restart the device\"}",
+                   "application/json");
+    return;
   }
 
-  Serial.println("Generating fresh OpenAPI spec for filter: " +
-                 String((int)filterType));
-  // Create the OpenAPI document
-  DynamicJsonDocument doc(65536); // Increased size for enhanced documentation
+  Serial.println("Attempting allocation of " + String(targetSize) +
+                 " bytes for JSON document");
+
+  DynamicJsonDocument doc(targetSize);
+
+  // Verify allocation succeeded
+  if (doc.capacity() == 0) {
+    Serial.println("ERROR: Failed to allocate " + String(targetSize) +
+                   " bytes for JSON document!");
+
+    // Try one more time with absolute minimum
+    Serial.println("Trying emergency allocation of 8KB...");
+    DynamicJsonDocument emergencyDoc(8192);
+
+    if (emergencyDoc.capacity() == 0) {
+      Serial.println("ERROR: Cannot allocate even 8KB for OpenAPI document!");
+      res.setStatus(503);
+      res.setHeader("Retry-After", "60");
+      res.setContent("{\"error\":\"Critical memory shortage - OpenAPI "
+                     "generation impossible\"}",
+                     "application/json");
+      return;
+    }
+
+    // Use the emergency document
+    doc = std::move(emergencyDoc);
+    Serial.println(
+        "Using emergency 8KB allocation - document may be truncated");
+  }
 
   // Basic OpenAPI info
   doc["openapi"] = "3.0.0";
@@ -70,31 +127,18 @@ String WebPlatform::getOpenAPISpec(AuthType filterType, bool useCache) const {
     }
 
     // Only include API routes (paths containing /api/)
-    if (route.path.indexOf("/api/") == -1) {
+    String routePathStr = route.path ? String(route.path) : String("");
+    if (routePathStr.indexOf("/api/") == -1) {
       continue;
-    }
-
-    // Apply filter if requested
-    if (filterType != AuthType::NONE) {
-      bool matchesFilter = false;
-      // Check if any auth type in the requirements matches the filter
-      for (size_t i = 0; i < route.authRequirements.size(); i++) {
-        if (route.authRequirements[i] == filterType) {
-          matchesFilter = true;
-          break;
-        }
-      }
-      if (!matchesFilter) {
-        continue;
-      }
     }
 
     // Get or create the path object
     JsonObject pathItem;
-    if (paths.containsKey(route.path)) {
-      pathItem = paths[route.path];
+    const char *pathKey = route.path ? route.path : "";
+    if (paths.containsKey(pathKey)) {
+      pathItem = paths[pathKey];
     } else {
-      pathItem = paths.createNestedObject(route.path);
+      pathItem = paths.createNestedObject(pathKey);
     }
 
     // Convert WebModule::Method to OpenAPI method string
@@ -124,23 +168,25 @@ String WebPlatform::getOpenAPISpec(AuthType filterType, bool useCache) const {
     JsonObject operation = pathItem.createNestedObject(methodStr);
 
     // Add summary - use module-provided summary or generate default
-    if (!route.summary.isEmpty()) {
-      operation["summary"] = route.summary;
+    if (!(!route.summary || strlen(route.summary) == 0)) {
+      operation["summary"] = route.summary ? route.summary : "";
     } else {
-      operation["summary"] = generateDefaultSummary(route.path, methodStr);
+      operation["summary"] = generateDefaultSummary(routePathStr, methodStr);
       // Log warning for missing documentation on token routes
       if (hasTokenAuth(route.authRequirements)) {
-        Serial.println("WARNING: Token route " + route.path +
-                       " missing documentation summary");
+        Serial.print("WARNING: Token route ");
+        Serial.print(route.path ? route.path : "<null>");
+        Serial.println(" missing documentation summary");
       }
     }
 
     // Use module-provided operationId or generate default
     String operationId;
-    if (!route.operationId.isEmpty()) {
-      operationId = route.operationId;
+    if (!(!(route.operationId ? route.operationId : "") ||
+          strlen((route.operationId ? route.operationId : "")) == 0)) {
+      operationId = (route.operationId ? route.operationId : "");
     } else {
-      operationId = generateOperationId(methodStr, route.path);
+      operationId = generateOperationId(methodStr, routePathStr);
     }
     operation["operationId"] = operationId;
 
@@ -148,14 +194,15 @@ String WebPlatform::getOpenAPISpec(AuthType filterType, bool useCache) const {
     JsonArray tags = operation.createNestedArray("tags");
 
     // Get the default module tag from the path
-    String defaultModuleTag = inferModuleFromPath(route.path);
+    String defaultModuleTag = inferModuleFromPath(routePathStr);
 
-    if (!route.tags.isEmpty()) {
+    if (!(!(route.tags ? route.tags : "") ||
+          strlen((route.tags ? route.tags : "")) == 0)) {
       // Always add the module tag first
       tags.add(defaultModuleTag);
 
       // Parse comma-separated tags provided by the module
-      String tagsCopy = route.tags;
+      String tagsCopy = route.tags ? String(route.tags) : String("");
       String lowerDefaultTag = defaultModuleTag;
       lowerDefaultTag.toLowerCase();
 
@@ -207,51 +254,100 @@ String WebPlatform::getOpenAPISpec(AuthType filterType, bool useCache) const {
     }
   }
 
-  // Before serializing, check document size
+  // Before serializing, check document size and allocate properly
   size_t estimatedSize = measureJson(doc);
-  Serial.println("Estimated OpenAPI JSON size: " + String(estimatedSize) +
-                 " bytes");
+  if (estimatedSize <= 2) {
+    Serial.println("ERROR: Document appears to be empty or corrupted!");
+    Serial.println("Document content check:");
+    String debugOutput;
+    serializeJson(doc, debugOutput);
+    Serial.println("Raw JSON: " + debugOutput);
+    res.setStatus(500);
+    res.setContent(
+        "{\"error\":\"OpenAPI spec generation failed - empty document\"}",
+        "application/json");
+    return;
+  }
 
   if (estimatedSize > doc.capacity() * 0.9) {
     Serial.println("WARNING: OpenAPI document very close to capacity limit!");
-    // Consider simplifying the output
-    if (paths.size() > 20) {
-      Serial.println("Too many paths, limiting to essential ones only");
-      // Implement simplification logic here
+  }
+
+  // Check if document will likely be truncated
+  bool documentTruncated = (estimatedSize > doc.capacity() * 0.95);
+  if (documentTruncated) {
+    Serial.println("WARNING: Document will likely be truncated!");
+    Serial.println("Estimated size: " + String(estimatedSize) +
+                   ", capacity: " + String(doc.capacity()));
+
+    // Add warning to the document itself
+    if (doc.containsKey("info")) {
+      JsonObject info = doc["info"];
+      info["x-generation-warning"] =
+          "Document may be truncated due to memory constraints";
+      info["x-estimated-size"] = estimatedSize;
+      info["x-actual-capacity"] = doc.capacity();
     }
   }
 
-  // Serialize with monitoring
-  String openApiJson;
-  serializeJson(doc, openApiJson);
+  // Check if we have enough memory for String allocation
+  size_t freeHeapAfterDoc = ESP.getFreeHeap();
+  Serial.println("Free heap after document creation: " +
+                 String(freeHeapAfterDoc) + " bytes");
 
-  Serial.println("Generated OpenAPI JSON: " + String(openApiJson.length()) +
-                 " bytes");
+  // We need at least 1.5x the estimated size for safe String allocation
+  size_t requiredForString = estimatedSize + (estimatedSize / 2);
 
-  // Verify serialization was complete (simple validation)
-  if (!openApiJson.endsWith("}")) {
-    Serial.println("ERROR: OpenAPI JSON appears to be truncated!");
-  }
+  if (freeHeapAfterDoc < requiredForString) {
+    Serial.println("WARNING: Insufficient heap for String allocation!");
+    Serial.println("Required: " + String(requiredForString) +
+                   ", Available: " + String(freeHeapAfterDoc));
 
-  // Cache only if not truncated and within reasonable size
-  if (useCache && openApiJson.endsWith("}") && openApiJson.length() < 50000) {
+    // Force garbage collection attempt
+    ESP.getFreeHeap(); // This can trigger cleanup on some platforms
+    delay(10);
 
-    if (!openApiCacheInitialized) {
-      const_cast<WebPlatform *>(this)->initializeOpenAPICache();
+    size_t freeHeapAfterGC = ESP.getFreeHeap();
+    Serial.println("Free heap after GC attempt: " + String(freeHeapAfterGC) +
+                   " bytes");
+
+    if (freeHeapAfterGC < requiredForString) {
+      Serial.println("ERROR: Cannot allocate String for JSON output - "
+                     "insufficient memory");
+      res.setStatus(503);
+      res.setHeader("Retry-After", "30");
+      res.setContent("{\"error\":\"Memory fragmentation prevents OpenAPI "
+                     "generation\",\"requiredMemory\":" +
+                         String(requiredForString) +
+                         ",\"availableMemory\":" + String(freeHeapAfterGC) +
+                         ",\"suggestion\":\"Device restart recommended for "
+                         "optimal performance\"}",
+                     "application/json");
+      return;
     }
-    const_cast<WebPlatform *>(this)->openApiCache[(int)filterType] =
-        openApiJson;
-
-    // Also save to persistent storage
-    String key = String((int)filterType);
-    StorageManager::query(OPENAPI_CACHE_COLLECTION).store(key, openApiJson);
-
-    Serial.println(
-        "Cached OpenAPI spec for filter: " + String((int)filterType) + " (" +
-        String(openApiJson.length()) + " bytes)");
   }
 
-  return openApiJson;
+  // Set response headers first
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
+  // Add generation metadata headers
+  res.setHeader("X-Generation-Time", String(millis()));
+  res.setHeader("X-Free-Heap-Before", String(freeHeap));
+  res.setHeader("X-Free-Heap-After", String(ESP.getFreeHeap()));
+  res.setHeader("X-Doc-Size", String(estimatedSize));
+
+  // Check if document will likely be truncated
+  if (documentTruncated) {
+    res.setHeader("X-Content-Truncated", "true");
+    res.setHeader("X-Expected-Size", String(estimatedSize));
+  }
+
+  // Use streaming JSON serialization to avoid String allocation
+  Serial.println("Using streaming JSON serialization for OpenAPI spec");
+  streamOpenAPIJson(doc, res);
 }
 
 // Helper functions for enhanced OpenAPI generation
@@ -292,31 +388,19 @@ String WebPlatform::generateOperationId(const String &method,
 
 String WebPlatform::inferModuleFromPath(const String &path) const {
   // First, try to find a registered module that matches this path
-  String bestMatch = "";
-  int bestMatchLength = 0;
+  String moduleName = "";
 
   for (const auto &regModule : registeredModules) {
-    if (path.startsWith(regModule.basePath) &&
-        static_cast<int>(regModule.basePath.length()) > bestMatchLength) {
-      bestMatch = regModule.module->getModuleName();
-      bestMatchLength = regModule.basePath.length();
+    if (path.startsWith(regModule.basePath)) {
+      moduleName = regModule.module->getModuleName();
     }
   }
 
   // If we found a registered module, format its name
-  if (!bestMatch.isEmpty()) {
-    return formatModuleName(bestMatch);
+  if (!moduleName.isEmpty()) {
+    return formatModuleName(moduleName);
   }
 
-  // Fallback: determine module based on common path prefixes
-  // For external modules (not part of WebPlatform itself)
-  if (path.startsWith("/maker_api")) {
-    return "Maker API";
-  } else if (path.startsWith("/sensors")) {
-    return "Environmental Sensor";
-  } else if (path.startsWith("/usb_pd")) {
-    return "USB PD Control";
-  }
   // All WebPlatform internal routes (including auth routes) should return "Web
   // Platform" The specific functional tags like "User Management" will be added
   // as explicit tags
@@ -366,7 +450,7 @@ void WebPlatform::addParametersToOperation(JsonObject &operation,
 
   // First, add custom parameters from module documentation
   // These take precedence and may override auto-generated ones
-  if (!route.parameters.isEmpty()) {
+  if (!(!route.parameters || strlen(route.parameters) == 0)) {
     DynamicJsonDocument paramDoc(2048);
     if (deserializeJson(paramDoc, route.parameters) ==
         DeserializationError::Ok) {
@@ -392,8 +476,9 @@ void WebPlatform::addParametersToOperation(JsonObject &operation,
   }
 
   // Then add auto-generated path parameters only if not already defined
-  if (route.path.indexOf("{") != -1) {
-    String pathCopy = route.path;
+  String routePathStr = route.path ? String(route.path) : String("");
+  if (routePathStr.indexOf("{") != -1) {
+    String pathCopy = routePathStr;
     int startPos = 0;
     while ((startPos = pathCopy.indexOf("{", startPos)) != -1) {
       int endPos = pathCopy.indexOf("}", startPos);
@@ -413,7 +498,8 @@ void WebPlatform::addParametersToOperation(JsonObject &operation,
           schema["type"] = "string";
 
           // Add parameter constraints if available
-          if (!route.parameterConstraints.isEmpty()) {
+          if (!(!route.parameterConstraints ||
+                strlen(route.parameterConstraints) == 0)) {
             // Parse parameter constraints JSON and apply to matching parameters
             DynamicJsonDocument constraintsDoc(1024);
             if (deserializeJson(constraintsDoc, route.parameterConstraints) ==
@@ -454,12 +540,13 @@ void WebPlatform::addResponsesToOperation(JsonObject &operation,
 
   // Add content type and examples
   JsonObject content = response200.createNestedObject("content");
-  String contentType =
-      route.contentType.isEmpty() ? "application/json" : route.contentType;
+  String contentType = (!route.contentType || strlen(route.contentType) == 0)
+                           ? "application/json"
+                           : String(route.contentType);
   JsonObject mediaType = content.createNestedObject(contentType);
 
   // Add response schema if provided
-  if (!route.responseSchema.isEmpty()) {
+  if (!(!route.responseSchema || strlen(route.responseSchema) == 0)) {
     DynamicJsonDocument schemaDoc(2048);
     if (deserializeJson(schemaDoc, route.responseSchema) ==
         DeserializationError::Ok) {
@@ -468,7 +555,7 @@ void WebPlatform::addResponsesToOperation(JsonObject &operation,
   }
 
   // Add response example if provided
-  if (!route.responseExample.isEmpty()) {
+  if (!(!route.responseExample || strlen(route.responseExample) == 0)) {
     DynamicJsonDocument exampleDoc(2048);
     if (deserializeJson(exampleDoc, route.responseExample) ==
         DeserializationError::Ok) {
@@ -477,7 +564,7 @@ void WebPlatform::addResponsesToOperation(JsonObject &operation,
   }
 
   // Add module-provided response info
-  if (!route.responseInfo.isEmpty()) {
+  if (!(!route.responseInfo || strlen(route.responseInfo) == 0)) {
     DynamicJsonDocument responseDoc(2048);
     if (deserializeJson(responseDoc, route.responseInfo) ==
         DeserializationError::Ok) {
@@ -509,12 +596,13 @@ void WebPlatform::addRequestBodyToOperation(JsonObject &operation,
   requestBody["description"] = "Request payload";
 
   JsonObject content = requestBody.createNestedObject("content");
-  String contentType =
-      route.contentType.isEmpty() ? "application/json" : route.contentType;
+  String contentType = (!route.contentType || strlen(route.contentType) == 0)
+                           ? "application/json"
+                           : String(route.contentType);
   JsonObject mediaType = content.createNestedObject(contentType);
 
   // Add request schema if provided
-  if (!route.requestSchema.isEmpty()) {
+  if (!(!route.requestSchema || strlen(route.requestSchema) == 0)) {
     DynamicJsonDocument schemaDoc(2048);
     if (deserializeJson(schemaDoc, route.requestSchema) ==
         DeserializationError::Ok) {
@@ -523,7 +611,7 @@ void WebPlatform::addRequestBodyToOperation(JsonObject &operation,
   }
 
   // Add request example if provided
-  if (!route.requestExample.isEmpty()) {
+  if (!(!route.requestExample || strlen(route.requestExample) == 0)) {
     DynamicJsonDocument exampleDoc(2048);
     if (deserializeJson(exampleDoc, route.requestExample) ==
         DeserializationError::Ok) {
@@ -533,4 +621,98 @@ void WebPlatform::addRequestBodyToOperation(JsonObject &operation,
 
   // Make request body required for POST/PUT operations by default
   requestBody["required"] = true;
+}
+
+void WebPlatform::streamOpenAPIJson(const JsonDocument &doc,
+                                    WebResponse &res) const {
+  Serial.println("Starting true streaming JSON serialization");
+
+  // Check available memory before proceeding
+  size_t freeHeap = ESP.getFreeHeap();
+  Serial.println("Free heap before streaming: " + String(freeHeap) + " bytes");
+
+  if (freeHeap < 2048) {
+    Serial.println("ERROR: Insufficient memory for streaming - falling back to "
+                   "error response");
+    res.setContent("{\"error\":\"Insufficient memory for JSON streaming\"}",
+                   "application/json");
+    return;
+  }
+
+  // For ESP32 HTTPS, we need to handle this differently than regular HTTP
+  // The WebResponse class doesn't support true streaming yet, so we fall back
+  // to the safer String approach but with better memory management
+
+  // Estimate size for headers
+  size_t estimatedSize = measureJson(doc);
+  Serial.println("Estimated JSON size: " + String(estimatedSize) + " bytes");
+
+  // Check if we have enough memory for String allocation
+  size_t requiredMemory = estimatedSize + 512; // Extra for String overhead
+  if (freeHeap < requiredMemory) {
+    Serial.println("ERROR: Insufficient memory for JSON String allocation");
+    Serial.println("Required: " + String(requiredMemory) +
+                   ", Available: " + String(freeHeap));
+
+    res.setStatus(503);
+    res.setContent("{\"error\":\"Insufficient memory for OpenAPI "
+                   "generation\",\"required\":" +
+                       String(requiredMemory) +
+                       ",\"available\":" + String(freeHeap) + "}",
+                   "application/json");
+    return;
+  }
+
+  // Use a more memory-efficient approach
+  String jsonOutput;
+
+  // Reserve memory upfront to avoid fragmentation
+  bool reserveSuccess = jsonOutput.reserve(estimatedSize + 256);
+  if (!reserveSuccess) {
+    Serial.println("ERROR: Failed to reserve String memory");
+    res.setStatus(507); // Insufficient Storage
+    res.setContent(
+        "{\"error\":\"Failed to reserve memory for JSON generation\"}",
+        "application/json");
+    return;
+  }
+
+  Serial.println("Successfully reserved " + String(estimatedSize + 256) +
+                 " bytes for JSON String");
+
+  // Serialize the JSON
+  size_t bytesWritten = serializeJson(doc, jsonOutput);
+
+  Serial.println("JSON serialization completed: " + String(bytesWritten) +
+                 " bytes");
+  Serial.println("String length: " + String(jsonOutput.length()));
+  Serial.println("Free heap after serialization: " + String(ESP.getFreeHeap()) +
+                 " bytes");
+
+  // Verify serialization was successful
+  if (bytesWritten == 0 || jsonOutput.length() == 0) {
+    Serial.println("ERROR: JSON serialization failed");
+    res.setStatus(500);
+    res.setContent("{\"error\":\"JSON serialization failed\"}",
+                   "application/json");
+    return;
+  }
+
+  // Verify JSON is complete (basic check)
+  if (!jsonOutput.endsWith("}")) {
+    Serial.println("ERROR: JSON appears truncated - does not end with '}'");
+    res.setStatus(500);
+    res.setContent("{\"error\":\"JSON generation incomplete\"}",
+                   "application/json");
+    return;
+  }
+
+  // Set content length header
+  res.setHeader("Content-Length", String(jsonOutput.length()));
+
+  // Set the content
+  res.setContent(jsonOutput, "application/json");
+
+  Serial.println("OpenAPI JSON response set successfully");
+  Serial.println("Final free heap: " + String(ESP.getFreeHeap()) + " bytes");
 }

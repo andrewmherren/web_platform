@@ -226,9 +226,6 @@ webPlatform.registerApiRoute("/device/status",
         {"Device Management"}
     )
 );
-
-// Access the OpenAPI specification at /api/openapi.json
-String spec = webPlatform.getOpenAPISpec();
 ```
 
 The Maker API module provides a complete web interface for exploring, testing, and managing these documented APIs directly from your device.

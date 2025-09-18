@@ -154,6 +154,9 @@ public:
   void addRequestBodyToOperation(JsonObject &operation,
                                  const RouteEntry &route) const;
 
+  // Stream JSON document directly without String allocation
+  void streamOpenAPIJson(const JsonDocument &doc, WebResponse &res) const;
+
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
   DNSServer dnsServer;              // For captive portal functionality
@@ -171,16 +174,8 @@ private:                            // Core server components
   void addCsrfCookie(WebResponse &res, const String &token);
   void processCsrfForResponse(WebRequest &req, WebResponse &res);
 
-  // OpenAPI spec with caching
-  String getOpenAPISpec() const;
-  String getOpenAPISpec(AuthType filterType) const;
-  String getOpenAPISpec(AuthType filterType, bool useCache) const;
-
-  // OpenAPI cache management
-  void initializeOpenAPICache();
-  void invalidateOpenAPICache();
-  bool hasValidOpenAPICache(AuthType filterType) const;
-  String getCachedOpenAPISpec(AuthType filterType) const;
+  // Stream OpenAPI spec directly to response (bypasses String storage)
+  void streamOpenAPISpec(WebResponse &res) const;
 
   // Handlers
   void rootPageHandler(WebRequest &req, WebResponse &res);
@@ -231,7 +226,6 @@ private:                            // Core server components
   void getNetworkStatusApiHandler(WebRequest &req, WebResponse &res);
   void getModulesApiHandler(WebRequest &req, WebResponse &res);
   void getOpenAPISpecHandler(WebRequest &req, WebResponse &res);
-  void getOpenAPISpecAlwaysFreshHandler(WebRequest &req, WebResponse &res);
 
   // Platform state
   PlatformMode currentMode;
@@ -242,10 +236,6 @@ private:                            // Core server components
 
   // Platform configuration
   PlatformConfig platformConfig;
-
-  // OpenAPI cache
-  mutable std::map<int, String> openApiCache; // int key = (int)AuthType
-  mutable bool openApiCacheInitialized = false;
 
   // Device configuration
   const char *deviceName;
@@ -306,7 +296,7 @@ private:                            // Core server components
   bool shouldSkipRoute(const RouteEntry &route, const String &serverType);
   void executeRouteWithAuth(const RouteEntry &route, WebRequest &request,
                             WebResponse &response, const String &serverType);
-  bool pathMatchesRoute(const String &routePath, const String &requestPath);
+  bool pathMatchesRoute(const char *routePath, const String &requestPath);
 
   // Template processing helpers
   bool shouldProcessResponse(const WebResponse &response);

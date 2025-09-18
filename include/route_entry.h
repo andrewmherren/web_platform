@@ -2,35 +2,47 @@
 #define ROUTE_ENTRY_H
 #include "interface/auth_types.h"
 #include "interface/web_module_interface.h"
+#include "route_string_pool.h"
 #include <Arduino.h>
 
-// Complete RouteEntry definition
+// Complete RouteEntry definition - optimized for memory efficiency
 struct RouteEntry {
-  String path;
+  const char *path; // Points to PROGMEM or static string
   WebModule::Method method;
   WebModule::UnifiedRouteHandler handler;
   AuthRequirements authRequirements;
 
-  // OpenAPI-compatible documentation fields
-  String summary;
-  String operationId;
-  String parameters;
-  String responseInfo;
-  String tags;
-  String requestExample;
-  String responseExample;
-  String requestSchema;
-  String responseSchema;
-  String contentType;
-  String parameterConstraints;
-  String description;
+  // OpenAPI-compatible documentation fields - using const char* to avoid heap
+  // allocations
+  const char *summary;
+  const char *operationId;
+  const char *parameters;
+  const char *responseInfo;
+  const char *tags;
+  const char *requestExample;
+  const char *responseExample;
+  const char *requestSchema;
+  const char *responseSchema;
+  const char *contentType;
+  const char *parameterConstraints;
+  const char *description;
 
-  RouteEntry() : method(WebModule::WM_GET) {}
+  RouteEntry()
+      : path(nullptr), method(WebModule::WM_GET), summary(nullptr),
+        operationId(nullptr), parameters(nullptr), responseInfo(nullptr),
+        tags(nullptr), requestExample(nullptr), responseExample(nullptr),
+        requestSchema(nullptr), responseSchema(nullptr), contentType(nullptr),
+        parameterConstraints(nullptr), description(nullptr) {}
 
-  RouteEntry(const String &p, WebModule::Method m,
+  RouteEntry(const char *p, WebModule::Method m,
              WebModule::UnifiedRouteHandler h,
              const AuthRequirements &auth = {AuthType::NONE})
-      : path(p), method(m), handler(h), authRequirements(auth) {}
+      : path(p), method(m), handler(h), authRequirements(auth),
+        summary(nullptr), operationId(nullptr), parameters(nullptr),
+        responseInfo(nullptr), tags(nullptr), requestExample(nullptr),
+        responseExample(nullptr), requestSchema(nullptr),
+        responseSchema(nullptr), contentType(nullptr),
+        parameterConstraints(nullptr), description(nullptr) {}
 };
 
 // Declare the global routeRegistry
