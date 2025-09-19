@@ -86,8 +86,19 @@ public:
   void begin(const char *deviceName = "Device", bool forceHttpsOnly = false);
   void begin(const char *deviceName, const PlatformConfig &config);
 
-  // Module registration (only works in CONNECTED mode)
+  // Module pre-registration (must be called before begin())
   bool registerModule(const char *basePath, IWebModule *module);
+  bool registerModule(const char *basePath, IWebModule *module,
+                      const JsonVariant &config);
+
+  // Convenience methods for common module configurations
+  template <typename T>
+  bool registerModule(const char *basePath, IWebModule *module,
+                      const T &config) {
+    DynamicJsonDocument doc(1024);
+    doc.set(config);
+    return registerModule(basePath, module, doc.as<JsonVariant>());
+  }
 
   // Route registration - unified handler system with auth requirements
   void registerWebRoute(const String &path,
@@ -104,6 +115,9 @@ public:
 
   // Handle all web requests and WiFi operations
   void handle();
+
+  // Module lifecycle management
+  void handleRegisteredModules();
 
   // WiFi state queries
   bool isConnected() const { return currentMode == CONNECTED; }
@@ -131,15 +145,20 @@ public:
 
   // Debug and monitoring
   size_t getRouteCount() const;
-  void printUnifiedRoutes(const String *moduleBasePath = nullptr,
-                          IWebModule *module = nullptr) const;
+  void printUnifiedRoutes() const;
   void validateRoutes() const;
+
+  // Memory analysis functions (Phase 1)
+  void measureHeapUsage(const char *phase);
 
   // IPlatformService implementation
   String getDeviceName() const override { return deviceName; }
   bool isHttpsEnabled() const override { return httpsEnabled; }
 
   String prepareHtml(String html, WebRequest req, const String &csrfToken = "");
+
+  // Pre-generated OpenAPI serving (memory efficient)
+  void streamPreGeneratedOpenAPISpec(WebResponse &res) const;
 
   // OpenAPI generation helper methods
   String generateDefaultSummary(const String &path, const String &method) const;
@@ -153,9 +172,6 @@ public:
                                const RouteEntry &route) const;
   void addRequestBodyToOperation(JsonObject &operation,
                                  const RouteEntry &route) const;
-
-  // Stream JSON document directly without String allocation
-  void streamOpenAPIJson(const JsonDocument &doc, WebResponse &res) const;
 
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
@@ -173,9 +189,6 @@ private:                            // Core server components
   // CSRF token processing
   void addCsrfCookie(WebResponse &res, const String &token);
   void processCsrfForResponse(WebRequest &req, WebResponse &res);
-
-  // Stream OpenAPI spec directly to response (bypasses String storage)
-  void streamOpenAPISpec(WebResponse &res) const;
 
   // Handlers
   void rootPageHandler(WebRequest &req, WebResponse &res);
@@ -234,8 +247,18 @@ private:                            // Core server components
   bool running;
   int serverPort;
 
+  // OpenAPI generation system - stored in storage system
+  bool openAPISpecReady = false;
+  static const String OPENAPI_COLLECTION;
+  static const String OPENAPI_SPEC_KEY;
+  String preGeneratedOpenAPISpec;  // Store the complete spec
+
   // Platform configuration
   PlatformConfig platformConfig;
+
+  // Configuration validation and error handling
+  bool validatePendingModules();
+  void handleInitializationError(const String &error);
 
   // Device configuration
   const char *deviceName;
@@ -246,12 +269,31 @@ private:                            // Core server components
   WiFiSetupCompleteCallback setupCompleteCallback;
   bool callbackCalled;
 
-  // Module registry (for CONNECTED mode)
+  // Module registry structures
+  struct PendingModule {
+    String basePath;
+    IWebModule *module;
+    DynamicJsonDocument config; // Store full config document
+
+    // Constructor to properly initialize DynamicJsonDocument
+    PendingModule() : config(512) {} // 512 bytes for config storage
+    PendingModule(const String &path, IWebModule *mod,
+                  const JsonVariant &configData)
+        : basePath(path), module(mod), config(512) {
+      if (!configData.isNull()) {
+        config.set(configData);
+      }
+    }
+  };
+
   struct RegisteredModule {
     String basePath;
     IWebModule *module;
   };
-  std::vector<RegisteredModule> registeredModules;
+
+  std::vector<PendingModule> pendingModules; // Pre-registration storage
+  std::vector<RegisteredModule>
+      registeredModules; // Active modules post-begin()
 
   // EEPROM configuration
   static const int EEPROM_SIZE = 512;
@@ -266,6 +308,8 @@ private:                            // Core server components
   void startServer();
   void setupRoutes();
   void initializeAuth();
+  void initializeRegisteredModules();
+  void generateOpenAPISpec();
 
   // Mode-specific setup
   void setupConfigPortalMode();

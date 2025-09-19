@@ -67,6 +67,8 @@ String WebResponse::getHeader(const String &name) const {
   return (it != headers.end()) ? it->second : String();
 }
 
+String WebResponse::getContent() const { return content; }
+
 // Send response to Arduino WebServer
 void WebResponse::sendTo(WebServerClass *server) {
   if (!server || responseSent)
@@ -119,6 +121,7 @@ esp_err_t WebResponse::sendTo(httpd_req *req) {
     httpd_resp_set_hdr(req, header.first.c_str(), header.second.c_str());
   }
 
+  // Mark headers as sent
   markHeadersSent();
 
   // Send response body - use streaming for PROGMEM content

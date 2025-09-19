@@ -251,9 +251,16 @@ public:
   virtual std::vector<RouteVariant> getHttpsRoutes() = 0;
   virtual String getModuleName() const = 0;
 
-  // Optional methods with default implementations
+  // Optional implementations with defaults
   virtual String getModuleVersion() const { return "1.0.0"; }
   virtual String getModuleDescription() const { return "Web-enabled module"; }
+
+  // Module lifecycle methods
+  virtual void begin() {}
+  virtual void begin(const JsonVariant &config) {
+    begin();
+  }                        // Default to parameterless begin()
+  virtual void handle() {} // Called each loop iteration when in CONNECTED mode
 
   // Convenience method for modules with identical HTTP/HTTPS routes
   virtual std::vector<RouteVariant> getWebRoutes() { return getHttpRoutes(); }

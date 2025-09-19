@@ -2,16 +2,10 @@
 #include "../include/route_entry.h"
 #include "../include/web_platform.h"
 
-void WebPlatform::printUnifiedRoutes(const String *moduleBasePath,
-                                     IWebModule *module) const {
+void WebPlatform::printUnifiedRoutes() const {
   // Determine what we're printing based on parameters
   String headerTitle;
-  if (module && moduleBasePath) {
-    headerTitle = "Module '" + module->getModuleName() + "' Routes (" +
-                  *moduleBasePath + ")";
-  } else {
-    headerTitle = "WebPlatform Route Registry";
-  }
+  headerTitle = "WebPlatform Route Registry";
 
   Serial.printf("\n=== %s ===\n", headerTitle.c_str());
   Serial.println("PATH                        METHOD  AUTH");
@@ -21,22 +15,6 @@ void WebPlatform::printUnifiedRoutes(const String *moduleBasePath,
   for (const auto &route : routeRegistry) {
     // If filtering by module, only show routes that start with the module's
     // base path
-    bool shouldShow = true;
-    if (moduleBasePath && module) {
-      // Only show routes that start with the module's base path
-      String routePathStr = route.path ? String(route.path) : "";
-      shouldShow = routePathStr.startsWith(*moduleBasePath);
-
-      // Special case for module root path
-      if (*moduleBasePath != "/" && routePathStr == *moduleBasePath) {
-        shouldShow = true;
-      }
-    }
-
-    if (!shouldShow) {
-      continue;
-    }
-
     routeCount++;
 
     // Format path with padding (up to 24 chars)
@@ -79,11 +57,8 @@ void WebPlatform::printUnifiedRoutes(const String *moduleBasePath,
   }
 
   Serial.println("========================================================");
-  if (module && moduleBasePath) {
-    Serial.printf("Total module routes: %d\n\n", routeCount);
-  } else {
-    Serial.printf("Total routes: %d\n\n", routeRegistry.size());
-  }
+
+  Serial.printf("Total routes: %d\n\n", routeRegistry.size());
 }
 
 size_t WebPlatform::getRouteCount() const {

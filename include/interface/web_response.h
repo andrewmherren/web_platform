@@ -57,7 +57,7 @@ public:
   bool isHeadersSent() const { return headersSent; }
   bool isResponseSent() const { return responseSent; }
   int getStatus() const { return statusCode; }
-  String getContent() const { return content; }
+  String getContent() const;
   String getMimeType() const { return mimeType; }
 
   // Header access

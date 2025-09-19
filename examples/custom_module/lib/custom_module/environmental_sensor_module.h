@@ -40,8 +40,8 @@ public:
   EnvironmentalSensorModule();
 
   // Module lifecycle methods
-  void begin();
-  void handle();
+  void begin() override;
+  void handle() override;
 
   // Public getters for current data
   float getTemperature() const;

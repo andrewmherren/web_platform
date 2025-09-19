@@ -200,6 +200,7 @@ bool WebPlatform::shouldProcessResponse(const WebResponse &response) {
 
 void WebPlatform::processResponseTemplates(WebRequest &request,
                                            WebResponse &response) {
+
   if (!shouldProcessResponse(response)) {
     return;
   }
@@ -225,4 +226,29 @@ void WebPlatform::processResponseTemplates(WebRequest &request,
     // Always store as regular content after processing
     response.setContent(processedContent, response.getMimeType());
   }
+}
+
+void WebPlatform::measureHeapUsage(const char *phase) {
+#if defined(ESP32)
+  uint32_t freeHeap = ESP.getFreeHeap();
+  uint32_t heapSize = ESP.getHeapSize();
+  float heapUsagePercent = 100.0 - (freeHeap * 100.0 / heapSize);
+
+  Serial.printf("=== Heap Usage: %s ===\n", phase);
+  Serial.printf("Free heap: %d bytes\n", freeHeap);
+  Serial.printf("Total heap: %d bytes\n", heapSize);
+  Serial.printf("Heap usage: %.1f%%\n", heapUsagePercent);
+  Serial.printf("==========================\n");
+#elif defined(ESP8266)
+  uint32_t freeHeap = ESP.getFreeHeap();
+  // ESP8266 doesn't have getHeapSize(), estimate based on chip model
+  uint32_t estimatedHeapSize = 80000; // Typical for ESP8266 with 4MB flash
+  float heapUsagePercent = 100.0 - (freeHeap * 100.0 / estimatedHeapSize);
+
+  Serial.printf("=== Heap Usage: %s ===\n", phase);
+  Serial.printf("Free heap: %d bytes\n", freeHeap);
+  Serial.printf("Estimated total heap: %d bytes\n", estimatedHeapSize);
+  Serial.printf("Heap usage: %.1f%% (estimated)\n", heapUsagePercent);
+  Serial.printf("==========================\n");
+#endif
 }

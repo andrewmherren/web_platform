@@ -433,6 +433,6 @@ void WebPlatform::getModulesApiHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::getOpenAPISpecHandler(WebRequest &req, WebResponse &res) {
-  // Stream OpenAPI spec directly to response (bypasses String storage)
-  streamOpenAPISpec(res);
+  // Serve pre-generated OpenAPI spec (generated once during initialization)
+  streamPreGeneratedOpenAPISpec(res);
 }

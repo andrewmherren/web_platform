@@ -1,5 +1,7 @@
 #include "../../include/interface/platform_service.h"
 #include "../../include/platform/ntp_client.h"
+#include "../../include/platform/route_string_pool.h"
+#include "../../include/route_entry.h"
 #include "../../include/web_platform.h"
 
 #if defined(ESP32)
@@ -88,6 +90,17 @@ void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
   // Start server with appropriate configuration
   startServer();
 
+  // Initialize pre-registered modules if in CONNECTED mode
+  if (currentMode == CONNECTED) {
+    // Validate pending modules before initialization
+    if (!validatePendingModules()) {
+      handleInitializationError("Module validation failed");
+      return;
+    }
+
+    initializeRegisteredModules();
+  }
+
   // Setup routes based on current mode
   setupRoutes();
 
@@ -107,6 +120,9 @@ void WebPlatform::handle() {
   } else if (currentMode == CONNECTED) {
     // Handle NTP client updates when connected
     NTPClient::handle();
+
+    // Handle all registered modules
+    handleRegisteredModules();
   }
 
   // Periodic connection state updates
@@ -294,6 +310,10 @@ void WebPlatform::setupConnectedMode() {
     registerUnifiedHttpsRoutes();
   }
 #endif
+
+  // Generate OpenAPI spec AFTER all routes are registered (modules + platform
+  // routes)
+  generateOpenAPISpec();
 }
 
 void WebPlatform::startConfigPortal() {
@@ -314,41 +334,38 @@ String WebPlatform::getBaseUrl() const {
 }
 
 bool WebPlatform::registerModule(const char *basePath, IWebModule *module) {
-  if (currentMode != CONNECTED) {
-    Serial.println(
-        "WebPlatform: Cannot register modules in CONFIG_PORTAL mode");
-    return false;
-  }
+  return registerModule(basePath, module, JsonVariant());
+}
 
+bool WebPlatform::registerModule(const char *basePath, IWebModule *module,
+                                 const JsonVariant &config) {
   if (!module) {
     Serial.println("WebPlatform: Cannot register null module");
     return false;
   }
 
-  // Check if module already registered
-  for (const auto &regModule : registeredModules) {
-    if (regModule.basePath == basePath) {
-      Serial.printf("WebPlatform: Module already registered at path: %s\n",
+  // Only allow pre-registration (before begin() is called)
+  if (running) {
+    Serial.println("WebPlatform: ERROR - Module registration after begin() is "
+                   "not supported");
+    Serial.println(
+        "WebPlatform: All modules must be registered before calling begin()");
+    return false;
+  }
+
+  // Check if module already pre-registered
+  for (const auto &pendingModule : pendingModules) {
+    if (pendingModule.basePath == basePath) {
+      Serial.printf("WebPlatform: Module already pre-registered at path: %s\n",
                     basePath);
       return false;
     }
   }
 
-  registeredModules.push_back({basePath, module});
-  Serial.printf("WebPlatform: Registered module '%s' at path: %s\n",
+  // Store module for initialization during begin()
+  pendingModules.emplace_back(basePath, module, config);
+  Serial.printf("WebPlatform: Pre-registered module '%s' at path: %s\n",
                 module->getModuleName().c_str(), basePath);
-
-  // Register this module's routes immediately
-  registerModuleRoutesForModule(basePath, module);
-
-  // Re-register with the server
-  bindRegisteredRoutes();
-#if defined(ESP32)
-  if (httpsEnabled && httpsServerHandle) {
-    registerUnifiedHttpsRoutes();
-  }
-#endif
-
   return true;
 }
 
@@ -442,9 +459,6 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
                        webRoute->authRequirements, webRoute->method);
     }
   }
-
-  // Print only routes for this specific module
-  printUnifiedRoutes(&basePath, module);
 }
 
 void WebPlatform::onSetupComplete(WiFiSetupCompleteCallback callback) {
@@ -459,4 +473,105 @@ std::vector<RouteVariant> WebPlatform::getHttpRoutes() {
 
 std::vector<RouteVariant> WebPlatform::getHttpsRoutes() {
   return getHttpRoutes();
+}
+
+void WebPlatform::initializeRegisteredModules() {
+  Serial.printf("WebPlatform: Initializing %d registered modules...\n",
+                pendingModules.size());
+
+  // Reserve space in registered modules vector to avoid reallocations
+  registeredModules.reserve(pendingModules.size());
+
+  // Initialize modules one by one with error handling
+  for (auto &pendingModule : pendingModules) {
+    Serial.printf("  Initializing: %s at %s\n",
+                  pendingModule.module->getModuleName().c_str(),
+                  pendingModule.basePath.c_str());
+
+    // Initialize module with config if provided
+    if (pendingModule.config.size() > 0) {
+      pendingModule.module->begin(pendingModule.config.as<JsonVariant>());
+    } else {
+      pendingModule.module->begin();
+    }
+
+    // Move to active registry
+    registeredModules.push_back({pendingModule.basePath, pendingModule.module});
+
+    // Register module routes immediately to spread memory usage
+    registerModuleRoutesForModule(pendingModule.basePath, pendingModule.module);
+
+    Serial.printf("  ✓ Module %s initialized successfully\n",
+                  pendingModule.module->getModuleName().c_str());
+  }
+
+  // Clear pending modules to free memory
+  pendingModules.clear();
+  pendingModules.shrink_to_fit(); // Force memory deallocation
+
+  Serial.printf("WebPlatform: Successfully initialized %d modules\n",
+                registeredModules.size());
+}
+
+void WebPlatform::handleRegisteredModules() {
+  // Call handle() on all registered modules
+  for (const auto &regModule : registeredModules) {
+    if (regModule.module) {
+      regModule.module->handle();
+    }
+  }
+}
+
+bool WebPlatform::validatePendingModules() {
+  Serial.printf("WebPlatform: Validating %d pending modules...\n",
+                pendingModules.size());
+
+  // Check for duplicate base paths
+  for (size_t i = 0; i < pendingModules.size(); i++) {
+    for (size_t j = i + 1; j < pendingModules.size(); j++) {
+      if (pendingModules[i].basePath == pendingModules[j].basePath) {
+        Serial.printf("ERROR: Duplicate module base path detected: %s\n",
+                      pendingModules[i].basePath.c_str());
+        return false;
+      }
+    }
+  }
+
+  // Validate module pointers
+  for (const auto &pending : pendingModules) {
+    if (!pending.module) {
+      Serial.printf("ERROR: Null module pointer for path: %s\n",
+                    pending.basePath.c_str());
+      return false;
+    }
+
+    // Validate base path format
+    if (!pending.basePath.startsWith("/")) {
+      Serial.printf("ERROR: Module base path must start with '/': %s\n",
+                    pending.basePath.c_str());
+      return false;
+    }
+  }
+
+  Serial.println("WebPlatform: Module validation passed");
+  return true;
+}
+
+void WebPlatform::handleInitializationError(const String &error) {
+  Serial.printf("WebPlatform: INITIALIZATION ERROR - %s\n", error.c_str());
+  Serial.println("WebPlatform: Falling back to CONFIG_PORTAL mode");
+
+  // Force config portal mode on initialization error
+  currentMode = CONFIG_PORTAL;
+  connectionState = WIFI_CONFIG_PORTAL;
+
+  // Clear pending modules to prevent further issues
+  pendingModules.clear();
+
+  // Setup basic error page
+  IWebModule::setErrorPage(
+      500, F("<h1>System Initialization Error</h1>"
+             "<p>The system encountered an error during startup.</p>"
+             "<p>Please check the serial console for details.</p>"
+             "<p><a href='/portal'>WiFi Configuration</a></p>"));
 }
