@@ -1,7 +1,7 @@
 {
   "name": "web_platform",
   "version": "0.1.0",
-  "description": "Complete web development framework for ESP32/ESP8266 with WiFi, HTTPS, and authentication",
+  "description": "Complete web development framework for ESP32 with WiFi, HTTPS, and authentication",
   "build": {
     "includeDir": "include"
   },
@@ -12,7 +12,6 @@
     "wifi",
     "configuration",
     "esp32",
-    "esp8266",
     "interface",
     "abstract",
     "css",
@@ -40,7 +39,6 @@
     "arduino"
   ],
   "platforms": [
-    "espressif8266",
     "espressif32"
   ],
   "dependencies": {

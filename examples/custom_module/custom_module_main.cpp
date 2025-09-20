@@ -8,7 +8,7 @@
  * 1. Copy environmental_sensor_module.h and environmental_sensor_module.cpp to
  * your lib/ directory
  * 2. Copy this code to your src/main.cpp
- * 3. Build and upload to your ESP32/ESP8266
+ * 3. Build and upload to your ESP32
  *
  * The module will be available at: http://yourdevice.local/sensors/
  */

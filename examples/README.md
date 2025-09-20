@@ -258,7 +258,7 @@ When contributing new examples:
 
 1. **Follow Patterns**: Use consistent coding style and structure
 2. **Add Comments**: Explain complex concepts and design decisions  
-3. **Test Thoroughly**: Verify examples work on both ESP32 and ESP8266
+3. **Test Thoroughly**: Verify examples work on ESP32
 4. **Document Features**: Update this README with new capabilities
 5. **Consider Security**: Demonstrate proper authentication usage
 

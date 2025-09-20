@@ -1,14 +1,7 @@
 #include "../../include/platform/ntp_client.h"
-
-#ifdef ESP32
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <time.h>
-#elif defined(ESP8266)
-#include <ESP8266WiFi.h>
-#include <WiFiUdp.h>
-#include <time.h>
-#endif
 
 // Static member definitions
 const char *NTPClient::_ntpServer = "pool.ntp.org";

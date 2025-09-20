@@ -1,11 +1,6 @@
 #include "../../include/interface/web_request.h"
 #include "../../include/web_platform.h"
-
-#if defined(ESP32)
 #include <WebServer.h>
-#elif defined(ESP8266)
-#include <ESP8266WebServer.h>
-#endif
 
 void WebPlatform::startServer() {
   if (httpsEnabled) {
@@ -120,7 +115,6 @@ void WebPlatform::startServer() {
 }
 
 void WebPlatform::configureHttpsServer() {
-#if defined(ESP32)
   if (httpsServerHandle) {
     Serial.println("WebPlatform: HTTPS server already running");
     return;
@@ -230,10 +224,6 @@ void WebPlatform::configureHttpsServer() {
   Serial.println("Registered 404 error handler");
 
   Serial.println("WebPlatform: HTTPS routes registered successfully");
-#else
-  Serial.println("WebPlatform: HTTPS not supported on this platform");
-  httpsEnabled = false;
-#endif
 }
 
 bool WebPlatform::detectHttpsCapability() {
@@ -245,17 +235,11 @@ bool WebPlatform::detectHttpsCapability() {
     return false;
   }
 
-#if defined(ESP32) && defined(CONFIG_IDF_TARGET_ESP32S3)
   Serial.println("WebPlatform: Checking for SSL certificates...");
   return areCertificatesAvailable();
-#else
-  Serial.println("WebPlatform: HTTPS not supported on this platform");
-  return false;
-#endif
 }
 
 bool WebPlatform::areCertificatesAvailable() {
-#if defined(ESP32) && defined(CONFIG_IDF_TARGET_ESP32S3)
   const uint8_t *cert_data, *key_data;
   size_t cert_len, key_len;
 
@@ -280,17 +264,12 @@ bool WebPlatform::areCertificatesAvailable() {
 
   Serial.println("WebPlatform: Invalid certificate format");
   return false;
-#else
-  Serial.println("WebPlatform: Certificates not supported on this platform");
-  return false;
-#endif
 }
 
 bool WebPlatform::getEmbeddedCertificates(const uint8_t **cert_data,
                                           size_t *cert_len,
                                           const uint8_t **key_data,
                                           size_t *key_len) {
-#if defined(ESP32)
   // Check for embedded certificates - these symbols may not exist if
   // certificates weren't embedded
   extern const uint8_t server_cert_pem_start[] asm(
@@ -316,8 +295,4 @@ bool WebPlatform::getEmbeddedCertificates(const uint8_t **cert_data,
 
   // Basic sanity check
   return (*cert_len > 100 && *key_len > 100);
-#else
-  // Not supported on this platform
-  return false;
-#endif
 }

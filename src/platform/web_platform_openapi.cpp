@@ -32,15 +32,9 @@ void WebPlatform::generateOpenAPISpec() {
 
   size_t freeHeap = ESP.getFreeHeap();
   size_t targetSize;
-
-#if defined(ESP32)
   size_t maxBlock = ESP.getMaxAllocHeap();
   size_t maxAllowable = (size_t)(maxBlock * 0.8);
   targetSize = (maxAllowable < 24576) ? maxAllowable : 24576;
-#else
-  size_t maxAllowable = (size_t)(freeHeap * 0.3);
-  targetSize = (maxAllowable < 16384) ? maxAllowable : 16384;
-#endif
 
   if (targetSize < 8192) {
     Serial.println("ERROR: Insufficient memory for OpenAPI generation!");

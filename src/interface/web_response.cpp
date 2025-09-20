@@ -2,16 +2,10 @@
 #include "../../include/interface/webserver_typedefs.h"
 #include "../../include/web_platform.h"
 
-#if defined(ESP32)
 #include <WebServer.h>
 #include <esp_http_server.h>
 // Forward declare WebServerClass - the actual implementation is in
 // web_platform.h
-#elif defined(ESP8266)
-#include <ESP8266WebServer.h>
-// Forward declare WebServerClass - the actual implementation is in
-// web_platform.h
-#endif
 
 WebResponse::WebResponse()
     : statusCode(200), mimeType("text/html"), headersSent(false),
@@ -103,7 +97,6 @@ void WebResponse::sendTo(WebServerClass *server) {
 }
 
 // Send response to ESP-IDF HTTPS server
-#if defined(ESP32)
 esp_err_t WebResponse::sendTo(httpd_req *req) {
   if (!req || responseSent)
     return ESP_FAIL;
@@ -157,7 +150,6 @@ esp_err_t WebResponse::streamJsonContent(const JsonDocument &doc,
   serializeJson(doc, jsonString);
   return httpd_resp_send(req, jsonString.c_str(), jsonString.length());
 }
-#endif
 
 // PROGMEM streaming implementation for Arduino WebServer
 void WebResponse::sendProgmemChunked(const char *data, WebServerClass *server) {
@@ -204,7 +196,6 @@ void WebResponse::sendProgmemChunked(const char *data, WebServerClass *server) {
   Serial.println("PROGMEM streaming completed, buffer freed");
 }
 
-#if defined(ESP32)
 // PROGMEM streaming implementation for ESP-IDF HTTPS server
 esp_err_t WebResponse::sendProgmemChunked(const char *data, httpd_req *req) {
   if (!data || !req)
@@ -249,4 +240,3 @@ esp_err_t WebResponse::sendProgmemChunked(const char *data, httpd_req *req) {
 
   return ret;
 }
-#endif

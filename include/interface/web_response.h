@@ -8,10 +8,8 @@
 // Forward declarations to avoid circular dependencies
 class WebServerClass;
 
-#if defined(ESP32)
 struct httpd_req;
 typedef int esp_err_t;
-#endif
 
 /**
  * WebResponse - Unified response abstraction for HTTP/HTTPS handlers
@@ -49,9 +47,7 @@ public:
   // Send response (called internally by WebPlatform)
   void sendTo(WebServerClass *server);
 
-#if defined(ESP32)
   esp_err_t sendTo(httpd_req *req);
-#endif
 
   // Status queries
   bool isHeadersSent() const { return headersSent; }
@@ -70,15 +66,11 @@ private:
 
   // Helper methods for PROGMEM streaming
   void sendProgmemChunked(const char *data, WebServerClass *server);
-#if defined(ESP32)
   esp_err_t sendProgmemChunked(const char *data, httpd_req *req);
-#endif
 
   // JSON streaming helper
   void streamJsonContent(const JsonDocument &doc, WebServerClass *server);
-#if defined(ESP32)
   esp_err_t streamJsonContent(const JsonDocument &doc, httpd_req *req);
-#endif
 
   // Allow WebPlatform to call private methods
   friend class WebPlatform;

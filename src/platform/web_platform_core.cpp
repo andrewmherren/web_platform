@@ -4,19 +4,13 @@
 #include "../../include/route_entry.h"
 #include "../../include/web_platform.h"
 
-#if defined(ESP32)
 #include <WebServer.h>
-#elif defined(ESP8266)
-#include <ESP8266WebServer.h>
-#endif
 
 // Core implementation of WebPlatform class
 // Basic initialization, setup, and handling functions
 
-#if defined(ESP32)
 // Static instance pointer for ESP-IDF callbacks
 WebPlatform *WebPlatform::httpsInstance = nullptr;
-#endif
 
 IPlatformService *g_platformService = nullptr;
 
@@ -28,10 +22,7 @@ WebPlatform::WebPlatform()
       callbackCalled(false) {
 
   memset(apSSIDBuffer, 0, sizeof(apSSIDBuffer));
-
-#if defined(ESP32)
   httpsInstance = this;
-#endif
 }
 
 WebPlatform::~WebPlatform() {
@@ -41,19 +32,16 @@ WebPlatform::~WebPlatform() {
       delete server;
       server = nullptr;
     }
-#if defined(ESP32)
     if (httpsServerHandle) {
       httpd_ssl_stop(httpsServerHandle);
       httpsServerHandle = nullptr;
     }
-#endif
     dnsServer.stop();
   }
-#if defined(ESP32)
+
   if (httpsInstance == this) {
     httpsInstance = nullptr;
   }
-#endif
 }
 
 void WebPlatform::begin(const char *deviceName, const PlatformConfig &config) {
@@ -254,15 +242,10 @@ void WebPlatform::setupRoutes() {
       (httpsEnabled && serverPort == 443 && server != nullptr);
   // Check if we know this is the HTTP server running on port 80
   bool isHttpRedirectServer = false;
-#if defined(ESP8266)
-  // For ESP8266, we can check the server port directly
-  isHttpRedirectServer = isRedirectServer && serverPort == 80;
-#elif defined(ESP32)
   // For ESP32, we can determine this based on our setup logic
   // If HTTPS is enabled and we have a server, it must be the redirect server on
   // port 80
   isHttpRedirectServer = isRedirectServer;
-#endif
 
   if (server && !isHttpRedirectServer) {
     // Setup 404 handler
@@ -305,11 +288,9 @@ void WebPlatform::setupConnectedMode() {
   // Register all unified routes with servers (this processes overrides)
   bindRegisteredRoutes();
 
-#if defined(ESP32)
   if (httpsEnabled && httpsServerHandle) {
     registerUnifiedHttpsRoutes();
   }
-#endif
 
   // Generate OpenAPI spec AFTER all routes are registered (modules + platform
   // routes)

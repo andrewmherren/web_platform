@@ -4,8 +4,6 @@
 #include "../../include/storage/auth_storage.h"
 #include <ArduinoJson.h>
 
-
-#if defined(ESP32)
 #include <WebServer.h>
 #include <arpa/inet.h>
 #include <esp_http_server.h>
@@ -16,9 +14,6 @@
 #define IN6_IS_ADDR_V4MAPPED(a)                                                \
   (((const uint32_t *)(a))[0] == 0 && ((const uint32_t *)(a))[1] == 0 &&       \
    ((const uint32_t *)(a))[2] == htonl(0xffff))
-#endif
-#elif defined(ESP8266)
-#include <ESP8266WebServer.h>
 #endif
 
 const char *COMMON_HTTP_HEADERS[] = {"Host",
@@ -79,7 +74,6 @@ WebRequest::WebRequest(WebServerClass *server) {
 }
 
 // Constructor for ESP-IDF HTTPS server
-#if defined(ESP32)
 WebRequest::WebRequest(httpd_req *req) {
   if (!req)
     return;
@@ -139,7 +133,6 @@ WebRequest::WebRequest(httpd_req *req) {
   // Always check for session information (for UI state, not authentication)
   checkSessionInformation();
 }
-#endif
 
 String WebRequest::getParam(const String &name) const {
   auto it = params.find(name);
@@ -275,7 +268,6 @@ void WebRequest::parseRequestBody(const String &body,
   }
 }
 
-#if defined(ESP32)
 void WebRequest::parseClientIp(httpd_req *req) {
   int sockfd = httpd_req_to_sockfd(req);
   struct sockaddr_storage client_addr;
@@ -323,7 +315,6 @@ void WebRequest::parseClientIp(httpd_req *req) {
     clientIp = "unknown";
   }
 }
-#endif
 
 // Path parameter extraction helpers
 String WebRequest::getPathSegment(int index) const {

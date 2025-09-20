@@ -82,7 +82,6 @@ String OpenAPIFactory::createIdParameter(const String &name,
 
 String OpenAPIFactory::generateOperationId(const String &method,
                                            const String &resource) {
-  // Handle ESP8266 where toLowerCase() is void and modifies the string in place
   String firstChar = String(resource.charAt(0));
   String restOfString = resource.substring(1);
 

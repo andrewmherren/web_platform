@@ -3,11 +3,8 @@
 #include "route_entry.h"
 #include "web_platform.h"
 
-#if defined(ESP32)
 #include <WebServer.h>
-#elif defined(ESP8266)
-#include <ESP8266WebServer.h>
-#endif
+
 // WebPlatform unified route handler implementation
 // This file implements the new route registration system for Phase 1
 
@@ -320,11 +317,7 @@ void WebPlatform::bindRegisteredRoutes() {
       (httpsEnabled && serverPort == 443 && server != nullptr);
   bool isHttpRedirectServer = false;
 
-#if defined(ESP8266)
-  isHttpRedirectServer = isRedirectServer && serverPort == 80;
-#elif defined(ESP32)
   isHttpRedirectServer = isRedirectServer;
-#endif
 
   if (isHttpRedirectServer) {
     Serial.println("WebPlatform: Skipping unified route registration on HTTP "
@@ -441,7 +434,6 @@ void WebPlatform::bindRegisteredRoutes() {
 }
 
 // Internal method to register unified routes with HTTPS server
-#if defined(ESP32)
 void WebPlatform::registerUnifiedHttpsRoutes() {
   if (!httpsServerHandle || !httpsEnabled) {
     Serial.println(
@@ -555,4 +547,3 @@ void WebPlatform::registerUnifiedHttpsRoutes() {
     }
   }
 }
-#endif

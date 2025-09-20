@@ -7,11 +7,7 @@
 #include "../../include/storage/auth_storage.h"
 #include "../../include/web_platform.h"
 
-#if defined(ESP32)
 #include <WebServer.h>
-#elif defined(ESP8266)
-#include <ESP8266WebServer.h>
-#endif
 
 void WebPlatform::systemStatusJSAssetHandler(WebRequest &req,
                                              WebResponse &res) {
@@ -23,16 +19,6 @@ void WebPlatform::homePageJSAssetHandler(WebRequest &req, WebResponse &res) {
   res.setProgmemContent(HOME_PAGE_JS, "application/javascript");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
-
-// Define min and max functions if not already defined (for ESP8266
-// compatibility)
-#ifndef min
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#endif
-
-#ifndef max
-#define max(a, b) ((a) > (b) ? (a) : (b))
-#endif
 
 void WebPlatform::rootPageHandler(WebRequest &req, WebResponse &res) {
   Serial.println("Loading CONNECTED_HOME_HTML, length: " +

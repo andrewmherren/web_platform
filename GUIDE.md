@@ -518,7 +518,7 @@ res.setContent(dynamicHtml, "text/html");
 2. **Consistent Route Structure**: Use consistent URL patterns
 3. **Document API Endpoints**: Use OpenAPIDocumentation to properly document your APIs
 4. **Progressive Enhancement**: Ensure basic functionality works without JavaScript
-5. **Test on Both Platforms**: Verify on both ESP32 and ESP8266
+5. **Test on Both Platforms**: Verify on ESP32 device
 
 ### API Documentation
 1. **Use Documentation Classes**: Create dedicated classes for API documentation using the pattern `ModuleNameDocs`

@@ -16,8 +16,8 @@
 #include <map>
 #include <vector>
 
-// Use a completely different namespace to avoid conflicts with ESP32/ESP8266
-// built-in HTTP enums
+// Use a completely different namespace to avoid conflicts with ESP32 built-in
+// HTTP enums
 namespace WebModule {
 
 // Route handler function signature (legacy)
@@ -259,7 +259,7 @@ public:
   virtual void begin() {}
   virtual void begin(const JsonVariant &config) {
     begin();
-  }                        // Default to parameterless begin()
+  } // Default to parameterless begin()
   virtual void handle() {} // Called each loop iteration when in CONNECTED mode
 
   // Convenience method for modules with identical HTTP/HTTPS routes

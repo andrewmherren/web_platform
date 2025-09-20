@@ -96,13 +96,6 @@ void setup() {
                             <tr><td>Device Name:</td><td>)" +
                   String(webPlatform.getDeviceName()) + R"(</td></tr>
                             <tr><td>Firmware Version:</td><td>1.0.0</td></tr>
-                            <tr><td>Platform:</td><td>)" +
-#ifdef ESP32
-                  "ESP32" +
-#elif defined(ESP8266)
-                            "ESP8266" +
-#endif
-                  R"(</td></tr>
                             <tr><td>WiFi SSID:</td><td>)" +
                   WiFi.SSID() + R"(</td></tr>
                             <tr><td>IP Address:</td><td>)" +

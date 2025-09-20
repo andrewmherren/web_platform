@@ -43,7 +43,7 @@ src/
    }
    ```
 
-3. **Build and upload** to your ESP32/ESP8266
+3. **Build and upload** to your ESP32
 
 4. **Access the interface**:
    - Main sensor dashboard: `http://yourdevice.local/sensors/`

@@ -34,12 +34,7 @@ void WebPlatform::scanApiHandler(WebRequest &req, WebResponse &res) {
 
     if (!isDuplicate) {
       sortedNetworks.push_back({WiFi.SSID(i), WiFi.RSSI(i),
-#if defined(ESP8266)
-                                WiFi.encryptionType(i) != ENC_TYPE_NONE
-#else
-                                WiFi.encryptionType(i) != WIFI_AUTH_OPEN
-#endif
-      });
+                                WiFi.encryptionType(i) != WIFI_AUTH_OPEN});
     }
   }
 

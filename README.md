@@ -1,6 +1,6 @@
 # WebPlatform Library
 
-A comprehensive web development platform for ESP32/ESP8266 that provides a unified framework for building web-enabled embedded applications.
+A comprehensive web development platform for ESP32 that provides a unified framework for building web-enabled embedded applications.
 
 ## Documentation
 
@@ -11,7 +11,7 @@ A comprehensive web development platform for ESP32/ESP8266 that provides a unifi
 
 ## Overview
 
-WebPlatform is a complete web development framework that transforms ESP32/ESP8266 devices into sophisticated web-enabled applications. It combines multiple components into a single, easy-to-use library:
+WebPlatform is a complete web development framework that transforms ESP32 devices into sophisticated web-enabled applications. It combines multiple components into a single, easy-to-use library:
 
 - **Modular Architecture**: Build reusable web modules using the IWebModule interface
 - **Unified HTTP/HTTPS Server**: Single server instance with automatic HTTPS detection
@@ -126,19 +126,9 @@ framework = arduino
 lib_deps = 
   bblanchon/ArduinoJson@^6.20.0
   # Add your web modules here
-
-[env:esp8266]
-platform = espressif8266
-board = nodemcuv2
-framework = arduino
-lib_deps = 
-  bblanchon/ArduinoJson@^6.20.0
-  https://github.com/rweaver/arduinolibs.git
-  marvinroger/ESP8266TrueRandom@^1.0.0
-  # Add your web modules here
 ```
 
-### HTTPS Mode (ESP32 only)
+### HTTPS Mode
 
 ```ini
 [env:esp32-https]

@@ -332,15 +332,10 @@ void WebPlatform::getSystemStatusApiHandler(WebRequest &req, WebResponse &res) {
   uint32_t freeHeap = ESP.getFreeHeap();
   int freeHeapPercent = 0;
 
-#if defined(ESP32)
   uint32_t totalHeap = ESP.getHeapSize();
   if (totalHeap > 0) {
     freeHeapPercent = (int)((float)freeHeap / totalHeap * 100.0);
   }
-#else
-  uint32_t estimatedTotalHeap = 80 * 1024;
-  freeHeapPercent = (int)((float)freeHeap / estimatedTotalHeap * 100.0);
-#endif
 
   freeHeapPercent = min(100, max(0, freeHeapPercent));
 

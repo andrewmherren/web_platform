@@ -14,20 +14,12 @@
 #include <map>
 #include <vector>
 
-#if defined(ESP32)
 #include <EEPROM.h>
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <WiFi.h>
-#include <esp_https_server.h>
-#ifdef CONFIG_IDF_TARGET_ESP32S3
 #include <WiFiClientSecure.h>
-#endif
-#elif defined(ESP8266)
-#include <ESP8266WebServer.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
-#endif
+#include <esp_https_server.h>
 
 #include "route_entry.h"
 
@@ -251,7 +243,7 @@ private:                            // Core server components
   bool openAPISpecReady = false;
   static const String OPENAPI_COLLECTION;
   static const String OPENAPI_SPEC_KEY;
-  String preGeneratedOpenAPISpec;  // Store the complete spec
+  String preGeneratedOpenAPISpec; // Store the complete spec
 
   // Platform configuration
   PlatformConfig platformConfig;
@@ -332,9 +324,7 @@ private:                            // Core server components
                      WebRequest &request, WebResponse &response,
                      const char *protocol);
 
-#if defined(ESP32)
   void registerUnifiedHttpsRoutes();
-#endif
 
   // Route registration helper methods (shared between HTTP and HTTPS)
   bool shouldSkipRoute(const RouteEntry &route, const String &serverType);
@@ -352,18 +342,13 @@ private:                            // Core server components
   bool getEmbeddedCertificates(const uint8_t **cert_data, size_t *cert_len,
                                const uint8_t **key_data, size_t *key_len);
 
-  // HTTPS server components (ESP32 only)
-#if defined(ESP32)
   httpd_handle_t httpsServerHandle = nullptr;
 
   std::vector<String> httpsRoutePaths; // Permanent path storage
-#endif
 
 public:
   // Make httpsInstance accessible to external handlers
-#if defined(ESP32)
   static WebPlatform *httpsInstance; // For ESP-IDF callbacks (defined in core)
-#endif
 
   // HTTP request handling helpers
   void handleNotFound();

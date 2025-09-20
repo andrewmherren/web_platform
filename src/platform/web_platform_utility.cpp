@@ -126,9 +126,16 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
             result.concat(src + pos, markerLen);
           }
           break;
-        case 11: // DEVICE_NAME
+        case 11: // DEVICE_NAME, redirectUrl
           if (strncmp(markerContent, "DEVICE_NAME", 11) == 0) {
             result += cache.deviceName;
+          } else if (strncmp(markerContent, "redirectUrl", 11) == 0) {
+            // Check for redirectUrl parameter
+            String redirectParam = req.getParam("redirect");
+            if (redirectParam.isEmpty()) {
+              redirectParam = "/";
+            }
+            result += redirectParam;
           } else {
             result.concat(src + pos, markerLen);
           }
@@ -229,7 +236,7 @@ void WebPlatform::processResponseTemplates(WebRequest &request,
 }
 
 void WebPlatform::measureHeapUsage(const char *phase) {
-#if defined(ESP32)
+
   uint32_t freeHeap = ESP.getFreeHeap();
   uint32_t heapSize = ESP.getHeapSize();
   float heapUsagePercent = 100.0 - (freeHeap * 100.0 / heapSize);
@@ -239,16 +246,4 @@ void WebPlatform::measureHeapUsage(const char *phase) {
   Serial.printf("Total heap: %d bytes\n", heapSize);
   Serial.printf("Heap usage: %.1f%%\n", heapUsagePercent);
   Serial.printf("==========================\n");
-#elif defined(ESP8266)
-  uint32_t freeHeap = ESP.getFreeHeap();
-  // ESP8266 doesn't have getHeapSize(), estimate based on chip model
-  uint32_t estimatedHeapSize = 80000; // Typical for ESP8266 with 4MB flash
-  float heapUsagePercent = 100.0 - (freeHeap * 100.0 / estimatedHeapSize);
-
-  Serial.printf("=== Heap Usage: %s ===\n", phase);
-  Serial.printf("Free heap: %d bytes\n", freeHeap);
-  Serial.printf("Estimated total heap: %d bytes\n", estimatedHeapSize);
-  Serial.printf("Heap usage: %.1f%% (estimated)\n", heapUsagePercent);
-  Serial.printf("==========================\n");
-#endif
 }

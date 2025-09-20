@@ -16,13 +16,8 @@ extern const char *COMMON_HTTP_HEADERS[];
 extern const size_t COMMON_HTTP_HEADERS_COUNT;
 
 // Forward declarations to avoid circular dependencies
-#if defined(ESP32) || defined(ESP8266)
 class WebServerClass;
-#endif
-
-#if defined(ESP32)
 struct httpd_req;
-#endif
 
 /**
  * WebRequest - Unified request abstraction for HTTP/HTTPS handlers
@@ -47,14 +42,8 @@ private:
 
 public:
   // Constructor for HTTP server (Arduino WebServer)
-#if defined(ESP32) || defined(ESP8266)
   WebRequest(WebServerClass *server);
-#endif
-
-  // Constructor for HTTPS server (ESP-IDF)
-#if defined(ESP32)
   WebRequest(httpd_req *req);
-#endif
 
   // Request information
   String getPath() const { return path; }
@@ -113,9 +102,7 @@ private:
   void parseHeaders();
   String urlDecode(const String &str);
 
-#if defined(ESP32)
   void parseClientIp(httpd_req *req);
-#endif
 };
 
 #endif // WEB_REQUEST_H
