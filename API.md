@@ -106,7 +106,7 @@ bool isHttpsEnabled() const;
 String getBaseUrl() const;
 
 // Get server port
-int getPort() const;
+// int getPort() const;
 ```
 
 ### WiFi Management
@@ -114,12 +114,6 @@ int getPort() const;
 ```cpp
 // Reset stored WiFi credentials
 void resetWiFiCredentials();
-
-// Start WiFi configuration portal
-void startConfigPortal();
-
-// Set callback for when WiFi setup completes
-void onSetupComplete(WiFiSetupCompleteCallback callback);
 
 // Get access point name
 const char* getAPName() const;
@@ -139,7 +133,7 @@ void printUnifiedRoutes(const String* moduleBasePath = nullptr,
                        IWebModule* module = nullptr) const;
                        
 // Validate all routes for consistency
-void validateRoutes() const;
+// void validateRoutes() const;
 ```
 
 ## IWebModule Interface
@@ -297,11 +291,8 @@ public:
     // Get response content
     String getContent() const;
     
-    // Get content type
-    String getContentType() const;
-    
     // Get status code
-    int getStatus() const;
+    // int getStatus() const;
     
     // Get headers
     std::map<String, String> getHeaders() const;

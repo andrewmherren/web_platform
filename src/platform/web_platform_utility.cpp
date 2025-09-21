@@ -1,10 +1,8 @@
-#include "../../include/storage/auth_storage.h"
-#include "../../include/web_platform.h"
+#include "storage/auth_storage.h"
+#include "web_platform.h"
 
 String WebPlatform::prepareHtml(String html, WebRequest req,
                                 const String &csrfToken) {
-  Serial.println("Original content size: " + String(html.length()));
-
   // Optimized template processing with minimal heap allocations
   const size_t inputLength = html.length();
   if (inputLength == 0) {
@@ -17,7 +15,7 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
   String result;
   result.reserve(inputLength + estimatedExpansion);
 
-  // Cache for replacement values - computed only once when needed
+  // Cache for replacement values
   struct TemplateCache {
     String navHtml;
     String csrfTokenValue;
@@ -25,7 +23,54 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
     String username;
     String modulePrefix;
     String deviceName;
-    bool computed = false;
+    bool authComputed = false;
+
+    void computeAuthValues(const WebRequest &req, const String &csrfToken,
+                           const WebPlatform *platform) {
+      if (authComputed)
+        return;
+
+      const AuthContext &auth = req.getAuthContext();
+      bool isAuthenticated = auth.hasValidSession();
+
+      // Fallback session check for routes without auth requirement
+      if (!isAuthenticated) {
+        const String sessionCookie = req.getHeader("Cookie");
+        int sessionStart = sessionCookie.indexOf("session=");
+        if (sessionStart >= 0) {
+          sessionStart += 8;
+          int sessionEnd = sessionCookie.indexOf(";", sessionStart);
+          if (sessionEnd < 0)
+            sessionEnd = sessionCookie.length();
+          String sessionId = sessionCookie.substring(sessionStart, sessionEnd);
+          isAuthenticated = (AuthStorage::validateSession(
+                                 sessionId, req.getClientIp()) != "");
+        }
+      }
+
+
+      navHtml = IWebModule::generateNavigationHtml(isAuthenticated);
+
+      csrfTokenValue = csrfToken.isEmpty()
+                           ? AuthStorage::createPageToken(req.getClientIp())
+                           : csrfToken;
+
+      // PROGMEM security notices to avoid heap allocation
+      if (platform->isHttpsEnabled()) {
+        securityNotice = F(R"(<div class="security-notice https">
+        <h4><span class="security-icon-large">🔒</span> Secure Connection</h4>
+        <p>This connection is secured with HTTPS encryption. Your WiFi password will be transmitted securely.</p>
+    </div>)");
+      } else {
+        securityNotice = F(R"(<div class="security-notice">
+        <h4><span class="security-icon-large">ℹ️</span> Connection Notice</h4>
+        <p>This is a direct device connection. Only enter WiFi credentials on your trusted private network.</p>
+    </div>)");
+      }
+
+      username = auth.username;
+      authComputed = true;
+    }
   } cache;
 
   // Pre-compute values that are always needed
@@ -36,24 +81,42 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
   size_t pos = 0;
 
   while (pos < inputLength) {
-    // Fast path: look for template marker start
+    // Look for next template marker or head tag
     const char *markerStart = strchr(src + pos, '{');
-    if (!markerStart) {
-      // No more markers, copy rest of string
-      result += (src + pos);
+    const char *headStart = nullptr;
+
+    // Look for <head> tag from current position
+    if (pos <= inputLength - 6) {
+      headStart = strstr(src + pos, "<head>");
+    }
+
+    // Determine which comes first: template marker or head tag
+    size_t nextPos = inputLength; // Default to end of string
+    bool isTemplateMarker = false;
+    bool isHeadTag = false;
+
+    if (markerStart && (!headStart || markerStart < headStart)) {
+      nextPos = markerStart - src;
+      isTemplateMarker = true;
+    } else if (headStart) {
+      nextPos = headStart - src;
+      isHeadTag = true;
+    }
+
+    // Copy content before the next marker/tag
+    if (nextPos > pos) {
+      result.concat(src + pos, nextPos - pos);
+      pos = nextPos;
+    }
+
+    // If no more markers or tags, we're done
+    if (nextPos >= inputLength) {
       break;
     }
 
-    // Copy content before marker
-    size_t copyLen = markerStart - (src + pos);
-    if (copyLen > 0) {
-      result.concat(src + pos, copyLen);
-    }
-
-    pos = markerStart - src;
-
-    // Check for template marker
-    if (pos < inputLength - 1 && src[pos] == '{' && src[pos + 1] == '{') {
+    // Process template marker
+    if (isTemplateMarker && pos < inputLength - 1 && src[pos] == '{' &&
+        src[pos + 1] == '{') {
       // Find closing marker
       const char *markerEnd = strstr(src + pos + 2, "}}");
       if (markerEnd) {
@@ -63,49 +126,8 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
         size_t contentStart = pos + 2;
         size_t contentLen = (markerEnd - src) - contentStart;
 
-        // Lazy computation of auth-dependent values
-        if (!cache.computed) {
-          const AuthContext &auth = req.getAuthContext();
-          bool isAuthenticated = auth.hasValidSession();
-
-          // Fallback session check for routes without auth requirement
-          if (!isAuthenticated) {
-            const String sessionCookie = req.getHeader("Cookie");
-            int sessionStart = sessionCookie.indexOf("session=");
-            if (sessionStart >= 0) {
-              sessionStart += 8;
-              int sessionEnd = sessionCookie.indexOf(";", sessionStart);
-              if (sessionEnd < 0)
-                sessionEnd = sessionCookie.length();
-              String sessionId =
-                  sessionCookie.substring(sessionStart, sessionEnd);
-              isAuthenticated = (AuthStorage::validateSession(
-                                     sessionId, req.getClientIp()) != "");
-            }
-          }
-
-          cache.navHtml = IWebModule::generateNavigationHtml(isAuthenticated);
-          cache.csrfTokenValue =
-              csrfToken.isEmpty()
-                  ? AuthStorage::createPageToken(req.getClientIp())
-                  : csrfToken;
-
-          // PROGMEM security notices to avoid heap allocation
-          if (isHttpsEnabled()) {
-            cache.securityNotice = F(R"(<div class="security-notice https">
-            <h4><span class="security-icon-large">🔒</span> Secure Connection</h4>
-            <p>This connection is secured with HTTPS encryption. Your WiFi password will be transmitted securely.</p>
-        </div>)");
-          } else {
-            cache.securityNotice = F(R"(<div class="security-notice">
-            <h4><span class="security-icon-large">ℹ️</span> Connection Notice</h4>
-            <p>This is a direct device connection. Only enter WiFi credentials on your trusted private network.</p>
-        </div>)");
-          }
-
-          cache.username = auth.username;
-          cache.computed = true;
-        }
+        // Ensure auth-dependent values are computed
+        cache.computeAuthValues(req, csrfToken, this);
 
         // Fast marker matching using first character and length
         const char *markerContent = src + contentStart;
@@ -166,28 +188,21 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
         result += src[pos];
         pos++;
       }
-    } else if (pos <= inputLength - 6 && strncmp(src + pos, "<head>", 6) == 0) {
+    } else if (isHeadTag) {
       // CSRF meta tag injection
-      if (!cache.computed) {
-        cache.csrfTokenValue =
-            csrfToken.isEmpty()
-                ? AuthStorage::createPageToken(req.getClientIp())
-                : csrfToken;
-        cache.computed = true;
-      }
+      cache.computeAuthValues(req, csrfToken, this);
 
       result += F("<head>\n    <meta name=\"csrf-token\" content=\"");
       result += cache.csrfTokenValue;
       result += F("\">");
       pos += 6;
     } else {
-      // Regular character
+      // This shouldn't happen with new logic, but safety fallback
       result += src[pos];
       pos++;
     }
   }
 
-  Serial.println("Processed content size: " + String(result.length()));
   return result;
 }
 
@@ -217,15 +232,11 @@ void WebPlatform::processResponseTemplates(WebRequest &request,
   // Check if we have PROGMEM content
   if (response.hasProgmemContent() && response.getProgmemData() != nullptr) {
     // Convert PROGMEM content to String for processing
-    Serial.println("Converting PROGMEM content for template processing");
     content = FPSTR(response.getProgmemData());
   } else {
     // Use regular content
     content = response.getContent();
   }
-
-  Serial.println("Processing templates for response, content length: " +
-                 String(content.length()));
 
   // Process templates only if we have content
   if (content.length() > 0) {
@@ -241,9 +252,9 @@ void WebPlatform::measureHeapUsage(const char *phase) {
   uint32_t heapSize = ESP.getHeapSize();
   float heapUsagePercent = 100.0 - (freeHeap * 100.0 / heapSize);
 
-  Serial.printf("=== Heap Usage: %s ===\n", phase);
-  Serial.printf("Free heap: %d bytes\n", freeHeap);
-  Serial.printf("Total heap: %d bytes\n", heapSize);
+  DEBUG_PRINTF("=== Heap Usage: %s ===\n", phase);
+  DEBUG_PRINTF("Free heap: %d bytes\n", freeHeap);
+  DEBUG_PRINTF("Total heap: %d bytes\n", heapSize);
   Serial.printf("Heap usage: %.1f%%\n", heapUsagePercent);
-  Serial.printf("==========================\n");
+  DEBUG_PRINTF("==========================\n");
 }

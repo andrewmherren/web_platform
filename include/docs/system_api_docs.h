@@ -1,6 +1,7 @@
 #ifndef SYSTEM_API_DOCS_H
 #define SYSTEM_API_DOCS_H
 
+#if OPENAPI_ENABLED
 #include "../interface/openapi_factory.h"
 #include <vector>
 
@@ -22,7 +23,6 @@ public:
   static OpenAPIDocumentation createGetNetworkStatus();
   static OpenAPIDocumentation createGetModules();
   static OpenAPIDocumentation createGetOpenAPISpec();
-  static OpenAPIDocumentation createGetCachedOpenAPISpec();
   static OpenAPIDocumentation createResetDevice();
 
   // WiFi Management Documentation
@@ -30,4 +30,5 @@ public:
   static OpenAPIDocumentation createConfigureWifi();
 };
 
+#endif
 #endif

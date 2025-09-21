@@ -1,4 +1,5 @@
-#include "../../include/docs/system_api_docs.h"
+#if OPENAPI_ENABLED
+#include "docs/system_api_docs.h"
 
 // Define module-specific tags
 const std::vector<String> SystemApiDocs::SYSTEM_TAGS = {"System"};
@@ -196,54 +197,6 @@ OpenAPIDocumentation SystemApiDocs::createGetOpenAPISpec() {
   return doc;
 }
 
-OpenAPIDocumentation SystemApiDocs::createGetCachedOpenAPISpec() {
-  OpenAPIDocumentation doc = OpenAPIFactory::create(
-      "Get Fresh OpenAPI Specification",
-      "Returns a freshly generated OpenAPI 3.0 specification for all registered API routes. "
-      "This endpoint always generates a new spec and updates the cache. "
-      "Supports filtering by authentication type.",
-      "getFreshOpenAPISpecification", SYSTEM_TAGS);
-
-  doc.parameters = R"([
-      {
-        "name": "filter",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "string",
-          "enum": ["token", "session", "none"],
-          "description": "Filter routes by authentication type"
-        }
-      }
-    ])";
-
-  doc.responseExample = R"({
-      "openapi": "3.0.0",
-      "info": {
-        "title": "WebPlatform API",
-        "version": "1.0.0",
-        "description": "API for embedded WebPlatform device"
-      },
-      "servers": [
-        {
-          "url": "https://device.local/api",
-          "description": "Device API Server"
-        }
-      ],
-      "paths": {},
-      "components": {
-        "securitySchemes": {}
-      }
-    })";
-
-  doc.responseSchema = R"({
-      "type": "object",
-      "description": "OpenAPI 3.0 specification document"
-    })";
-
-  return doc;
-}
-
 OpenAPIDocumentation SystemApiDocs::createResetDevice() {
   OpenAPIDocumentation doc = OpenAPIFactory::create(
       "Reset device",
@@ -356,3 +309,4 @@ OpenAPIDocumentation SystemApiDocs::createConfigureWifi() {
 
   return doc;
 }
+#endif

@@ -1,4 +1,5 @@
 #include "platform/route_string_pool.h"
+#include "utilities/debug_macros.h"
 #include <Arduino.h>
 #include <vector>
 
@@ -20,7 +21,7 @@ public:
     }
 
     if (sealed) {
-      Serial.println(
+      ERROR_PRINTLN(
           "ERROR: Attempted to store string in sealed RouteStringPool");
       return nullptr;
     }
@@ -34,8 +35,8 @@ public:
 
     // Safety check - never exceed reserved capacity
     if (strings.size() >= strings.capacity()) {
-      Serial.printf("ERROR: RouteStringPool capacity exceeded (%d/%d)\n",
-                    strings.size(), strings.capacity());
+      ERROR_PRINTF("ERROR: RouteStringPool capacity exceeded (%d/%d)\n",
+                   strings.size(), strings.capacity());
       return nullptr;
     }
 
@@ -46,8 +47,8 @@ public:
 
   void seal() {
     sealed = true;
-    Serial.printf("RouteStringPool: Sealed with %d strings, capacity %d\n",
-                  strings.size(), strings.capacity());
+    DEBUG_PRINTF("RouteStringPool: Sealed with %d strings, capacity %d\n",
+                 strings.size(), strings.capacity());
   }
 
   size_t size() const { return strings.size(); }

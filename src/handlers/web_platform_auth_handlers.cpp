@@ -81,10 +81,7 @@ void WebPlatform::loginApiHandler(WebRequest &req, WebResponse &res) {
     return;
   } else {
     // Invalid credentials, show login form with error
-    String loginHtml = String(LOGIN_PAGE_ERROR_HTML);
-    loginHtml.replace("{{redirectUrl}}", redirectUrl);
-
-    res.setContent(loginHtml);
+    res.setProgmemContent(LOGIN_PAGE_ERROR_HTML, "text/html");
     res.setStatus(401);
     return;
   }
@@ -116,9 +113,7 @@ void WebPlatform::logoutPageHandler(WebRequest &req, WebResponse &res) {
 void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {
   String csrfToken = AuthStorage::createPageToken(req.getClientIp());
 
-  String accountHtml = String(ACCOUNT_PAGE_HTML);
-
-  res.setContent(accountHtml);
+  res.setProgmemContent(ACCOUNT_PAGE_HTML, "text/html");
 
   // Set HttpOnly cookie with page token (CSRF protection)
   res.setHeader("Set-Cookie",
@@ -130,62 +125,6 @@ void WebPlatform::accountPageHandler(WebRequest &req, WebResponse &res) {
 void WebPlatform::accountPageJSAssetHandler(WebRequest &req, WebResponse &res) {
   res.setProgmemContent(ACCOUNT_PAGE_JS, "application/javascript");
   res.setHeader("Cache-Control", "public, max-age=3600");
-}
-
-void WebPlatform::updateUserApiHandler(WebRequest &req, WebResponse &res) {
-  const AuthContext &auth = req.getAuthContext();
-  String username = auth.username;
-  String password = req.getJsonParam("password");
-
-  // Currently only password updates are supported
-  if (password.isEmpty()) {
-    JsonResponseBuilder::createErrorResponse(res, "Password is required", 400);
-    return;
-  }
-
-  if (password.length() < 4) {
-    JsonResponseBuilder::createErrorResponse(
-        res, "Password must be at least 4 characters", 400);
-    return;
-  }
-
-  // Get user by username to obtain user ID
-  AuthUser user = AuthStorage::findUserByUsername(username);
-  bool success = AuthStorage::updateUserPassword(user.id, password);
-
-  if (success) {
-    JsonResponseBuilder::createSuccessResponse(res, "User updated");
-  } else {
-    JsonResponseBuilder::createErrorResponse(res, "Failed to update user", 500);
-  }
-}
-
-void WebPlatform::createTokenApiHandler(WebRequest &req, WebResponse &res) {
-  const AuthContext &auth = req.getAuthContext();
-  String username = auth.username;
-
-  // Try to get token name from JSON body first
-  String tokenName = req.getJsonParam("name");
-
-  // Fallback to form parameter for backward compatibility
-  if (tokenName.isEmpty()) {
-    tokenName = req.getParam("name");
-  }
-
-  if (tokenName.isEmpty()) {
-    JsonResponseBuilder::createErrorResponse(res, "Token name is required",
-                                             400);
-    return;
-  }
-
-  // Get user by username to obtain user ID
-  AuthUser user = AuthStorage::findUserByUsername(username);
-  String token = AuthStorage::createApiToken(user.id, tokenName);
-
-  JsonResponseBuilder::createResponse<256>(res, [&](JsonObject &json) {
-    json["success"] = true;
-    json["token"] = token;
-  });
 }
 
 void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {

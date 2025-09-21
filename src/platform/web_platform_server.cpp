@@ -1,5 +1,5 @@
-#include "../../include/interface/web_request.h"
-#include "../../include/web_platform.h"
+#include "interface/web_request.h"
+#include "web_platform.h"
 #include <WebServer.h>
 
 void WebPlatform::startServer() {
@@ -19,7 +19,7 @@ void WebPlatform::startServer() {
 
       server = new WebServerClass(serverPort);
       if (!server) {
-        Serial.println("WebPlatform: ERROR - Failed to create web server!");
+        ERROR_PRINTLN("WebPlatform: ERROR - Failed to create web server!");
         return;
       }
 
@@ -27,7 +27,7 @@ void WebPlatform::startServer() {
 
       server->begin();
       running = true;
-      Serial.printf(
+      DEBUG_PRINTF(
           "WebPlatform: HTTP server started on port %d (HTTPS fallback)\n",
           serverPort);
     } else {
@@ -43,7 +43,7 @@ void WebPlatform::startServer() {
 
       server = new WebServerClass(80); // Always use port 80 for HTTP redirects
       if (!server) {
-        Serial.println(
+        ERROR_PRINTLN(
             "WebPlatform: ERROR - Failed to create HTTP redirect server!");
         return;
       }
@@ -75,8 +75,8 @@ void WebPlatform::startServer() {
           }
         }
 
-        Serial.printf("WebPlatform: Redirecting HTTP request to HTTPS: %s\n",
-                      httpsUrl.c_str());
+        DEBUG_PRINTF("WebPlatform: Redirecting HTTP request to HTTPS: %s\n",
+                     httpsUrl.c_str());
         server->sendHeader("Location", httpsUrl);
         server->sendHeader("Connection", "close");
         server->send(301, "text/plain", "Redirecting to secure connection...");
@@ -87,9 +87,9 @@ void WebPlatform::startServer() {
 
       server->begin();
       running = true;
-      Serial.printf("WebPlatform: HTTPS server running on port %d with "
-                    "HTTP-to-HTTPS redirection on port 80\n",
-                    serverPort);
+      DEBUG_PRINTF("WebPlatform: HTTPS server running on port %d with "
+                   "HTTP-to-HTTPS redirection on port 80\n",
+                   serverPort);
     }
   } else {
     // HTTP only mode
@@ -102,7 +102,7 @@ void WebPlatform::startServer() {
 
     server = new WebServerClass(serverPort);
     if (!server) {
-      Serial.println("WebPlatform: ERROR - Failed to create web server!");
+      ERROR_PRINTLN("WebPlatform: ERROR - Failed to create web server!");
       return;
     }
 
@@ -110,13 +110,13 @@ void WebPlatform::startServer() {
 
     server->begin();
     running = true;
-    Serial.printf("WebPlatform: HTTP server started on port %d\n", serverPort);
+    DEBUG_PRINTF("WebPlatform: HTTP server started on port %d\n", serverPort);
   }
 }
 
 void WebPlatform::configureHttpsServer() {
   if (httpsServerHandle) {
-    Serial.println("WebPlatform: HTTPS server already running");
+    DEBUG_PRINTLN("WebPlatform: HTTPS server already running");
     return;
   }
 
@@ -125,7 +125,7 @@ void WebPlatform::configureHttpsServer() {
   size_t cert_len, key_len;
 
   if (!getEmbeddedCertificates(&cert_data, &cert_len, &key_data, &key_len)) {
-    Serial.println("WebPlatform: Failed to get certificates for HTTPS");
+    DEBUG_PRINTLN("WebPlatform: Failed to get certificates for HTTPS");
     httpsEnabled = false;
     return;
   }
@@ -150,13 +150,13 @@ void WebPlatform::configureHttpsServer() {
   // Start HTTPS server
   esp_err_t ret = httpd_ssl_start(&httpsServerHandle, &config);
   if (ret != ESP_OK) {
-    Serial.printf("WebPlatform: Failed to start HTTPS server: %d\n", ret);
+    DEBUG_PRINTF("WebPlatform: Failed to start HTTPS server: %d\n", ret);
     httpsServerHandle = nullptr;
     httpsEnabled = false;
     return;
   }
 
-  Serial.println("WebPlatform: HTTPS server started successfully");
+  DEBUG_PRINTLN("WebPlatform: HTTPS server started successfully");
 
   registerUnifiedHttpsRoutes();
 
@@ -169,15 +169,8 @@ void WebPlatform::configureHttpsServer() {
         String requestPath = request.getPath();
 
         // Convert ESP-IDF method back to our WebModule method for comparison
-        WebModule::Method wmMethod = WebModule::WM_GET; // default
-        if (req->method == HTTP_POST)
-          wmMethod = WebModule::WM_POST;
-        else if (req->method == HTTP_PUT)
-          wmMethod = WebModule::WM_PUT;
-        else if (req->method == HTTP_DELETE)
-          wmMethod = WebModule::WM_DELETE;
-        else if (req->method == HTTP_PATCH)
-          wmMethod = WebModule::WM_PATCH;
+        WebModule::Method wmMethod =
+            httpMethodToWMMethod((HTTPMethod)req->method);
 
         // Check all routes including wildcard ones
         for (const auto &route : routeRegistry) {
@@ -221,21 +214,21 @@ void WebPlatform::configureHttpsServer() {
         }
         return ESP_OK;
       });
-  Serial.println("Registered 404 error handler");
+  DEBUG_PRINTLN("Registered 404 error handler");
 
-  Serial.println("WebPlatform: HTTPS routes registered successfully");
+  DEBUG_PRINTLN("WebPlatform: HTTPS routes registered successfully");
 }
 
 bool WebPlatform::detectHttpsCapability() {
   // Full certificate detection without build flags requirement
   // NOTE: Config portal always uses HTTP for captive portal compatibility
   if (currentMode == CONFIG_PORTAL) {
-    Serial.println("WebPlatform: Config portal mode - forcing HTTP for captive "
-                   "portal compatibility");
+    DEBUG_PRINTLN("WebPlatform: Config portal mode - forcing HTTP for captive "
+                  "portal compatibility");
     return false;
   }
 
-  Serial.println("WebPlatform: Checking for SSL certificates...");
+  DEBUG_PRINTLN("WebPlatform: Checking for SSL certificates...");
   return areCertificatesAvailable();
 }
 
@@ -244,7 +237,7 @@ bool WebPlatform::areCertificatesAvailable() {
   size_t cert_len, key_len;
 
   if (!getEmbeddedCertificates(&cert_data, &cert_len, &key_data, &key_len)) {
-    Serial.println("WebPlatform: No embedded certificates found");
+    DEBUG_PRINTLN("WebPlatform: No embedded certificates found");
     return false;
   }
 
@@ -255,14 +248,14 @@ bool WebPlatform::areCertificatesAvailable() {
 
     if (certStart.indexOf("-----BEGIN CERTIFICATE-----") >= 0 &&
         keyStart.indexOf("-----BEGIN") >= 0) {
-      Serial.printf("WebPlatform: SSL certificates validated (cert: %d bytes, "
-                    "key: %d bytes)\n",
-                    cert_len, key_len);
+      DEBUG_PRINTF("WebPlatform: SSL certificates validated (cert: %d bytes, "
+                   "key: %d bytes)\n",
+                   cert_len, key_len);
       return true;
     }
   }
 
-  Serial.println("WebPlatform: Invalid certificate format");
+  DEBUG_PRINTLN("WebPlatform: Invalid certificate format");
   return false;
 }
 

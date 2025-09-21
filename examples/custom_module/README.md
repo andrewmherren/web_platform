@@ -156,7 +156,7 @@ This example uses simulated sensor readings. To adapt for real sensors:
 2. **Add sensor initialization** in `begin()`:
    ```cpp
    void EnvironmentalSensorModule::begin() {
-     Serial.println("Environmental Sensor Module initialized");
+     DEBUG_PRINTLN("Environmental Sensor Module initialized");
      // realSensor.begin();
      updateSensorReadings();
    }

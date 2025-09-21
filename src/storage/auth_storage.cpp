@@ -1,7 +1,9 @@
-#include "../../include/storage/auth_storage.h"
-#include "../../include/auth/auth_constants.h"
-#include "../../include/auth/auth_utils.h"
-#include "../../include/models/data_models.h"
+#include "storage/auth_storage.h"
+#include "auth/auth_constants.h"
+#include "auth/auth_utils.h"
+#include "models/data_models.h"
+#include "utilities/debug_macros.h"
+
 #include <ArduinoJson.h>
 
 // Initialize static members
@@ -36,11 +38,10 @@ void AuthStorage::createDefaultAdminUser() {
     bool stored = driver->store(USERS_COLLECTION, admin.id, admin.toJson());
 
     if (stored) {
-      Serial.printf("AuthStorage: Created default admin user (ID: %s)\n",
-                    admin.id.c_str());
+      DEBUG_PRINTF("AuthStorage: Created default admin user (ID: %s)\n",
+                   admin.id.c_str());
     } else {
-      Serial.println(
-          "AuthStorage: ERROR - Failed to create default admin user");
+      ERROR_PRINTLN("AuthStorage: ERROR - Failed to create default admin user");
     }
   }
 }
@@ -62,7 +63,7 @@ void AuthStorage::initialize(const String &driver) {
   if (driverName.length() > 0) {
     IDatabaseDriver *targetDriver = StorageManager::driver(driverName);
     if (!targetDriver) {
-      Serial.printf(
+      DEBUG_PRINTF(
           "AuthStorage: Warning - driver '%s' not found, using default\n",
           driverName.c_str());
       driverName = "";
@@ -77,8 +78,8 @@ void AuthStorage::initialize(const String &driver) {
   // Clean expired data
   cleanExpiredData();
 
-  Serial.printf("AuthStorage: Initialized with driver '%s'\n",
-                driverName.length() > 0 ? driverName.c_str() : "default");
+  DEBUG_PRINTF("AuthStorage: Initialized with driver '%s'\n",
+               driverName.length() > 0 ? driverName.c_str() : "default");
 }
 
 // User management
@@ -93,7 +94,7 @@ String AuthStorage::createUser(const String &username, const String &password) {
   // Check if username already exists
   AuthUser existing = findUserByUsername(username);
   if (existing.isValid()) {
-    Serial.printf("AuthStorage: User '%s' already exists\n", username.c_str());
+    DEBUG_PRINTF("AuthStorage: User '%s' already exists\n", username.c_str());
     return "";
   }
 
@@ -105,8 +106,8 @@ String AuthStorage::createUser(const String &username, const String &password) {
   IDatabaseDriver *driver = StorageManager::driver(driverName);
 
   if (driver->store(USERS_COLLECTION, user.id, user.toJson())) {
-    Serial.printf("AuthStorage: Created user '%s' (ID: %s)\n", username.c_str(),
-                  user.id.c_str());
+    DEBUG_PRINTF("AuthStorage: Created user '%s' (ID: %s)\n", username.c_str(),
+                 user.id.c_str());
     return user.id;
   }
 
@@ -173,8 +174,8 @@ bool AuthStorage::updateUserPassword(const String &userId,
   bool success = driver->store(USERS_COLLECTION, userId, user.toJson());
 
   if (success) {
-    Serial.printf("AuthStorage: Updated password for user ID %s\n",
-                  userId.c_str());
+    DEBUG_PRINTF("AuthStorage: Updated password for user ID %s\n",
+                 userId.c_str());
   }
 
   return success;
@@ -191,7 +192,7 @@ bool AuthStorage::deleteUser(const String &userId) {
   bool success = driver->remove(USERS_COLLECTION, userId);
 
   if (success) {
-    Serial.printf("AuthStorage: Deleted user ID %s\n", userId.c_str());
+    DEBUG_PRINTF("AuthStorage: Deleted user ID %s\n", userId.c_str());
 
     // Clean up user's sessions and tokens
     // Use QueryBuilder to remove by userId
@@ -355,7 +356,7 @@ int AuthStorage::cleanExpiredSessions() {
   }
 
   if (cleaned > 0) {
-    Serial.printf("AuthStorage: Cleaned %d expired sessions\n", cleaned);
+    DEBUG_PRINTF("AuthStorage: Cleaned %d expired sessions\n", cleaned);
   }
 
   return cleaned;
@@ -489,7 +490,7 @@ int AuthStorage::cleanExpiredApiTokens() {
   }
 
   if (cleaned > 0) {
-    Serial.printf("AuthStorage: Cleaned %d expired API tokens\n", cleaned);
+    DEBUG_PRINTF("AuthStorage: Cleaned %d expired API tokens\n", cleaned);
   }
 
   return cleaned;
@@ -532,23 +533,23 @@ bool AuthStorage::validatePageToken(const String &token,
   String tokenData = query.where("token", token).get();
 
   if (tokenData.length() == 0) {
-    Serial.printf("PageToken validation failed: token '%s...' not found\n",
-                  token.substring(0, 6).c_str());
+    DEBUG_PRINTF("PageToken validation failed: token '%s...' not found\n",
+                 token.substring(0, 6).c_str());
     return false;
   }
 
   AuthPageToken pageToken = AuthPageToken::fromJson(tokenData);
   if (!pageToken.isValid()) {
-    Serial.printf("PageToken validation failed: token '%s...' expired\n",
-                  token.substring(0, 6).c_str());
+    DEBUG_PRINTF("PageToken validation failed: token '%s...' expired\n",
+                 token.substring(0, 6).c_str());
     IDatabaseDriver *driver = StorageManager::driver(driverName);
     driver->remove(PAGE_TOKENS_COLLECTION, pageToken.id);
     return false;
   }
 
   if (pageToken.clientIp != clientIp) {
-    Serial.printf("PageToken IP mismatch: token IP '%s' vs request IP '%s'\n",
-                  pageToken.clientIp.c_str(), clientIp.c_str());
+    DEBUG_PRINTF("PageToken IP mismatch: token IP '%s' vs request IP '%s'\n",
+                 pageToken.clientIp.c_str(), clientIp.c_str());
     return false;
   }
 
@@ -575,7 +576,7 @@ int AuthStorage::cleanExpiredPageTokens() {
   }
 
   if (cleaned > 0) {
-    Serial.printf("AuthStorage: Cleaned %d expired page tokens\n", cleaned);
+    DEBUG_PRINTF("AuthStorage: Cleaned %d expired page tokens\n", cleaned);
   }
 
   return cleaned;
@@ -596,8 +597,8 @@ int AuthStorage::cleanupExpiredData() {
   total += cleanExpiredPageTokens();
 
   if (total > 0) {
-    Serial.printf("AuthStorage: Total cleanup - removed %d expired records\n",
-                  total);
+    DEBUG_PRINTF("AuthStorage: Total cleanup - removed %d expired records\n",
+                 total);
   }
 
   return total;

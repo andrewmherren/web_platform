@@ -136,7 +136,7 @@ void setup() {
             }
             
             String command = req.getParam("command");
-            Serial.println("Received command: " + command);
+            DEBUG_PRINTLN("Received command: " + command);
             
             // Execute your device command logic here
             bool success = (command == "restart" || command == "status");
@@ -485,12 +485,12 @@ void protectedHandler(WebRequest& req, WebResponse& res) {
     if (auth.authenticatedVia == AuthType::SESSION) {
         // Web user logged in with username/password
         String username = auth.username;
-        Serial.println("Web user: " + username);
+        DEBUG_PRINTLN("Web user: " + username);
         
     } else if (auth.authenticatedVia == AuthType::TOKEN) {
         // API access with token
         String tokenId = auth.token;
-        Serial.println("API access with token: " + tokenId);
+        DEBUG_PRINTLN("API access with token: " + tokenId);
     }
     
     // Check if user has admin privileges (custom logic)

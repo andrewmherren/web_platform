@@ -7,6 +7,7 @@
 #include "interface/web_request.h"
 #include "interface/web_response.h"
 #include "platform/ntp_client.h"
+#include "utilities/debug_macros.h"
 #include <ArduinoJson.h>
 #include <DNSServer.h>
 #include <EEPROM.h>
@@ -103,8 +104,6 @@ public:
                    const AuthRequirements &auth, WebModule::Method method,
                    const OpenAPIDocumentation &docs = OpenAPIDocumentation());
 
-  void clearRouteRegistry();
-
   // Handle all web requests and WiFi operations
   void handle();
 
@@ -118,7 +117,7 @@ public:
 
   // Server capabilities
   String getBaseUrl() const;
-  int getPort() const { return serverPort; }
+  // int getPort() const { return serverPort; }
 
   // Device information
   const char *getAPName() const { return apSSIDBuffer; }
@@ -126,8 +125,6 @@ public:
 
   // WiFi management
   void resetWiFiCredentials();
-  void startConfigPortal();
-  void onSetupComplete(WiFiSetupCompleteCallback callback);
 
   // IWebModule interface (for consistency, though not used by web_router)
   std::vector<RouteVariant> getHttpRoutes() override;
@@ -138,9 +135,9 @@ public:
   // Debug and monitoring
   size_t getRouteCount() const;
   void printUnifiedRoutes() const;
-  void validateRoutes() const;
+  // void validateRoutes() const;
 
-  // Memory analysis functions (Phase 1)
+  // Memory analysis functions
   void measureHeapUsage(const char *phase);
 
   // IPlatformService implementation
@@ -157,7 +154,6 @@ public:
   String generateOperationId(const String &method, const String &path) const;
   String inferModuleFromPath(const String &path) const;
   String formatModuleName(const String &moduleName) const;
-  bool hasTokenAuth(const AuthRequirements &requirements) const;
   void addParametersToOperation(JsonObject &operation,
                                 const RouteEntry &route) const;
   void addResponsesToOperation(JsonObject &operation,
@@ -180,7 +176,6 @@ private:                            // Core server components
 
   // CSRF token processing
   void addCsrfCookie(WebResponse &res, const String &token);
-  void processCsrfForResponse(WebRequest &req, WebResponse &res);
 
   // Handlers
   void rootPageHandler(WebRequest &req, WebResponse &res);
@@ -195,7 +190,6 @@ private:                            // Core server components
   void logoutPageHandler(WebRequest &req, WebResponse &res);
   void accountPageHandler(WebRequest &req, WebResponse &res);
   void accountPageJSAssetHandler(WebRequest &req, WebResponse &res);
-  void configPortalSavePageHandler(WebRequest &req, WebResponse &res);
   void configPortalPageHandler(WebRequest &req, WebResponse &res);
   void configPortalSuccessJSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformCSSAssetHandler(WebRequest &req, WebResponse &res);
@@ -221,10 +215,6 @@ private:                            // Core server components
   void getUserTokensApiHandler(WebRequest &req, WebResponse &res);
   void createUserTokenApiHandler(WebRequest &req, WebResponse &res);
   void deleteTokenApiHandler(WebRequest &req, WebResponse &res);
-
-  // Legacy handlers (for compatibility with account page)
-  void updateUserApiHandler(WebRequest &req, WebResponse &res);
-  void createTokenApiHandler(WebRequest &req, WebResponse &res);
 
   // System status API handlers
   void getSystemStatusApiHandler(WebRequest &req, WebResponse &res);
@@ -352,11 +342,7 @@ public:
 
   // HTTP request handling helpers
   void handleNotFound();
-  String extractPostParameter(const String &postBody, const String &paramName);
   std::map<String, String> parseQueryParams(const String &query);
-
-  // Captive portal helpers
-  bool isCaptivePortalRequest(const String &host);
 
   // Status and monitoring
   void updateConnectionState();

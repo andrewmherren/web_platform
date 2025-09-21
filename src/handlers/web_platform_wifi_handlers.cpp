@@ -7,9 +7,9 @@ void WebPlatform::scanApiHandler(WebRequest &req, WebResponse &res) {
   DynamicJsonDocument doc(2048);
   JsonArray networks = doc.createNestedArray("networks");
 
-  Serial.println("WebPlatform: Scanning for WiFi networks...");
+  DEBUG_PRINTLN("WebPlatform: Scanning for WiFi networks...");
   int n = WiFi.scanNetworks();
-  Serial.printf("WebPlatform: Found %d networks\n", n);
+  DEBUG_PRINTF("WebPlatform: Found %d networks\n", n);
 
   // Sort networks by signal strength (RSSI)
   struct WiFiNetwork {
@@ -88,13 +88,13 @@ void WebPlatform::resetApiHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::wifiConfigHandler(WebRequest &req, WebResponse &res) {
-  Serial.println("WebPlatform: Received WiFi save API request");
+  DEBUG_PRINTLN("WebPlatform: Received WiFi save API request");
 
   String ssid = req.getJsonParam("ssid");
   String password = req.getJsonParam("password");
 
-  Serial.printf("SSID: %s, Password length: %d chars (redacted for security)\n",
-                ssid.c_str(), password.length());
+  DEBUG_PRINTF("SSID: %s, Password length: %d chars (redacted for security)\n",
+               ssid.c_str(), password.length());
 
   if (ssid.length() > 0) {
     // Reset and save credentials
@@ -105,9 +105,9 @@ void WebPlatform::wifiConfigHandler(WebRequest &req, WebResponse &res) {
     // Verify credentials
     String checkSsid, checkPass;
     bool credentialsValid = loadWiFiCredentials(checkSsid, checkPass);
-    Serial.printf("WebPlatform: Credential verification %s - SSID match: %s\n",
-                  credentialsValid ? "passed" : "failed",
-                  checkSsid == ssid ? "yes" : "no");
+    DEBUG_PRINTF("WebPlatform: Credential verification %s - SSID match: %s\n",
+                 credentialsValid ? "passed" : "failed",
+                 checkSsid == ssid ? "yes" : "no");
 
     // Return success response using JsonResponseBuilder
     JsonResponseBuilder::createResponse<256>(res, [&](JsonObject &json) {
@@ -118,16 +118,16 @@ void WebPlatform::wifiConfigHandler(WebRequest &req, WebResponse &res) {
     });
 
     // Schedule restart after response is sent
-    Serial.println(
+    DEBUG_PRINTLN(
         "WebPlatform: WiFi credentials saved - restarting in 3 seconds...");
     delay(1000);
-    Serial.println("WebPlatform: Restarting in 2 seconds...");
+    DEBUG_PRINTLN("WebPlatform: Restarting in 2 seconds...");
     delay(1000);
-    Serial.println("WebPlatform: Restarting in 1 second...");
+    DEBUG_PRINTLN("WebPlatform: Restarting in 1 second...");
     delay(1000);
     ESP.restart();
   } else {
-    Serial.println("WebPlatform: No SSID provided in API request");
+    DEBUG_PRINTLN("WebPlatform: No SSID provided in API request");
 
     JsonResponseBuilder::createErrorResponse(res, "SSID is required", 400);
   }

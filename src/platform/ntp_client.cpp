@@ -1,4 +1,6 @@
-#include "../../include/platform/ntp_client.h"
+#include "platform/ntp_client.h"
+#include "utilities/debug_macros.h"
+
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <time.h>
@@ -16,9 +18,9 @@ void NTPClient::begin(const char *server, unsigned long updateInterval) {
   _updateInterval = updateInterval;
   _initialized = true;
 
-  Serial.println("[NTP] Initializing NTP client (UTC mode)...");
-  Serial.print("[NTP] Server: ");
-  Serial.println(_ntpServer);
+  DEBUG_PRINTLN("[NTP] Initializing NTP client (UTC mode)...");
+  DEBUG_PRINT("[NTP] Server: ");
+  DEBUG_PRINTLN(_ntpServer);
 
   // Configure NTP in UTC mode
   configTime(0, 0, _ntpServer);
@@ -44,11 +46,11 @@ void NTPClient::handle() {
 
 bool NTPClient::forceSync() {
   if (!_initialized || !WiFi.isConnected()) {
-    Serial.println("[NTP] Cannot sync: not initialized or WiFi not connected");
+    DEBUG_PRINTLN("[NTP] Cannot sync: not initialized or WiFi not connected");
     return false;
   }
 
-  Serial.println("[NTP] Forcing time synchronization...");
+  DEBUG_PRINTLN("[NTP] Forcing time synchronization...");
   return syncTimeFromNTP();
 }
 
@@ -62,21 +64,21 @@ bool NTPClient::syncTimeFromNTP() {
     delay(500);
     now = time(nullptr);
     attempts++;
-    Serial.print(".");
+    DEBUG_PRINT(".");
   }
 
   if (now > 100000) { // Successfully got time
     _synchronized = true;
     _lastSyncTime = millis();
 
-    Serial.println();
-    Serial.print("[NTP] Time synchronized: ");
-    Serial.println(getFormattedTime());
+    DEBUG_PRINTLN();
+    DEBUG_PRINT("[NTP] Time synchronized: ");
+    DEBUG_PRINTLN(getFormattedTime());
 
     return true;
   } else {
-    Serial.println();
-    Serial.println("[NTP] Failed to synchronize time");
+    WARN_PRINTLN();
+    WARN_PRINTLN("[NTP] Failed to synchronize time");
     return false;
   }
 }

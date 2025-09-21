@@ -2,6 +2,7 @@
 #define WEB_MODULE_INTERFACE_H
 
 #include "../../assets/web_ui_styles.h"
+#include "utilities/debug_macros.h"
 #include "auth_types.h"
 #include "openapi_factory.h"
 #include "openapi_types.h"
@@ -47,7 +48,7 @@ private:
   // Helper function to check for API path usage warning
   static void checkApiPathWarning(const String &p) {
     if (p.startsWith("/api/") || p.startsWith("api/")) {
-      Serial.println(
+      WARN_PRINTLN(
           "WARNING: WebRoute path '" + p +
           "' starts with '/api/' or 'api/'. Consider using ApiRoute instead "
           "for better API documentation and path normalization.");

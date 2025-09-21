@@ -6,16 +6,9 @@
 #include <WebServer.h>
 
 // WebPlatform unified route handler implementation
-// This file implements the new route registration system for Phase 1
 
 // Define the global vector
 std::vector<RouteEntry> routeRegistry;
-
-void WebPlatform::clearRouteRegistry() {
-  Serial.printf("WebPlatform: Clearing route registry (%d routes)\n",
-                routeRegistry.size());
-  routeRegistry.clear();
-}
 
 void WebPlatform::registerWebRoute(const String &path,
                                    WebModule::UnifiedRouteHandler handler,
@@ -23,7 +16,7 @@ void WebPlatform::registerWebRoute(const String &path,
                                    WebModule::Method method) {
   // Check for API path usage warning
   if (path.startsWith("/api/") || path.startsWith("api/")) {
-    Serial.println(
+    WARN_PRINTLN(
         "WARNING: registerWebRoute() path '" + path +
         "' starts with '/api/' or 'api/'. Consider using registerApiRoute() "
         "instead for better API documentation and path normalization.");
@@ -81,12 +74,13 @@ void WebPlatform::registerRoute(const String &path,
     if (strcmp(route.path ? route.path : "", storedPath ? storedPath : "") ==
             0 &&
         route.method == method) {
-      Serial.printf("WebPlatform: Route %s %s already exists, replacing\n",
-                    wmMethodToString(method).c_str(),
-                    storedPath ? storedPath : "null");
+      DEBUG_PRINTF("WebPlatform: Route %s %s already exists, replacing\n",
+                   wmMethodToString(method).c_str(),
+                   storedPath ? storedPath : "null");
       route.handler = handler;
       route.authRequirements = auth;
 
+      #if OPENAPI_ENABLED
       // Add OpenAPI documentation - store strings in pool
       route.summary = RouteStringPool::store(docs.summary);
       route.operationId = RouteStringPool::store(docs.operationId);
@@ -98,6 +92,7 @@ void WebPlatform::registerRoute(const String &path,
       route.responseSchema = RouteStringPool::store(docs.responseSchema);
       route.parameters = RouteStringPool::store(docs.parameters);
       route.responseInfo = RouteStringPool::store(docs.responsesJson);
+      #endif
 
       return;
     }
@@ -106,6 +101,7 @@ void WebPlatform::registerRoute(const String &path,
   // Add new route
   RouteEntry newRoute(storedPath, method, handler, auth);
 
+  #if OPENAPI_ENABLED
   // Add OpenAPI documentation - store strings in pool
   newRoute.summary = RouteStringPool::store(docs.summary);
   newRoute.operationId = RouteStringPool::store(docs.operationId);
@@ -117,6 +113,7 @@ void WebPlatform::registerRoute(const String &path,
   newRoute.responseSchema = RouteStringPool::store(docs.responseSchema);
   newRoute.parameters = RouteStringPool::store(docs.parameters);
   newRoute.responseInfo = RouteStringPool::store(docs.responsesJson);
+  #endif
 
   routeRegistry.push_back(newRoute);
 }
@@ -234,8 +231,8 @@ void WebPlatform::executeRouteWithAuth(const RouteEntry &route,
                                        WebRequest &request,
                                        WebResponse &response,
                                        const String &serverType) {
-  Serial.printf("%s handling request: %s with route pattern: %s\n",
-                serverType.c_str(), request.getPath().c_str(), route.path);
+  DEBUG_PRINTF("%s handling request: %s with route pattern: %s\n",
+               serverType.c_str(), request.getPath().c_str(), route.path);
 
   // Set the matched route pattern on the request for parameter extraction
   request.setMatchedRoute(route.path);
@@ -262,7 +259,7 @@ void WebPlatform::executeRouteWithAuth(const RouteEntry &route,
     // Process templates and CSRF token injection for responses that should be
     // processed
     if (!response.isResponseSent() && this->shouldProcessResponse(response)) {
-      Serial.printf(
+      DEBUG_PRINTF(
           "Processing templates for %s %s response, content length: %d\n",
           serverType.c_str(), request.getPath().c_str(),
           response.getContent().length());
@@ -296,9 +293,9 @@ bool WebPlatform::dispatchRoute(const String &path, WebModule::Method wmMethod,
 bool WebPlatform::shouldSkipRoute(const RouteEntry &route,
                                   const String &serverType) {
   if (!route.handler) {
-    Serial.printf("WebPlatform: Skipping %s route with null handler %s %s\n",
-                  serverType.c_str(), wmMethodToString(route.method).c_str(),
-                  route.path ? route.path : "<null>");
+    DEBUG_PRINTF("WebPlatform: Skipping %s route with null handler %s %s\n",
+                 serverType.c_str(), wmMethodToString(route.method).c_str(),
+                 route.path ? route.path : "<null>");
     return true;
   }
 
@@ -308,7 +305,7 @@ bool WebPlatform::shouldSkipRoute(const RouteEntry &route,
 // Internal method to register unified routes with actual server
 void WebPlatform::bindRegisteredRoutes() {
   if (!server) {
-    Serial.println("WebPlatform: No HTTP server to register unified routes on");
+    DEBUG_PRINTLN("WebPlatform: No HTTP server to register unified routes on");
     return;
   }
 
@@ -320,8 +317,8 @@ void WebPlatform::bindRegisteredRoutes() {
   isHttpRedirectServer = isRedirectServer;
 
   if (isHttpRedirectServer) {
-    Serial.println("WebPlatform: Skipping unified route registration on HTTP "
-                   "redirect server");
+    DEBUG_PRINTLN("WebPlatform: Skipping unified route registration on HTTP "
+                  "redirect server");
     return;
   }
 
@@ -399,15 +396,8 @@ void WebPlatform::bindRegisteredRoutes() {
     HTTPMethod requestMethod = server->method();
 
     // Convert HTTP method back to our WebModule method
-    WebModule::Method wmMethod = WebModule::WM_GET; // default
-    if (requestMethod == HTTP_POST)
-      wmMethod = WebModule::WM_POST;
-    else if (requestMethod == HTTP_PUT)
-      wmMethod = WebModule::WM_PUT;
-    else if (requestMethod == HTTP_DELETE)
-      wmMethod = WebModule::WM_DELETE;
-    else if (requestMethod == HTTP_PATCH)
-      wmMethod = WebModule::WM_PATCH;
+    WebModule::Method wmMethod =
+            httpMethodToWMMethod(requestMethod);
 
     // Check all routes for wildcard matches
     for (const auto &route : routeRegistry) {
@@ -436,8 +426,7 @@ void WebPlatform::bindRegisteredRoutes() {
 // Internal method to register unified routes with HTTPS server
 void WebPlatform::registerUnifiedHttpsRoutes() {
   if (!httpsServerHandle || !httpsEnabled) {
-    Serial.println(
-        "WebPlatform: No HTTPS server to register unified routes on");
+    DEBUG_PRINTLN("WebPlatform: No HTTPS server to register unified routes on");
     return;
   }
 

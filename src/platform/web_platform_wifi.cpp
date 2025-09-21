@@ -1,10 +1,10 @@
-#include "../../include/platform/ntp_client.h"
-#include "../../include/web_platform.h"
+#include "platform/ntp_client.h"
+#include "web_platform.h"
 
 bool WebPlatform::loadWiFiCredentials(String &ssid, String &password) {
   // Check if credentials exist
   if (EEPROM.read(WIFI_CONFIG_FLAG_ADDR) != 1) {
-    Serial.println("WebPlatform: No WiFi credentials found in EEPROM");
+    DEBUG_PRINTLN("WebPlatform: No WiFi credentials found in EEPROM");
     return false;
   }
 
@@ -27,12 +27,12 @@ bool WebPlatform::loadWiFiCredentials(String &ssid, String &password) {
   }
 
   if (ssid.length() > 0) {
-    Serial.printf("WebPlatform: Loaded stored WiFi credentials - SSID: %s, "
-                  "Password length: %d chars\n",
-                  ssid.c_str(), password.length());
+    DEBUG_PRINTF("WebPlatform: Loaded stored WiFi credentials - SSID: %s, "
+                 "Password length: %d chars\n",
+                 ssid.c_str(), password.length());
     return true;
   } else {
-    Serial.println("WebPlatform: Invalid or empty WiFi credentials in EEPROM");
+    DEBUG_PRINTLN("WebPlatform: Invalid or empty WiFi credentials in EEPROM");
     return false;
   }
 }
@@ -59,15 +59,15 @@ void WebPlatform::saveWiFiCredentials(const String &ssid,
   // Double-check that the write was successful
   uint8_t flagCheck = EEPROM.read(WIFI_CONFIG_FLAG_ADDR);
   if (flagCheck != 1) {
-    Serial.println(
+    ERROR_PRINTLN(
         "WebPlatform: ERROR - Failed to write WiFi config flag to EEPROM!");
     success = false;
   }
 
-  Serial.printf("WebPlatform: WiFi credentials saved for SSID: %s, Password "
-                "length: %d chars, EEPROM commit %s\n",
-                ssid.c_str(), password.length(),
-                success ? "successful" : "failed");
+  DEBUG_PRINTF("WebPlatform: WiFi credentials saved for SSID: %s, Password "
+               "length: %d chars, EEPROM commit %s\n",
+               ssid.c_str(), password.length(),
+               success ? "successful" : "failed");
 }
 
 bool WebPlatform::connectToStoredWiFi(String &ssid, String &password) {
@@ -78,9 +78,9 @@ bool WebPlatform::connectToStoredWiFi(String &ssid, String &password) {
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
     delay(500);
-    Serial.print(".");
+    DEBUG_PRINT(".");
   }
-  Serial.println();
+  DEBUG_PRINTLN();
 
   return WiFi.status() == WL_CONNECTED;
 }
@@ -88,30 +88,30 @@ bool WebPlatform::connectToStoredWiFi(String &ssid, String &password) {
 void WebPlatform::resetWiFiCredentials() {
   EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
   EEPROM.commit();
-  Serial.println("WebPlatform: WiFi credentials reset");
+  DEBUG_PRINTLN("WebPlatform: WiFi credentials reset");
 }
 
 void WebPlatform::setupAccessPoint() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP(apSSIDBuffer, apPassword);
 
-  Serial.printf("WebPlatform: Access Point started: %s\n", apSSIDBuffer);
-  Serial.printf("WebPlatform: AP IP address: %s\n",
-                WiFi.softAPIP().toString().c_str());
+  DEBUG_PRINTF("WebPlatform: Access Point started: %s\n", apSSIDBuffer);
+  DEBUG_PRINTF("WebPlatform: AP IP address: %s\n",
+               WiFi.softAPIP().toString().c_str());
 }
 
 void WebPlatform::setupmDNS() {
   if (MDNS.begin(deviceName)) {
     MDNS.addService("http", "tcp", serverPort);
-    Serial.printf("WebPlatform: mDNS started: %s.local\n", deviceName);
+    DEBUG_PRINTF("WebPlatform: mDNS started: %s.local\n", deviceName);
   } else {
-    Serial.println("WebPlatform: mDNS failed to start");
+    DEBUG_PRINTLN("WebPlatform: mDNS failed to start");
   }
 }
 
 void WebPlatform::updateConnectionState() {
   if (currentMode == CONNECTED && WiFi.status() != WL_CONNECTED) {
-    Serial.println(
+    DEBUG_PRINTLN(
         "WebPlatform: WiFi connection lost, switching to config portal");
     connectionState = WIFI_CONNECTION_FAILED;
     // Note: In a full implementation, this might trigger a restart
@@ -123,7 +123,7 @@ void WebPlatform::determinePlatformMode() {
   String ssid, password;
 
   if (loadWiFiCredentials(ssid, password) && ssid.length() > 0) {
-    Serial.println(
+    DEBUG_PRINTLN(
         "WebPlatform: Found stored WiFi credentials, attempting connection...");
     if (connectToStoredWiFi(ssid, password)) {
       currentMode = CONNECTED;
@@ -133,19 +133,18 @@ void WebPlatform::determinePlatformMode() {
       // Initialize NTP client after WiFi connection
       NTPClient::begin();
 
-      Serial.printf("WebPlatform: Connected to WiFi: %s\n",
-                    WiFi.SSID().c_str());
-      Serial.printf("WebPlatform: IP address: %s\n",
-                    WiFi.localIP().toString().c_str());
+      DEBUG_PRINTF("WebPlatform: Connected to WiFi: %s\n", WiFi.SSID().c_str());
+      DEBUG_PRINTF("WebPlatform: IP address: %s\n",
+                   WiFi.localIP().toString().c_str());
     } else {
-      Serial.println("WebPlatform: Failed to connect to stored WiFi, starting "
-                     "config portal");
+      DEBUG_PRINTLN("WebPlatform: Failed to connect to stored WiFi, starting "
+                    "config portal");
       currentMode = CONFIG_PORTAL;
       connectionState = WIFI_CONFIG_PORTAL;
       setupAccessPoint();
     }
   } else {
-    Serial.println(
+    DEBUG_PRINTLN(
         "WebPlatform: No WiFi credentials found, starting config portal");
     currentMode = CONFIG_PORTAL;
     connectionState = WIFI_CONFIG_PORTAL;
@@ -155,29 +154,12 @@ void WebPlatform::determinePlatformMode() {
 
 void WebPlatform::initializeEEPROM() {
   EEPROM.begin(EEPROM_SIZE);
-  Serial.printf("WebPlatform: EEPROM initialized with size %d bytes\n",
-                EEPROM_SIZE);
+  DEBUG_PRINTF("WebPlatform: EEPROM initialized with size %d bytes\n",
+               EEPROM_SIZE);
 
   // Debug: Check the flag status
   uint8_t configFlag = EEPROM.read(WIFI_CONFIG_FLAG_ADDR);
-  Serial.printf("WebPlatform: EEPROM config flag status: %d (1=configured, "
-                "0=unconfigured)\n",
-                configFlag);
-}
-
-String WebPlatform::extractPostParameter(const String &postBody,
-                                         const String &paramName) {
-  String searchStr = paramName + "=";
-  int startIndex = postBody.indexOf(searchStr);
-  if (startIndex == -1)
-    return "";
-
-  startIndex += searchStr.length();
-  int endIndex = postBody.indexOf("&", startIndex);
-  if (endIndex == -1)
-    endIndex = postBody.length();
-
-  String value = postBody.substring(startIndex, endIndex);
-  // URL decode would go here in a full implementation
-  return value;
+  DEBUG_PRINTF("WebPlatform: EEPROM config flag status: %d (1=configured, "
+               "0=unconfigured)\n",
+               configFlag);
 }

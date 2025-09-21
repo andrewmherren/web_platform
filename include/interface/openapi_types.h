@@ -4,6 +4,9 @@
 #include <Arduino.h>
 #include <vector>
 
+#define OPENAPI_ENABLED WEB_PLATFORM_OPENAPI
+
+#if OPENAPI_ENABLED
 // OpenAPI documentation structure for route registration
 struct OpenAPIDocumentation {
   String summary;           // Short summary of the operation
@@ -52,5 +55,9 @@ struct OpenAPIDocumentation {
     return result;
   }
 };
+#else
+// Empty stub for when OpenAPI is disabled
+struct OpenAPIDocumentation {};
+#endif
 
 #endif // OPENAPI_TYPES_H

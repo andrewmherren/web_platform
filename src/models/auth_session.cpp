@@ -1,7 +1,9 @@
-#include "../../include/auth/auth_constants.h"
-#include "../../include/models/data_models.h"
+#include "auth/auth_constants.h"
+#include "models/data_models.h"
 #include <ArduinoJson.h>
-#include <time.h> // AuthSession implementation
+#include <time.h>
+
+// AuthSession implementation
 AuthSession::AuthSession(const String &sessionId, const String &userId,
                          const String &username)
     : id(sessionId), userId(userId), username(username),
@@ -37,6 +39,7 @@ AuthSession AuthSession::fromJson(const String &json) {
 
   return session;
 }
+
 bool AuthSession::isValid() const {
   return id.length() > 0 && userId.length() > 0 && time(nullptr) < expiresAt;
 }

@@ -7,9 +7,9 @@ void WebPlatform::printUnifiedRoutes() const {
   String headerTitle;
   headerTitle = "WebPlatform Route Registry";
 
-  Serial.printf("\n=== %s ===\n", headerTitle.c_str());
-  Serial.println("PATH                        METHOD  AUTH");
-  Serial.println("--------------------------- ------- -------------");
+  DEBUG_PRINTF("\n=== %s ===\n", headerTitle.c_str());
+  DEBUG_PRINTLN("PATH                        METHOD  AUTH");
+  DEBUG_PRINTLN("--------------------------- ------- -------------");
 
   int routeCount = 0;
   for (const auto &route : routeRegistry) {
@@ -52,13 +52,13 @@ void WebPlatform::printUnifiedRoutes() const {
       authStr += " ";
     }
 
-    Serial.printf("%s %s %s\n", pathStr.c_str(), methodStr.c_str(),
-                  authStr.c_str());
+    DEBUG_PRINTF("%s %s %s\n", pathStr.c_str(), methodStr.c_str(),
+                 authStr.c_str());
   }
 
-  Serial.println("========================================================");
+  DEBUG_PRINTLN("========================================================");
 
-  Serial.printf("Total routes: %d\n\n", routeRegistry.size());
+  DEBUG_PRINTF("Total routes: %d\n\n", routeRegistry.size());
 }
 
 size_t WebPlatform::getRouteCount() const {
@@ -72,49 +72,49 @@ size_t WebPlatform::getRouteCount() const {
 }
 
 // Validation warnings for common route issues
-void WebPlatform::validateRoutes() const {
-  Serial.println("\n=== Route Validation ===");
+// void WebPlatform::validateRoutes() const {
+//   DEBUG_PRINTLN("\n=== Route Validation ===");
 
-  // Check for duplicate paths
-  std::map<String, std::vector<size_t>> pathMethodMap;
+//   // Check for duplicate paths
+//   std::map<String, std::vector<size_t>> pathMethodMap;
 
-  for (size_t i = 0; i < routeRegistry.size(); i++) {
-    const auto &route = routeRegistry[i];
-    String key = String(route.path ? route.path : "") + ":" +
-                 wmMethodToString(route.method);
-    pathMethodMap[key].push_back(i);
-  }
+//   for (size_t i = 0; i < routeRegistry.size(); i++) {
+//     const auto &route = routeRegistry[i];
+//     String key = String(route.path ? route.path : "") + ":" +
+//                  wmMethodToString(route.method);
+//     pathMethodMap[key].push_back(i);
+//   }
 
-  // Report duplicates
-  bool hasDuplicates = false;
-  for (const auto &entry : pathMethodMap) {
-    if (entry.second.size() > 1) {
-      hasDuplicates = true;
-      Serial.printf("WARNING: Duplicate route found: %s\n",
-                    entry.first.c_str());
-    }
-  }
+//   // Report duplicates
+//   bool hasDuplicates = false;
+//   for (const auto &entry : pathMethodMap) {
+//     if (entry.second.size() > 1) {
+//       hasDuplicates = true;
+//       WARN_PRINTF("WARNING: Duplicate route found: %s\n",
+//                     entry.first.c_str());
+//     }
+//   }
 
-  if (!hasDuplicates) {
-    Serial.println("No duplicate routes found.");
-  }
+//   if (!hasDuplicates) {
+//     DEBUG_PRINTLN("No duplicate routes found.");
+//   }
 
-  // Check for routes without authentication
-  bool hasUnauthenticatedRoutes = false;
-  for (const auto &route : routeRegistry) {
-    if (!AuthUtils::requiresAuth(route.authRequirements)) {
-      if (!hasUnauthenticatedRoutes) {
-        Serial.println("Routes without authentication requirements:");
-        hasUnauthenticatedRoutes = true;
-      }
-      Serial.printf("  - %s %s\n", wmMethodToString(route.method).c_str(),
-                    route.path ? route.path : "<null>");
-    }
-  }
+//   // Check for routes without authentication
+//   bool hasUnauthenticatedRoutes = false;
+//   for (const auto &route : routeRegistry) {
+//     if (!AuthUtils::requiresAuth(route.authRequirements)) {
+//       if (!hasUnauthenticatedRoutes) {
+//         DEBUG_PRINTLN("Routes without authentication requirements:");
+//         hasUnauthenticatedRoutes = true;
+//       }
+//       DEBUG_PRINTF("  - %s %s\n", wmMethodToString(route.method).c_str(),
+//                     route.path ? route.path : "<null>");
+//     }
+//   }
 
-  if (!hasUnauthenticatedRoutes) {
-    Serial.println("All routes have authentication requirements.");
-  }
+//   if (!hasUnauthenticatedRoutes) {
+//     DEBUG_PRINTLN("All routes have authentication requirements.");
+//   }
 
-  Serial.println("======================\n");
-}
+//   DEBUG_PRINTLN("======================\n");
+// }

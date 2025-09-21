@@ -1,8 +1,8 @@
-#include "../../include/interface/platform_service.h"
-#include "../../include/platform/ntp_client.h"
-#include "../../include/platform/route_string_pool.h"
-#include "../../include/route_entry.h"
-#include "../../include/web_platform.h"
+#include "interface/platform_service.h"
+#include "platform/ntp_client.h"
+#include "platform/route_string_pool.h"
+#include "route_entry.h"
+#include "web_platform.h"
 
 #include <WebServer.h>
 
@@ -50,7 +50,7 @@ void WebPlatform::begin(const char *deviceName, const PlatformConfig &config) {
 }
 
 void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
-  Serial.println("WebPlatform: Starting initialization...");
+  DEBUG_PRINTLN("WebPlatform: Starting initialization...");
 
   // Set up the global service reference
   g_platformService = this;
@@ -71,7 +71,7 @@ void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
 
   // Force HTTPS-only mode if requested
   if (forceHttpsOnly && httpsEnabled) {
-    Serial.println(
+    DEBUG_PRINTLN(
         "WebPlatform: Forcing HTTPS-only mode with HTTP→HTTPS redirection");
   }
 
@@ -92,12 +92,13 @@ void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
   // Setup routes based on current mode
   setupRoutes();
 
-  Serial.printf("WebPlatform: Initialized in %s mode\n",
-                currentMode == CONFIG_PORTAL ? "CONFIG_PORTAL" : "CONNECTED");
-  Serial.printf("WebPlatform: HTTPS %s\n",
-                httpsEnabled ? "enabled" : "disabled");
-  Serial.printf("WebPlatform: Server running on port %d\n", serverPort);
+  DEBUG_PRINTF("WebPlatform: Initialized in %s mode\n",
+               currentMode == CONFIG_PORTAL ? "CONFIG_PORTAL" : "CONNECTED");
+  DEBUG_PRINTF("WebPlatform: HTTPS %s\n",
+               httpsEnabled ? "enabled" : "disabled");
+  DEBUG_PRINTF("WebPlatform: Server running on port %d\n", serverPort);
 }
+
 void WebPlatform::handle() {
   if (server) {
     server->handleClient();
@@ -145,8 +146,8 @@ void WebPlatform::handleNotFound() {
     bool isRootRequest = (requestUri == "/" || requestUri.isEmpty());
 
     if (!isPortalRequest || !isRootRequest) {
-      Serial.printf("WebPlatform: Captive portal redirect: %s%s -> %s\n",
-                    requestHost.c_str(), requestUri.c_str(), portalUrl.c_str());
+      DEBUG_PRINTF("WebPlatform: Captive portal redirect: %s%s -> %s\n",
+                   requestHost.c_str(), requestUri.c_str(), portalUrl.c_str());
       server->sendHeader("Location", portalUrl);
       server->sendHeader("Connection", "close");
       server->send(302, "text/html",
@@ -167,8 +168,8 @@ void WebPlatform::handleNotFound() {
   // Check for any redirect rules
   String redirectTarget = IWebModule::getRedirectTarget(server->uri());
   if (redirectTarget.length() > 0) {
-    Serial.printf("WebPlatform: Redirecting %s to %s\n", server->uri().c_str(),
-                  redirectTarget.c_str());
+    DEBUG_PRINTF("WebPlatform: Redirecting %s to %s\n", server->uri().c_str(),
+                 redirectTarget.c_str());
     server->sendHeader("Location", redirectTarget);
     server->send(302, "text/html", "");
     return;
@@ -215,12 +216,6 @@ void WebPlatform::handleNotFound() {
   }
 }
 
-bool WebPlatform::isCaptivePortalRequest(const String &host) {
-  // Simple captive portal detection
-  return (host.indexOf("captive") != -1 || host.indexOf("generate") != -1 ||
-          host.indexOf("connectivitycheck") != -1);
-}
-
 void WebPlatform::setupRoutes() {
   initializeAuth(); // Initialize the auth system
 
@@ -232,19 +227,19 @@ void WebPlatform::setupRoutes() {
     setupConnectedMode();
   }
 
-  // Print final route registry for debugging (web platform routes only)
+  // Print final route registry for debugging
   printUnifiedRoutes();
 
   // For HTTPS-only mode with redirection server, we don't register normal
-  // routes on HTTP server We know we're in redirect mode if server exists and
-  // HTTPS is enabled with serverPort 443
+  // routes on HTTP server We know we're in redirect mode if server exists
+  // and HTTPS is enabled with serverPort 443
   bool isRedirectServer =
       (httpsEnabled && serverPort == 443 && server != nullptr);
   // Check if we know this is the HTTP server running on port 80
   bool isHttpRedirectServer = false;
   // For ESP32, we can determine this based on our setup logic
-  // If HTTPS is enabled and we have a server, it must be the redirect server on
-  // port 80
+  // If HTTPS is enabled and we have a server, it must be the redirect server
+  // on port 80
   isHttpRedirectServer = isRedirectServer;
 
   if (server && !isHttpRedirectServer) {
@@ -254,7 +249,7 @@ void WebPlatform::setupRoutes() {
 }
 
 void WebPlatform::setupConfigPortalMode() {
-  Serial.println("WebPlatform: Setting up config portal routes");
+  DEBUG_PRINTLN("WebPlatform: Setting up config portal routes");
 
   // Register main portal routes (using /portal instead of /)
   registerConfigPortalRoutes();
@@ -274,13 +269,13 @@ void WebPlatform::setupConfigPortalMode() {
   // Setup captive portal DNS server to redirect all DNS queries to our AP IP
   // This makes PC browsers navigate to the portal when any domain is entered
   dnsServer.start(53, "*", WiFi.softAPIP());
-  Serial.printf(
+  DEBUG_PRINTF(
       "WebPlatform: Captive portal DNS started - all domains redirect to %s\n",
       WiFi.softAPIP().toString().c_str());
 }
 
 void WebPlatform::setupConnectedMode() {
-  Serial.println("WebPlatform: Setting up connected mode routes");
+  DEBUG_PRINTLN("WebPlatform: Setting up connected mode routes");
 
   // Register core platform routes FIRST (before overrides are processed)
   registerConnectedModeRoutes();
@@ -292,16 +287,13 @@ void WebPlatform::setupConnectedMode() {
     registerUnifiedHttpsRoutes();
   }
 
-  // Generate OpenAPI spec AFTER all routes are registered (modules + platform
-  // routes)
-  generateOpenAPISpec();
-}
-
-void WebPlatform::startConfigPortal() {
-  currentMode = CONFIG_PORTAL;
-  connectionState = WIFI_CONFIG_PORTAL;
-  setupAccessPoint();
-  Serial.println("WebPlatform: Config portal started");
+  #if OPENAPI_ENABLED
+    // Generate OpenAPI spec AFTER all routes are registered (modules + platform
+    // routes)
+    generateOpenAPISpec();
+  #else
+    DEBUG_PRINTLN("WebPlatform: Skipping openapi spec generation. Add build flag WEB_PLATFORM_OPENAPI=1 to generate.")
+  #endif
 }
 
 String WebPlatform::getBaseUrl() const {
@@ -321,15 +313,15 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *module) {
 bool WebPlatform::registerModule(const char *basePath, IWebModule *module,
                                  const JsonVariant &config) {
   if (!module) {
-    Serial.println("WebPlatform: Cannot register null module");
+    DEBUG_PRINTLN("WebPlatform: Cannot register null module");
     return false;
   }
 
   // Only allow pre-registration (before begin() is called)
   if (running) {
-    Serial.println("WebPlatform: ERROR - Module registration after begin() is "
-                   "not supported");
-    Serial.println(
+    ERROR_PRINTLN("WebPlatform: ERROR - Module registration after begin() is "
+                  "not supported");
+    ERROR_PRINTLN(
         "WebPlatform: All modules must be registered before calling begin()");
     return false;
   }
@@ -337,45 +329,43 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *module,
   // Check if module already pre-registered
   for (const auto &pendingModule : pendingModules) {
     if (pendingModule.basePath == basePath) {
-      Serial.printf("WebPlatform: Module already pre-registered at path: %s\n",
-                    basePath);
+      DEBUG_PRINTF("WebPlatform: Module already pre-registered at path: %s\n",
+                   basePath);
       return false;
     }
   }
 
   // Store module for initialization during begin()
   pendingModules.emplace_back(basePath, module, config);
-  Serial.printf("WebPlatform: Pre-registered module '%s' at path: %s\n",
-                module->getModuleName().c_str(), basePath);
+  DEBUG_PRINTF("WebPlatform: Pre-registered module '%s' at path: %s\n",
+               module->getModuleName().c_str(), basePath);
   return true;
 }
 
 // Register routes for a specific module
 void WebPlatform::registerModuleRoutesForModule(const String &basePath,
                                                 IWebModule *module) {
-  Serial.printf("  Processing module: %s at path: %s\n",
-                module->getModuleName().c_str(), basePath.c_str());
+  DEBUG_PRINTF("  Processing module: %s at path: %s\n",
+               module->getModuleName().c_str(), basePath.c_str());
 
   // Process HTTP routes (now returns RouteVariant)
   auto httpRoutes = module->getHttpRoutes();
-  Serial.printf("  Module has %d HTTP routes\n", httpRoutes.size());
+  DEBUG_PRINTF("  Module has %d HTTP routes\n", httpRoutes.size());
 
   for (const auto &routeVariant : httpRoutes) {
     // Extract route info from either variant type
     const WebRoute *webRoute = nullptr;
     OpenAPIDocumentation docs; // Default empty docs
 
-    // Replace std::holds_alternative and std::get calls with:
     if (holds_alternative<WebRoute>(routeVariant)) {
       webRoute = &get<WebRoute>(routeVariant);
     } else if (holds_alternative<ApiRoute>(routeVariant)) {
       const ApiRoute &apiRoute = get<ApiRoute>(routeVariant);
       webRoute = &apiRoute.webRoute;
       docs = apiRoute.docs;
-    }
-
-    if (!webRoute)
+    } else {
       continue;
+    }
 
     // Normalize paths by removing leading/trailing slashes for consistent
     // processing
@@ -402,7 +392,7 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
     // Build the final path based on whether it's an API route or regular route
     String fullPath;
 
-    if (docs.hasDocumentation()) {
+    if (holds_alternative<ApiRoute>(routeVariant)) {
       // API route: /basePath/api/routePath or /api/routePath (if no basePath)
       if (normalizedBasePath.length() > 0) {
         if (normalizedRoutePath.length() > 0) {
@@ -442,10 +432,6 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
   }
 }
 
-void WebPlatform::onSetupComplete(WiFiSetupCompleteCallback callback) {
-  setupCompleteCallback = callback;
-}
-
 // IWebModule interface implementation (for consistency)
 std::vector<RouteVariant> WebPlatform::getHttpRoutes() {
   // Return empty routes since WebPlatform manages its own routing
@@ -457,17 +443,17 @@ std::vector<RouteVariant> WebPlatform::getHttpsRoutes() {
 }
 
 void WebPlatform::initializeRegisteredModules() {
-  Serial.printf("WebPlatform: Initializing %d registered modules...\n",
-                pendingModules.size());
+  DEBUG_PRINTF("WebPlatform: Initializing %d registered modules...\n",
+               pendingModules.size());
 
   // Reserve space in registered modules vector to avoid reallocations
   registeredModules.reserve(pendingModules.size());
 
   // Initialize modules one by one with error handling
   for (auto &pendingModule : pendingModules) {
-    Serial.printf("  Initializing: %s at %s\n",
-                  pendingModule.module->getModuleName().c_str(),
-                  pendingModule.basePath.c_str());
+    DEBUG_PRINTF("  Initializing: %s at %s\n",
+                 pendingModule.module->getModuleName().c_str(),
+                 pendingModule.basePath.c_str());
 
     // Initialize module with config if provided
     if (pendingModule.config.size() > 0) {
@@ -482,16 +468,16 @@ void WebPlatform::initializeRegisteredModules() {
     // Register module routes immediately to spread memory usage
     registerModuleRoutesForModule(pendingModule.basePath, pendingModule.module);
 
-    Serial.printf("  ✓ Module %s initialized successfully\n",
-                  pendingModule.module->getModuleName().c_str());
+    DEBUG_PRINTF("  ✓ Module %s initialized successfully\n",
+                 pendingModule.module->getModuleName().c_str());
   }
 
   // Clear pending modules to free memory
   pendingModules.clear();
   pendingModules.shrink_to_fit(); // Force memory deallocation
 
-  Serial.printf("WebPlatform: Successfully initialized %d modules\n",
-                registeredModules.size());
+  DEBUG_PRINTF("WebPlatform: Successfully initialized %d modules\n",
+               registeredModules.size());
 }
 
 void WebPlatform::handleRegisteredModules() {
@@ -504,15 +490,15 @@ void WebPlatform::handleRegisteredModules() {
 }
 
 bool WebPlatform::validatePendingModules() {
-  Serial.printf("WebPlatform: Validating %d pending modules...\n",
-                pendingModules.size());
+  DEBUG_PRINTF("WebPlatform: Validating %d pending modules...\n",
+               pendingModules.size());
 
   // Check for duplicate base paths
   for (size_t i = 0; i < pendingModules.size(); i++) {
     for (size_t j = i + 1; j < pendingModules.size(); j++) {
       if (pendingModules[i].basePath == pendingModules[j].basePath) {
-        Serial.printf("ERROR: Duplicate module base path detected: %s\n",
-                      pendingModules[i].basePath.c_str());
+        ERROR_PRINTF("ERROR: Duplicate module base path detected: %s\n",
+                     pendingModules[i].basePath.c_str());
         return false;
       }
     }
@@ -521,26 +507,26 @@ bool WebPlatform::validatePendingModules() {
   // Validate module pointers
   for (const auto &pending : pendingModules) {
     if (!pending.module) {
-      Serial.printf("ERROR: Null module pointer for path: %s\n",
-                    pending.basePath.c_str());
+      ERROR_PRINTF("ERROR: Null module pointer for path: %s\n",
+                   pending.basePath.c_str());
       return false;
     }
 
     // Validate base path format
     if (!pending.basePath.startsWith("/")) {
-      Serial.printf("ERROR: Module base path must start with '/': %s\n",
-                    pending.basePath.c_str());
+      ERROR_PRINTF("ERROR: Module base path must start with '/': %s\n",
+                   pending.basePath.c_str());
       return false;
     }
   }
 
-  Serial.println("WebPlatform: Module validation passed");
+  DEBUG_PRINTLN("WebPlatform: Module validation passed");
   return true;
 }
 
 void WebPlatform::handleInitializationError(const String &error) {
-  Serial.printf("WebPlatform: INITIALIZATION ERROR - %s\n", error.c_str());
-  Serial.println("WebPlatform: Falling back to CONFIG_PORTAL mode");
+  ERROR_PRINTF("WebPlatform: INITIALIZATION ERROR - %s\n", error.c_str());
+  ERROR_PRINTLN("WebPlatform: Falling back to CONFIG_PORTAL mode");
 
   // Force config portal mode on initialization error
   currentMode = CONFIG_PORTAL;

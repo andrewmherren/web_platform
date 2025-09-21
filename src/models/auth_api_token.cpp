@@ -1,8 +1,9 @@
-#include "../../include/auth/auth_utils.h"
-#include "../../include/models/data_models.h"
+#include "auth/auth_utils.h"
+#include "models/data_models.h"
 #include <ArduinoJson.h>
-#include <time.h> // AuthApiToken implementation
+#include <time.h>
 
+// AuthApiToken implementation
 AuthApiToken::AuthApiToken(const String &token, const String &userId,
                            const String &username, const String &name,
                            unsigned long expireInDays)
@@ -10,6 +11,7 @@ AuthApiToken::AuthApiToken(const String &token, const String &userId,
       username(username), name(name), createdAt(time(nullptr)),
       expiresAt(expireInDays > 0 ? time(nullptr) + (expireInDays * 24 * 60 * 60)
                                  : 0) {}
+                                 
 String AuthApiToken::toJson() const {
   DynamicJsonDocument doc(512);
   doc["id"] = id;

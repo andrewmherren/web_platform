@@ -29,6 +29,8 @@ private:
   bool responseSent;
   const char *progmemData;
   bool isProgmemContent;
+  const JsonDocument *jsonDoc;
+  bool isJsonContent;
 
 public:
   WebResponse();
@@ -50,15 +52,15 @@ public:
   esp_err_t sendTo(httpd_req *req);
 
   // Status queries
-  bool isHeadersSent() const { return headersSent; }
+  // bool isHeadersSent() const { return headersSent; }
   bool isResponseSent() const { return responseSent; }
-  int getStatus() const { return statusCode; }
+  // int getStatus() const { return statusCode; }
   String getContent() const;
   String getMimeType() const { return mimeType; }
 
   // Header access
   String getHeader(const String &name) const;
-  std::map<String, String> getAllHeaders() const { return headers; }
+  // std::map<String, String> getAllHeaders() const { return headers; }
 
 private:
   void markHeadersSent() { headersSent = true; }

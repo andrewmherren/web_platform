@@ -1,3 +1,4 @@
+#if OPENAPI_ENABLED
 #include "interface/openapi_factory.h"
 
 OpenAPIDocumentation OpenAPIFactory::create(const String &summary,
@@ -98,3 +99,4 @@ String OpenAPIFactory::generateOperationId(const String &method,
 String OpenAPIFactory::formatTag(const String &moduleName) {
   return moduleName;
 }
+#endif

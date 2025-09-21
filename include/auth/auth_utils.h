@@ -1,9 +1,11 @@
 #ifndef AUTH_UTILS_H
 #define AUTH_UTILS_H
 
-#include "crypto_platform.h"
+#include "esp_random.h"
+#include "mbedtls/md.h"
+#include "mbedtls/pkcs5.h"
+#include "mbedtls/sha256.h"
 #include <Arduino.h>
-
 
 namespace AuthUtils {
 // Generate a secure random token
@@ -25,9 +27,6 @@ String generateSalt(size_t length = 16);
 
 // Generate a unique user ID (UUID v4 format)
 String generateUserId();
-
-// Convert hex string to bytes
-bool hexToBytes(const String &hex, uint8_t *bytes, size_t maxLen);
 
 // Convert bytes to hex string
 String bytesToHex(const uint8_t *bytes, size_t length);

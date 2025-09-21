@@ -49,7 +49,7 @@ RouteVariant::~RouteVariant() {
 const WebRoute &RouteVariant::getWebRoute() const {
   if (type != WEB_ROUTE) {
     // Use Serial.println instead of throwing for embedded compatibility
-    Serial.println("ERROR: RouteVariant is not a WebRoute");
+    ERROR_PRINTLN("ERROR: RouteVariant is not a WebRoute");
     // Return a static dummy to avoid crash
     static WebRoute dummy("", WebModule::WM_GET, nullptr);
     return dummy;
@@ -59,7 +59,7 @@ const WebRoute &RouteVariant::getWebRoute() const {
 
 const ApiRoute &RouteVariant::getApiRoute() const {
   if (type != API_ROUTE) {
-    Serial.println("ERROR: RouteVariant is not an ApiRoute");
+    ERROR_PRINTLN("ERROR: RouteVariant is not an ApiRoute");
     static ApiRoute dummy("", WebModule::WM_GET, nullptr);
     return dummy;
   }

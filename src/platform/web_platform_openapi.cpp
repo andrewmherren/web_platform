@@ -1,7 +1,7 @@
-#include "../../include/interface/openapi_types.h"
-#include "../../include/route_entry.h"
-#include "../../include/storage/storage_manager.h"
-#include "../../include/web_platform.h"
+#include "interface/openapi_types.h"
+#include "route_entry.h"
+#include "storage/storage_manager.h"
+#include "web_platform.h"
 #include <ArduinoJson.h>
 #include <map>
 
@@ -15,7 +15,7 @@ const String WebPlatform::OPENAPI_COLLECTION = "openapi";
 const String WebPlatform::OPENAPI_SPEC_KEY = "spec";
 
 void WebPlatform::generateOpenAPISpec() {
-  Serial.println("WebPlatform: Generating OpenAPI specification to storage...");
+  DEBUG_PRINTLN("WebPlatform: Generating OpenAPI specification to storage...");
 
   // Check if we already have a valid spec in storage
   IDatabaseDriver *driver = StorageManager::driver();
@@ -23,8 +23,8 @@ void WebPlatform::generateOpenAPISpec() {
     String existingSpec =
         driver->retrieve(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY);
     if (existingSpec.length() > 100) { // Basic validation
-      Serial.printf("WebPlatform: Found existing OpenAPI spec (%d bytes)\n",
-                    existingSpec.length());
+      DEBUG_PRINTF("WebPlatform: Found existing OpenAPI spec (%d bytes)\n",
+                   existingSpec.length());
       openAPISpecReady = true;
       return;
     }
@@ -37,7 +37,7 @@ void WebPlatform::generateOpenAPISpec() {
   targetSize = (maxAllowable < 24576) ? maxAllowable : 24576;
 
   if (targetSize < 8192) {
-    Serial.println("ERROR: Insufficient memory for OpenAPI generation!");
+    ERROR_PRINTLN("ERROR: Insufficient memory for OpenAPI generation!");
     openAPISpecReady = false;
     return;
   }
@@ -96,42 +96,22 @@ void WebPlatform::generateOpenAPISpec() {
       pathItem = paths.createNestedObject(pathKey);
     }
 
-    String methodStr;
-    switch (route.method) {
-    case WebModule::WM_GET:
-      methodStr = "get";
-      break;
-    case WebModule::WM_POST:
-      methodStr = "post";
-      break;
-    case WebModule::WM_PUT:
-      methodStr = "put";
-      break;
-    case WebModule::WM_DELETE:
-      methodStr = "delete";
-      break;
-    case WebModule::WM_PATCH:
-      methodStr = "patch";
-      break;
-    default:
-      methodStr = "get";
-    }
+    String methodStr = wmMethodToString(route.method);
 
     JsonObject operation = pathItem.createNestedObject(methodStr);
 
+    // Direct assignment - no String copies for stored documentation
     if (route.summary && strlen(route.summary) > 0) {
       operation["summary"] = route.summary;
     } else {
       operation["summary"] = generateDefaultSummary(routePathStr, methodStr);
     }
 
-    String operationId;
     if (route.operationId && strlen(route.operationId) > 0) {
-      operationId = String(route.operationId);
+      operation["operationId"] = route.operationId;
     } else {
-      operationId = generateOperationId(methodStr, routePathStr);
+      operation["operationId"] = generateOperationId(methodStr, routePathStr);
     }
-    operation["operationId"] = operationId;
 
     JsonArray tags = operation.createNestedArray("tags");
     String defaultModuleTag = inferModuleFromPath(routePathStr);
@@ -191,7 +171,7 @@ void WebPlatform::generateOpenAPISpec() {
   size_t bytesWritten = serializeJson(doc, openAPIJson);
 
   if (bytesWritten == 0 || openAPIJson.length() == 0) {
-    Serial.println("ERROR: Failed to serialize OpenAPI spec");
+    ERROR_PRINTLN("ERROR: Failed to serialize OpenAPI spec");
     openAPISpecReady = false;
     return;
   }
@@ -200,10 +180,10 @@ void WebPlatform::generateOpenAPISpec() {
   if (driver &&
       driver->store(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY, openAPIJson)) {
     openAPISpecReady = true;
-    Serial.printf("WebPlatform: OpenAPI spec generated and stored (%d bytes)\n",
-                  openAPIJson.length());
+    DEBUG_PRINTF("WebPlatform: OpenAPI spec generated and stored (%d bytes)\n",
+                 openAPIJson.length());
   } else {
-    Serial.println("ERROR: Failed to store OpenAPI spec in storage system");
+    ERROR_PRINTLN("ERROR: Failed to store OpenAPI spec in storage system");
     openAPISpecReady = false;
   }
 
@@ -237,8 +217,8 @@ void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
     return;
   }
 
-  Serial.printf("Serving OpenAPI spec from storage (%d bytes)\n",
-                openAPISpec.length());
+  DEBUG_PRINTF("Serving OpenAPI spec from storage (%d bytes)\n",
+               openAPISpec.length());
 
   res.setStatus(200);
   res.setContent(openAPISpec, "application/json");
@@ -325,15 +305,6 @@ String WebPlatform::formatModuleName(const String &moduleName) const {
   }
 
   return formatted;
-}
-
-bool WebPlatform::hasTokenAuth(const AuthRequirements &requirements) const {
-  for (const auto &authType : requirements) {
-    if (authType == AuthType::TOKEN) {
-      return true;
-    }
-  }
-  return false;
 }
 
 void WebPlatform::addParametersToOperation(JsonObject &operation,
@@ -433,10 +404,10 @@ void WebPlatform::addResponsesToOperation(JsonObject &operation,
   JsonObject response200 = responses.createNestedObject("200");
   response200["description"] = "Successful operation";
 
-  // Add content type and examples
+  // Add content type and examples - direct assignment for stored content type
   JsonObject content = response200.createNestedObject("content");
-  String contentType = (route.contentType && strlen(route.contentType) > 0)
-                           ? String(route.contentType)
+  const char* contentType = (route.contentType && strlen(route.contentType) > 0)
+                           ? route.contentType
                            : "application/json";
   JsonObject mediaType = content.createNestedObject(contentType);
 
@@ -491,8 +462,8 @@ void WebPlatform::addRequestBodyToOperation(JsonObject &operation,
   requestBody["description"] = "Request payload";
 
   JsonObject content = requestBody.createNestedObject("content");
-  String contentType = (route.contentType && strlen(route.contentType) > 0)
-                           ? String(route.contentType)
+  const char* contentType = (route.contentType && strlen(route.contentType) > 0)
+                           ? route.contentType
                            : "application/json";
   JsonObject mediaType = content.createNestedObject(contentType);
 

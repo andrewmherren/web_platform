@@ -1,7 +1,9 @@
-#include "../../include/auth/auth_utils.h"
-#include "../../include/models/data_models.h"
+#include "auth/auth_utils.h"
+#include "models/data_models.h"
 #include <ArduinoJson.h>
-#include <time.h> // AuthUser implementation
+#include <time.h>
+
+// AuthUser implementation
 AuthUser::AuthUser(const String &username, const String &hash,
                    const String &salt)
     : id(AuthUtils::generateUserId()), username(username), passwordHash(hash),

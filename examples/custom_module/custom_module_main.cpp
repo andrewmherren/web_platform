@@ -19,7 +19,7 @@
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Starting Custom Environmental Sensor Example...");
+  DEBUG_PRINTLN("Starting Custom Environmental Sensor Example...");
 
   // Set up navigation menu
   std::vector<NavigationItem> navItems = {
@@ -33,8 +33,7 @@ void setup() {
   webPlatform.begin("SensorDevice");
 
   if (webPlatform.isConnected()) {
-    Serial.println(
-        "WiFi connected! Registering environmental sensor module...");
+    DEBUG_PRINTLN("WiFi connected! Registering environmental sensor module...");
 
     // Initialize the custom module
     sensorModule.begin();
@@ -42,12 +41,12 @@ void setup() {
     // Register the custom module at /sensors/
     webPlatform.registerModule("/sensors", &sensorModule);
 
-    Serial.print("Environmental sensor ready at: ");
-    Serial.println(webPlatform.getBaseUrl() + "/sensors/");
-    Serial.println("Dashboard available at: " + webPlatform.getBaseUrl());
-    Serial.println("Default login: admin / admin");
+    DEBUG_PRINT("Environmental sensor ready at: ");
+    DEBUG_PRINTLN(webPlatform.getBaseUrl() + "/sensors/");
+    DEBUG_PRINTLN("Dashboard available at: " + webPlatform.getBaseUrl());
+    DEBUG_PRINTLN("Default login: admin / admin");
   } else {
-    Serial.println("WiFi configuration mode - connect to setup network");
+    DEBUG_PRINTLN("WiFi configuration mode - connect to setup network");
   }
 }
 

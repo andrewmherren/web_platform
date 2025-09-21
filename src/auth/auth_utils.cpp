@@ -95,32 +95,6 @@ String AuthUtils::generateUserId() {
   return uuidStr;
 }
 
-// Convert hex string to bytes
-bool AuthUtils::hexToBytes(const String &hex, uint8_t *bytes, size_t maxLen) {
-  if (hex.length() % 2 != 0 || hex.length() / 2 > maxLen) {
-    return false;
-  }
-
-  for (size_t i = 0; i < hex.length(); i += 2) {
-    char high = hex[i];
-    char low = hex[i + 1];
-
-    uint8_t highNibble = (high >= '0' && high <= '9')   ? (high - '0')
-                         : (high >= 'A' && high <= 'F') ? (high - 'A' + 10)
-                         : (high >= 'a' && high <= 'f') ? (high - 'a' + 10)
-                                                        : 0;
-
-    uint8_t lowNibble = (low >= '0' && low <= '9')   ? (low - '0')
-                        : (low >= 'A' && low <= 'F') ? (low - 'A' + 10)
-                        : (low >= 'a' && low <= 'f') ? (low - 'a' + 10)
-                                                     : 0;
-
-    bytes[i / 2] = (highNibble << 4) | lowNibble;
-  }
-
-  return true;
-}
-
 // Convert bytes to hex string
 String AuthUtils::bytesToHex(const uint8_t *bytes, size_t length) {
   String hex = "";

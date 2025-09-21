@@ -52,31 +52,18 @@ public:
   String getClientIp() const { return clientIp; }
 
   // Path parameter helpers
-  String getPathSegment(int index) const;
-  String getLastPathSegment() const;
-  String getPathParameter(const String &routePattern) const;
-  String getPathParameter(const String &routePattern,
-                          const String &paramName) const;
   String getRouteParameter(
       const String &paramName) const; // Uses matched route pattern
 
   // URL parameters (query string and POST form data)
   String getParam(const String &name) const;
-  bool hasParam(const String &name) const;
   std::map<String, String> getAllParams() const { return params; }
 
   // Headers
   String getHeader(const String &name) const;
-  bool hasHeader(const String &name) const;
-
-  // Convenience methods
-  String getQueryString() const;
-  String getContentType() const;
-  size_t getContentLength() const;
 
   // JSON parameter access
   String getJsonParam(const String &name) const;
-  bool hasJsonParam(const String &name) const;
 
   // Authentication context
   const AuthContext &getAuthContext() const { return authContext; }
@@ -86,7 +73,7 @@ public:
   void setMatchedRoute(const char *routePattern) {
     matchedRoutePattern = routePattern ? String(routePattern) : "";
   }
-  String getMatchedRoute() const { return matchedRoutePattern; }
+  // String getMatchedRoute() const { return matchedRoutePattern; }
 
   // Module context (used by template processing)
   void setModuleBasePath(const String &basePath) { moduleBasePath = basePath; }
@@ -99,7 +86,7 @@ private:
   void parseFormData(const String &formData);
   void parseJsonData(const String &jsonData);
   void parseRequestBody(const String &body, const String &contentType);
-  void parseHeaders();
+  // void parseHeaders();
   String urlDecode(const String &str);
 
   void parseClientIp(httpd_req *req);

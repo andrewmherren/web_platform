@@ -4,6 +4,7 @@
 #include "../interface/web_response.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <functional>
 
 /**
  * JsonResponseBuilder - Memory-safe JSON response creation
@@ -155,9 +156,29 @@ private:
   static void createStreamingResponse(WebResponse &res,
                                       std::function<void(JsonObject &)> builder,
                                       size_t estimatedSize) {
-    // Fallback to medium response with reduced size for now
-    size_t reducedSize = min(estimatedSize, MEDIUM_JSON_SIZE);
-    createMediumResponse(res, builder, reducedSize);
+    // Use a smaller document for streaming - we only need enough memory for the
+    // structure
+    const size_t streamingDocSize =
+        min(estimatedSize, static_cast<size_t>(4096));
+
+    size_t freeHeap = ESP.getFreeHeap();
+    if (freeHeap < streamingDocSize * 2) {
+      createErrorResponse(res, "Insufficient memory for response", 503);
+      return;
+    }
+
+    DynamicJsonDocument doc(streamingDocSize);
+    if (doc.capacity() == 0) {
+      createErrorResponse(res, "Memory allocation failed", 503);
+      return;
+    }
+
+    JsonObject root = doc.template to<ArduinoJson::JsonObject>();
+    builder(root);
+
+    // Use the new streaming method instead of creating a String
+    res.setStatus(200);
+    res.setJsonContent(doc);
   }
 };
 

@@ -1,6 +1,7 @@
 #ifndef AUTH_API_DOCS_H
 #define AUTH_API_DOCS_H
 
+#if OPENAPI_ENABLED
 #include "../interface/openapi_factory.h"
 #include <vector>
 
@@ -31,4 +32,5 @@ public:
     static OpenAPIDocumentation createDeleteToken();
 };
 
+#endif
 #endif

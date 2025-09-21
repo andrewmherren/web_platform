@@ -1,13 +1,16 @@
-#include "../../include/auth/auth_constants.h"
-#include "../../include/auth/auth_utils.h"
-#include "../../include/models/data_models.h"
+#include "auth/auth_constants.h"
+#include "auth/auth_utils.h"
+#include "models/data_models.h"
 #include <ArduinoJson.h>
-#include <time.h> // AuthPageToken implementation
+#include <time.h>
+
+// AuthPageToken implementation
 AuthPageToken::AuthPageToken(const String &token, const String &clientIp)
     : id(AuthUtils::generateUserId()), token(token), clientIp(clientIp),
       createdAt(time(nullptr)),
       expiresAt(time(nullptr) +
                 (AuthConstants::PAGE_TOKEN_DURATION_MS / 1000)) {}
+                
 String AuthPageToken::toJson() const {
   DynamicJsonDocument doc(512);
   doc["id"] = id;

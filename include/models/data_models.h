@@ -44,7 +44,9 @@ struct AuthSession {
   String toJson() const;
   static AuthSession fromJson(const String &json);
   bool isValid() const;
-}; // API token model for programmatic authentication
+};
+
+// API token model for programmatic authentication
 struct AuthApiToken {
   String id;       // Primary key: UUID
   String token;    // Token value (unique)
@@ -66,7 +68,9 @@ struct AuthApiToken {
 
   // Get expiration days remaining (0 for never expires, negative for expired)
   float getExpirationDaysRemaining() const;
-}; // Page token model for CSRF protection
+};
+
+// Page token model for CSRF protection
 struct AuthPageToken {
   String id;       // Primary key: UUID
   String token;    // Token value (unique)
@@ -81,7 +85,9 @@ struct AuthPageToken {
   String toJson() const;
   static AuthPageToken fromJson(const String &json);
   bool isValid() const;
-}; // Configuration model for key/value settings
+};
+
+// Configuration model for key/value settings
 struct ConfigItem {
   String id;    // Primary key: UUID
   String key;   // Setting name (unique)

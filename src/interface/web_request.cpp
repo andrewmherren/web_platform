@@ -1,7 +1,8 @@
-#include "../../include/interface/web_request.h"
-#include "../../include/interface/webserver_typedefs.h"
-#include "../../include/models/data_models.h"
-#include "../../include/storage/auth_storage.h"
+#include "interface/web_request.h"
+#include "interface/webserver_typedefs.h"
+#include "models/data_models.h"
+#include "storage/auth_storage.h"
+#include "utilities/debug_macros.h"
 #include <ArduinoJson.h>
 
 #include <WebServer.h>
@@ -32,8 +33,9 @@ const char *COMMON_HTTP_HEADERS[] = {"Host",
                                      "Connection",
                                      "Pragma"};
 const size_t COMMON_HTTP_HEADERS_COUNT =
-    sizeof(COMMON_HTTP_HEADERS) /
-    sizeof(COMMON_HTTP_HEADERS[0]); // Constructor for Arduino WebServer
+    sizeof(COMMON_HTTP_HEADERS) / sizeof(COMMON_HTTP_HEADERS[0]);
+
+// Constructor for Arduino WebServer
 WebRequest::WebRequest(WebServerClass *server) {
   if (!server)
     return;
@@ -139,48 +141,14 @@ String WebRequest::getParam(const String &name) const {
   return (it != params.end()) ? it->second : String();
 }
 
-bool WebRequest::hasParam(const String &name) const {
-  return params.find(name) != params.end();
-}
-
 String WebRequest::getJsonParam(const String &name) const {
   auto it = jsonParams.find(name);
   return (it != jsonParams.end()) ? it->second : String();
 }
 
-bool WebRequest::hasJsonParam(const String &name) const {
-  return jsonParams.find(name) != jsonParams.end();
-}
-
 String WebRequest::getHeader(const String &name) const {
   auto it = headers.find(name);
   return (it != headers.end()) ? it->second : String();
-}
-
-bool WebRequest::hasHeader(const String &name) const {
-  return headers.find(name) != headers.end();
-}
-
-String WebRequest::getQueryString() const {
-  String query = "";
-  bool first = true;
-
-  for (const auto &param : params) {
-    if (!first) {
-      query += "&";
-    }
-    query += param.first + "=" + param.second;
-    first = false;
-  }
-
-  return query;
-}
-
-String WebRequest::getContentType() const { return getHeader("Content-Type"); }
-
-size_t WebRequest::getContentLength() const {
-  String lengthStr = getHeader("Content-Length");
-  return lengthStr.length() > 0 ? lengthStr.toInt() : 0;
 }
 
 void WebRequest::parseQueryParams(const String &query) {
@@ -218,7 +186,7 @@ void WebRequest::parseFormData(const String &formData) {
 }
 
 void WebRequest::parseJsonData(const String &jsonData) {
-  Serial.println("Parsing: " + jsonData);
+  DEBUG_PRINTLN("Parsing: " + jsonData);
   if (jsonData.length() == 0)
     return;
 
@@ -228,8 +196,8 @@ void WebRequest::parseJsonData(const String &jsonData) {
   DeserializationError error = deserializeJson(doc, jsonData);
 
   if (error) {
-    Serial.print("JSON parsing failed: ");
-    Serial.println(error.c_str());
+    DEBUG_PRINT("JSON parsing failed: ");
+    DEBUG_PRINTLN(error.c_str());
     return;
   }
 
@@ -314,116 +282,6 @@ void WebRequest::parseClientIp(httpd_req *req) {
   if (clientIp.isEmpty()) {
     clientIp = "unknown";
   }
-}
-
-// Path parameter extraction helpers
-String WebRequest::getPathSegment(int index) const {
-  if (index < 0)
-    return String();
-
-  String pathCopy = path;
-  // Remove leading slash if present
-  if (pathCopy.startsWith("/")) {
-    pathCopy = pathCopy.substring(1);
-  }
-
-  int currentIndex = 0;
-  int start = 0;
-  int slashPos = pathCopy.indexOf('/');
-
-  while (currentIndex < index && slashPos >= 0) {
-    start = slashPos + 1;
-    slashPos = pathCopy.indexOf('/', start);
-    currentIndex++;
-  }
-
-  if (currentIndex == index) {
-    if (slashPos >= 0) {
-      return pathCopy.substring(start, slashPos);
-    } else {
-      return pathCopy.substring(start);
-    }
-  }
-
-  return String();
-}
-
-String WebRequest::getLastPathSegment() const {
-  int lastSlash = path.lastIndexOf('/');
-  if (lastSlash >= 0 && lastSlash < (int)path.length() - 1) {
-    return path.substring(lastSlash + 1);
-  }
-  return String();
-}
-
-String WebRequest::getPathParameter(const String &routePattern) const {
-  // Simple single parameter extraction for patterns like "/api/token/*"
-  // where we want the parameter after the last fixed segment
-
-  // Find the position of the wildcard or parameter marker
-  int wildcardPos = routePattern.indexOf('*');
-  if (wildcardPos < 0) {
-    // No wildcard found, try to match exact pattern
-    return String();
-  }
-
-  // Extract the fixed prefix (everything before the wildcard)
-  String prefix = routePattern.substring(0, wildcardPos);
-
-  // Check if our path starts with this prefix
-  if (path.startsWith(prefix)) {
-    // Return everything after the prefix
-    String param = path.substring(prefix.length());
-    // Remove leading slash if present
-    if (param.startsWith("/")) {
-      param = param.substring(1);
-    }
-    return param;
-  }
-
-  return String();
-}
-
-String WebRequest::getPathParameter(const String &routePattern,
-                                    const String &paramName) const {
-  // More advanced parameter extraction for patterns like
-  // "/api/user/{userId}/token/{tokenId}" This is a simplified implementation -
-  // could be expanded for more complex routing
-
-  String pattern = routePattern;
-  String pathCopy = path;
-
-  // Replace parameter placeholders with wildcards for simple matching
-  String paramPlaceholder = "{" + paramName + "}";
-  int paramPos = pattern.indexOf(paramPlaceholder);
-
-  if (paramPos < 0) {
-    return String(); // Parameter not found in pattern
-  }
-
-  // Find the segment that contains our parameter
-  String beforeParam = pattern.substring(0, paramPos);
-  String afterParam = pattern.substring(paramPos + paramPlaceholder.length());
-
-  // Simple extraction - find the parameter value between the before and after
-  // parts
-  if (pathCopy.startsWith(beforeParam)) {
-    int valueStart = beforeParam.length();
-    int valueEnd = pathCopy.length();
-
-    if (afterParam.length() > 0) {
-      int afterPos = pathCopy.indexOf(afterParam, valueStart);
-      if (afterPos >= 0) {
-        valueEnd = afterPos;
-      }
-    }
-
-    if (valueEnd > valueStart) {
-      return pathCopy.substring(valueStart, valueEnd);
-    }
-  }
-
-  return String();
 }
 
 // Convenience method that uses the matched route pattern

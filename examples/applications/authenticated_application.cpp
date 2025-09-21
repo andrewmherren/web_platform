@@ -20,7 +20,7 @@
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Starting Authenticated WebPlatform Application...");
+  DEBUG_PRINTLN("Starting Authenticated WebPlatform Application...");
 
   // Initialize NTP client for accurate timestamps
   // Configure time zone with automatic DST adjustment
@@ -500,14 +500,14 @@ else:
   webPlatform.begin("SecureDevice");
 
   if (webPlatform.isConnected()) {
-    Serial.println("Secure application ready!");
-    Serial.println("Default login: admin / admin");
-    Serial.print("Access at: ");
-    Serial.println(webPlatform.getBaseUrl());
+    DEBUG_PRINTLN("Secure application ready!");
+    DEBUG_PRINTLN("Default login: admin / admin");
+    DEBUG_PRINT("Access at: ");
+    DEBUG_PRINTLN(webPlatform.getBaseUrl());
   } else {
-    Serial.println("Running in WiFi configuration mode");
-    Serial.print("Connect to: ");
-    Serial.println(webPlatform.getAPName());
+    DEBUG_PRINTLN("Running in WiFi configuration mode");
+    DEBUG_PRINT("Connect to: ");
+    DEBUG_PRINTLN(webPlatform.getAPName());
   }
 }
 

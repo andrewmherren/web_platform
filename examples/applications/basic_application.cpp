@@ -19,7 +19,7 @@
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Starting Basic WebPlatform Application...");
+  DEBUG_PRINTLN("Starting Basic WebPlatform Application...");
 
   // Set up the navigation menu
   std::vector<NavigationItem> navItems = {
@@ -235,13 +235,13 @@ void setup() {
 
   // Only register application routes when connected to WiFi
   if (webPlatform.isConnected()) {
-    Serial.print("Application ready at: ");
-    Serial.println(webPlatform.getBaseUrl());
+    DEBUG_PRINT("Application ready at: ");
+    DEBUG_PRINTLN(webPlatform.getBaseUrl());
   } else {
-    Serial.println("Running in WiFi configuration mode");
-    Serial.print("Connect to WiFi network: ");
-    Serial.println(webPlatform.getAPName());
-    Serial.println("Open browser to configure WiFi settings");
+    DEBUG_PRINTLN("Running in WiFi configuration mode");
+    DEBUG_PRINT("Connect to WiFi network: ");
+    DEBUG_PRINTLN(webPlatform.getAPName());
+    DEBUG_PRINTLN("Open browser to configure WiFi settings");
   }
 }
 

@@ -7,9 +7,9 @@ static char navStringPool[16 * 3 * 64] = {0};
 static int navStringPoolIndex = 0;
 
 // Helper function to copy String to PROGMEM pool and return pointer
-static const char *copyToProgmemPool(const String &str) {
+static const char *copyToStringPool(const String &str) {
   if (navStringPoolIndex + str.length() + 1 >= sizeof(navStringPool)) {
-    Serial.println(
+    WARN_PRINTLN(
         "WARNING: Navigation string pool exhausted, using heap allocation");
     // Fallback to heap allocation (not ideal but prevents crash)
     char *heapCopy = (char *)malloc(str.length() + 1);
@@ -40,7 +40,12 @@ std::vector<NavigationItem> IWebModule::getNavigationMenu() {
 }
 
 String IWebModule::generateNavigationHtml(bool isAuthenticated) {
+  DEBUG_PRINTLN("generateNavigationHtml called, isAuthenticated: " +
+                String(isAuthenticated ? "true" : "false"));
+  DEBUG_PRINTLN("Navigation menu size: " + String(navigationMenu.size()));
+
   if (navigationMenu.empty()) {
+    DEBUG_PRINTLN("Navigation menu is empty, returning empty string");
     return "";
   }
 
@@ -251,24 +256,24 @@ String IWebModule::getRedirectTarget(const String &requestPath) {
 
 // Implementation of backward compatibility constructors for NavigationItem
 NavigationItem::NavigationItem(const String &n, const String &u)
-    : name(copyToProgmemPool(n)), url(copyToProgmemPool(u)), target(""),
+    : name(copyToStringPool(n)), url(copyToStringPool(u)), target(""),
       visibility(NavAuthVisibility::ALWAYS) {}
 
 NavigationItem::NavigationItem(const String &n, const String &u,
                                const String &t)
-    : name(copyToProgmemPool(n)), url(copyToProgmemPool(u)),
-      target(copyToProgmemPool(t)), visibility(NavAuthVisibility::ALWAYS) {}
+    : name(copyToStringPool(n)), url(copyToStringPool(u)),
+      target(copyToStringPool(t)), visibility(NavAuthVisibility::ALWAYS) {}
 
 NavigationItem::NavigationItem(const String &n, const String &u,
                                NavAuthVisibility vis)
-    : name(copyToProgmemPool(n)), url(copyToProgmemPool(u)), target(""),
+    : name(copyToStringPool(n)), url(copyToStringPool(u)), target(""),
       visibility(vis) {}
 
 NavigationItem::NavigationItem(const String &n, const String &u,
                                const String &t, NavAuthVisibility vis)
-    : name(copyToProgmemPool(n)), url(copyToProgmemPool(u)),
-      target(copyToProgmemPool(t)), visibility(vis) {}
+    : name(copyToStringPool(n)), url(copyToStringPool(u)),
+      target(copyToStringPool(t)), visibility(vis) {}
 
 // Implementation of backward compatibility constructor for RedirectRule
 RedirectRule::RedirectRule(const String &from, const String &to)
-    : fromPath(copyToProgmemPool(from)), toPath(copyToProgmemPool(to)) {}
+    : fromPath(copyToStringPool(from)), toPath(copyToStringPool(to)) {}

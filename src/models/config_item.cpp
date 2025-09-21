@@ -1,11 +1,13 @@
-#include "../../include/auth/auth_utils.h"
-#include "../../include/models/data_models.h"
+#include "auth/auth_utils.h"
+#include "models/data_models.h"
 #include <ArduinoJson.h>
-#include <time.h> // ConfigItem implementation
+#include <time.h>
 
+// ConfigItem implementation
 ConfigItem::ConfigItem(const String &key, const String &value)
     : id(AuthUtils::generateUserId()), key(key), value(value),
       updatedAt(time(nullptr)) {}
+      
 String ConfigItem::toJson() const {
   DynamicJsonDocument doc(512);
   doc["id"] = id;
