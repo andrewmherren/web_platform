@@ -108,7 +108,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 
 ## API Documentation
 
-The module uses the new OpenAPIDocumentation system to document endpoints:
+The module demonstrates the optional OpenAPIDocumentation system for documenting endpoints:
 
 ```cpp
 ApiRoute(
@@ -117,14 +117,46 @@ ApiRoute(
       getCurrentDataHandler(req, res);
     },
     {AuthType::SESSION, AuthType::PAGE_TOKEN},
-    EnvironmentalSensorDocs::createGetCurrentReadings()
+    API_DOC_BLOCK(EnvironmentalSensorDocs::createGetCurrentReadings())
 ),
 ```
 
+### OpenAPI Configuration
+
+OpenAPI documentation is **disabled by default** for memory optimization. Enable it during development:
+
+```ini
+# platformio.ini
+build_flags = -DWEB_PLATFORM_OPENAPI=1
+```
+
+When enabled, this provides:
+- Structured API documentation that can be consumed by tools like Postman or Swagger
+- Automatic `/api/openapi.json` endpoint generation
+- Consistent documentation patterns across modules
+
+When disabled, the `API_DOC_BLOCK()` macro ensures zero memory impact, making the same code suitable for production deployments.
+
+### Documentation Factory Pattern
+
+The module follows the recommended factory pattern for organizing documentation:
+
+```cpp
+#if OPENAPI_ENABLED
+class EnvironmentalSensorDocs {
+public:
+    static const std::vector<String> SENSOR_TAGS;
+    static OpenAPIDocumentation createGetCurrentReadings();
+    // ... other factory methods
+};
+#endif // OPENAPI_ENABLED
+```
+
 This approach:
-- Separates documentation from implementation code
-- Provides structured API documentation that can be consumed by OpenAPI tools
-- Creates consistency across all module APIs
+- Separates documentation from implementation code  
+- Only compiles documentation when the OpenAPI feature is enabled
+- Provides structured API documentation for development and testing
+- Has zero memory impact when disabled for production
 
 ## Configuration Options
 

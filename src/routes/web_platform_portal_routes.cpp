@@ -1,4 +1,5 @@
 #include "docs/system_api_docs.h"
+#include "interface/openapi_types.h"
 #include "web_platform.h"
 #include <ArduinoJson.h>
 
@@ -50,37 +51,25 @@ void WebPlatform::registerConfigPortalRoutes() {
   registerApiRoute("/wifi",
                    std::bind(&WebPlatform::wifiConfigHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::PAGE_TOKEN}, WebModule::WM_POST
-#if OPENAPI_ENABLED
-                  ,SystemApiDocs::createConfigureWifi()
-#endif
-                  );
+                   {AuthType::PAGE_TOKEN}, WebModule::WM_POST,
+                   API_DOC_BLOCK(SystemApiDocs::createConfigureWifi()));
 
   // API endpoints - no authentication required in captive portal mode
   registerApiRoute("/status",
                    std::bind(&WebPlatform::statusApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::PAGE_TOKEN}, WebModule::WM_GET
-#if OPENAPI_ENABLED
-                  ,SystemApiDocs::createGetStatus()
-#endif
-                  );
+                   {AuthType::PAGE_TOKEN}, WebModule::WM_GET,
+                   API_DOC_BLOCK(SystemApiDocs::createGetStatus()));
 
   registerApiRoute("/scan",
                    std::bind(&WebPlatform::scanApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::PAGE_TOKEN}, WebModule::WM_GET
-#if OPENAPI_ENABLED
-                  ,SystemApiDocs::createScanWifi()
-#endif
-                  );
+                   {AuthType::PAGE_TOKEN}, WebModule::WM_GET,
+                   API_DOC_BLOCK(SystemApiDocs::createScanWifi()));
 
   registerApiRoute("/reset",
                    std::bind(&WebPlatform::resetApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::PAGE_TOKEN}, WebModule::WM_POST
-#if OPENAPI_ENABLED
-                  ,SystemApiDocs::createResetDevice()
-#endif
-                  );
+                   {AuthType::PAGE_TOKEN}, WebModule::WM_POST,
+                   API_DOC_BLOCK(SystemApiDocs::createResetDevice()));
 }

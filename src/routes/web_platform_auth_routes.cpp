@@ -2,13 +2,11 @@
 #include "../../assets/login_page_html.h"
 #include "auth/auth_constants.h"
 #include "interface/auth_types.h"
+#include "interface/openapi_types.h"
 #include "storage/auth_storage.h"
 #include "web_platform.h"
 #include <functional>
-
-#if OPENAPI_ENABLED
 #include "docs/auth_api_docs.h"
-#endif
 
 
 // In general, auth api routes should use Token and Session auth types because
@@ -52,51 +50,36 @@ void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
   registerApiRoute("/users",
                    std::bind(&WebPlatform::getUsersApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET
-#if OPENAPI_ENABLED
-                   ,AuthApiDocs::createListUsers()
-#endif
-                    );
+                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET,
+                   API_DOC_BLOCK(AuthApiDocs::createListUsers()));
 
   // Create new user (admin only)
   registerApiRoute("/users",
                    std::bind(&WebPlatform::createUserApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_POST
-#if OPENAPI_ENABLED
-                    ,AuthApiDocs::createCreateUser()
-#endif
-                );
+                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_POST,
+                    API_DOC_BLOCK(AuthApiDocs::createCreateUser()));
 
   // Get specific user by ID
   registerApiRoute("/users/{id}",
                    std::bind(&WebPlatform::getUserByIdApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET
-#if OPENAPI_ENABLED
-                    ,AuthApiDocs::createGetUserById()
-#endif
-                );
+                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET,
+                    API_DOC_BLOCK(AuthApiDocs::createGetUserById()));
 
   // Update specific user by ID
   registerApiRoute("/users/{id}",
                    std::bind(&WebPlatform::updateUserByIdApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_PUT
-#if OPENAPI_ENABLED
-                    ,AuthApiDocs::createUpdateUserById()
-#endif
-                );
+                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_PUT,
+                    API_DOC_BLOCK(AuthApiDocs::createUpdateUserById()));
 
   // Delete specific user by ID (admin only)
   registerApiRoute("/users/{id}",
                    std::bind(&WebPlatform::deleteUserByIdApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_DELETE
-#if OPENAPI_ENABLED
-                    ,AuthApiDocs::createDeleteUserById()
-#endif
-                );
+                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_DELETE,
+                    API_DOC_BLOCK(AuthApiDocs::createDeleteUserById()));
 
   // Current user convenience endpoints
 
@@ -104,21 +87,15 @@ void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
   registerApiRoute("/user",
                    std::bind(&WebPlatform::getCurrentUserApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET
-#if OPENAPI_ENABLED
-                    ,AuthApiDocs::createGetCurrentUser()
-#endif
-                    );
+                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET,
+                   API_DOC_BLOCK(AuthApiDocs::createGetCurrentUser()));
 
   // Update current user
   registerApiRoute("/user",
                    std::bind(&WebPlatform::updateCurrentUserApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_PUT
-#if OPENAPI_ENABLED
-                    ,AuthApiDocs::createUpdateCurrentUser()
-#endif
-                    );
+                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_PUT,
+                   API_DOC_BLOCK(AuthApiDocs::createUpdateCurrentUser()));
 
   // Token management endpoints
 
@@ -126,29 +103,20 @@ void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
   registerApiRoute("/users/{id}/tokens",
                    std::bind(&WebPlatform::getUserTokensApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET
-#if OPENAPI_ENABLED
-                    ,AuthApiDocs::createGetUserTokens()
-#endif
-                    );
+                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET,
+                   API_DOC_BLOCK(AuthApiDocs::createGetUserTokens()));
 
   // Create token for user
   registerApiRoute("/users/{id}/tokens",
                    std::bind(&WebPlatform::createUserTokenApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_POST
-#if OPENAPI_ENABLED
-                    ,AuthApiDocs::createCreateUserToken()
-#endif
-                    );
+                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_POST,
+                   API_DOC_BLOCK(AuthApiDocs::createCreateUserToken()));
 
   // Delete specific token
   registerApiRoute("/tokens/{id}",
                    std::bind(&WebPlatform::deleteTokenApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_DELETE
-#if OPENAPI_ENABLED
-                    ,AuthApiDocs::createDeleteToken()
-#endif
-                    );
+                   {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_DELETE,
+                   API_DOC_BLOCK(AuthApiDocs::createDeleteToken()));
 }

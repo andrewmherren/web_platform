@@ -1,10 +1,10 @@
 #ifndef AUTH_API_DOCS_H
 #define AUTH_API_DOCS_H
 
-#if OPENAPI_ENABLED
 #include "../interface/openapi_factory.h"
 #include <vector>
 
+#if OPENAPI_ENABLED
 /**
  * Documentation factory for authentication-related API endpoints
  * Following the recommended pattern of separating documentation from implementation
@@ -32,5 +32,6 @@ public:
     static OpenAPIDocumentation createDeleteToken();
 };
 
-#endif
+#endif // OPENAPI_ENABLED
+
 #endif

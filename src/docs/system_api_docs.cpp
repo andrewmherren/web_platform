@@ -1,5 +1,6 @@
-#if OPENAPI_ENABLED
 #include "docs/system_api_docs.h"
+
+#if OPENAPI_ENABLED
 
 // Define module-specific tags
 const std::vector<String> SystemApiDocs::SYSTEM_TAGS = {"System"};
@@ -309,4 +310,5 @@ OpenAPIDocumentation SystemApiDocs::createConfigureWifi() {
 
   return doc;
 }
-#endif
+
+#endif // OPENAPI_ENABLED

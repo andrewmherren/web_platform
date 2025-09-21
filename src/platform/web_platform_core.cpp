@@ -287,13 +287,17 @@ void WebPlatform::setupConnectedMode() {
     registerUnifiedHttpsRoutes();
   }
 
-  #if OPENAPI_ENABLED
+DEBUG_PRINTF("\n=== WebPlatform OpenAPI Generation ===\n");
+#if OPENAPI_ENABLED
     // Generate OpenAPI spec AFTER all routes are registered (modules + platform
     // routes)
+    measureHeapUsage("before openapi spec");
     generateOpenAPISpec();
-  #else
-    DEBUG_PRINTLN("WebPlatform: Skipping openapi spec generation. Add build flag WEB_PLATFORM_OPENAPI=1 to generate.")
-  #endif
+    measureHeapUsage("after openapi spec")
+    DEBUG_PRINTLN("Skipping generation complete.");
+#else
+    DEBUG_PRINTLN("Skipping spec generation. Add build flag WEB_PLATFORM_OPENAPI=1 to generate.");
+#endif
 }
 
 String WebPlatform::getBaseUrl() const {

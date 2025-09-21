@@ -1,8 +1,6 @@
 #ifndef OPENAPI_FACTORY_H
 #define OPENAPI_FACTORY_H
 
-#if OPENAPI_ENABLED
-
 #include "auth_types.h"
 #include "openapi_types.h"
 #include <Arduino.h>
@@ -45,5 +43,4 @@ public:
                                     const String &resource);
   static String formatTag(const String &moduleName);
 };
-#endif
 #endif // OPENAPI_FACTORY_H

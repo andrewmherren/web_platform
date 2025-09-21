@@ -62,11 +62,11 @@ Parameters:
 - `method`: HTTP method (GET, POST, etc.)
 
 ```cpp
-// Register, replace, or disable an APIroute
-  void registerApiRoute(const String &path,
-                        WebModule::UnifiedRouteHandler handler,
-                        const AuthRequirements &auth, WebModule::Method method,
-                        const OpenAPIDocumentation &docs);
+// Register, replace, or disable an API route
+void registerApiRoute(const String &path,
+                     WebModule::UnifiedRouteHandler handler,
+                     const AuthRequirements &auth, WebModule::Method method,
+                     const OpenAPIDocumentation &docs = OpenAPIDocumentation());
 ```
 This unified method can be used to:
 - **Register a new API route**: When the path doesn't exist yet
@@ -78,7 +78,9 @@ Parameters:
 - `handler`: Function to handle the request
 - `auth`: Authentication requirements (defaults to public access)
 - `method`: HTTP method (GET, POST, etc.)
-- `docs`: OpenAPI documentation details.
+- `docs`: OpenAPI documentation details (optional, use `API_DOC_BLOCK()` macro for memory efficiency)
+
+**Note**: OpenAPI documentation is optional and controlled by the `WEB_PLATFORM_OPENAPI` build flag. When disabled, documentation has zero memory impact.
 
 ### Request Handling
 
@@ -483,12 +485,25 @@ void errorHandler(WebRequest& req, WebResponse& res) {
                    "application/json");
 }
 
-## OpenAPI Documentation
+## OpenAPI Documentation (Optional)
+
+**Build Flag Control**: OpenAPI documentation is controlled by the `WEB_PLATFORM_OPENAPI` build flag and is **disabled by default** to conserve memory.
+
+```ini
+# Enable OpenAPI documentation
+build_flags = -DWEB_PLATFORM_OPENAPI=1
+
+# Disable for production (default)
+build_flags = -DWEB_PLATFORM_OPENAPI=0
+```
 
 ### OpenAPIDocumentation Class
 
 ```cpp
-class OpenAPIDocumentation {
+// Template-based documentation that optimizes away when disabled
+using OpenAPIDocumentation = OpenAPIDoc<OPENAPI_ENABLED>;
+
+class OpenAPIDoc<true> {  // When enabled
 public:
     // Constructors
     OpenAPIDocumentation(
@@ -511,11 +526,32 @@ public:
     String responseSchema;         // JSON Schema for response
     String parametersJson;         // JSON array of parameter objects
 };
+
+// When disabled, OpenAPIDoc<false> accepts any constructor args and does nothing
 ```
 
-### OpenAPIFactory
+### Memory-Efficient Documentation Macros
 
 ```cpp
+// Simple documentation
+#define API_DOC(...) OpenAPIDocumentation(__VA_ARGS__)
+
+// Complex documentation block that disappears when OpenAPI disabled
+#define API_DOC_BLOCK(code) (code)  // When enabled
+#define API_DOC_BLOCK(code) OpenAPIDocumentation()  // When disabled
+
+// Usage examples
+webPlatform.registerApiRoute("/status", handler, {AuthType::TOKEN}, WebModule::WM_GET,
+    API_DOC("Get status", "Returns system status"));
+
+webPlatform.registerApiRoute("/data", handler, {AuthType::TOKEN}, WebModule::WM_GET,
+    API_DOC_BLOCK(MyApiDocs::createGetData()));
+```
+
+### OpenAPIFactory (Available When Enabled)
+
+```cpp
+#if OPENAPI_ENABLED
 class OpenAPIFactory {
 public:
     // Create OpenAPI documentation object
@@ -542,6 +578,7 @@ public:
     static String generateOperationId(const String& method, const String& resource);
     static String formatTag(const String& moduleName);
 };
+#endif
 ```
 
 ### Documentation Factory Pattern
@@ -549,7 +586,8 @@ public:
 The recommended pattern for organizing API documentation:
 
 ```cpp
-// Documentation class
+// Wrap documentation classes to disappear when OpenAPI disabled
+#if OPENAPI_ENABLED
 class ModuleNameDocs {
 public:
     // Define module-specific tags
@@ -576,3 +614,16 @@ OpenAPIDocumentation ModuleNameDocs::createGetResource() {
     
     return doc;
 }
+#endif // OPENAPI_ENABLED
+
+// Usage in routes (works whether OpenAPI is enabled or disabled)
+webPlatform.registerApiRoute("/resource", handler, {AuthType::TOKEN}, WebModule::WM_GET,
+    API_DOC_BLOCK(ModuleNameDocs::createGetResource()));
+```
+
+### Development Workflow
+
+1. **Development Phase**: Enable OpenAPI for API exploration and testing
+2. **Documentation Phase**: Create comprehensive API documentation using factories
+3. **Production Phase**: Disable OpenAPI to optimize memory usage
+4. **Maintenance Phase**: Re-enable OpenAPI when updating APIs

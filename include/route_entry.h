@@ -12,7 +12,6 @@ struct RouteEntry {
   WebModule::UnifiedRouteHandler handler;
   AuthRequirements authRequirements;
 
-#if OPENAPI_ENABLED
   // OpenAPI-compatible documentation fields - using const char* to avoid heap
   // allocations
   const char *summary;
@@ -27,29 +26,24 @@ struct RouteEntry {
   const char *contentType;
   const char *parameterConstraints;
   const char *description;
-#endif
 
   RouteEntry()
       : path(nullptr), method(WebModule::WM_GET), handler(nullptr), authRequirements()
-#if OPENAPI_ENABLED
         , summary(nullptr), operationId(nullptr), parameters(nullptr), responseInfo(nullptr),
         tags(nullptr), requestExample(nullptr), responseExample(nullptr),
         requestSchema(nullptr), responseSchema(nullptr), contentType(nullptr),
         parameterConstraints(nullptr), description(nullptr)
-#endif
       {}
 
   RouteEntry(const char *p, WebModule::Method m,
              WebModule::UnifiedRouteHandler h,
              const AuthRequirements &auth = {AuthType::NONE})
       : path(p), method(m), handler(h), authRequirements(auth)
-#if OPENAPI_ENABLED
         , summary(nullptr), operationId(nullptr), parameters(nullptr),
         responseInfo(nullptr), tags(nullptr), requestExample(nullptr),
         responseExample(nullptr), requestSchema(nullptr),
         responseSchema(nullptr), contentType(nullptr),
         parameterConstraints(nullptr), description(nullptr)
-#endif
       {}
 };
 

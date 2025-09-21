@@ -359,9 +359,11 @@ ApiRoute("/update-config", WebModule::WM_POST,
 
 ### Combining Authentication and API Documentation
 
-When creating API endpoints that require authentication, combine proper authentication requirements with clear documentation:
+When creating API endpoints that require authentication, combine proper authentication requirements with clear documentation using the memory-efficient macro system:
 
 ```cpp
+// Wrap documentation class to disappear when OpenAPI disabled
+#if OPENAPI_ENABLED
 class DeviceApiDocs {
 public:
   static const std::vector<String> DEVICE_TAGS;
@@ -386,9 +388,10 @@ public:
 
 // Define tags
 const std::vector<String> DeviceApiDocs::DEVICE_TAGS = {"Device"};
+#endif // OPENAPI_ENABLED
 
-// Use in API route with authentication
-ApiRoute("/status", 
+// Use in API route with authentication and memory-efficient documentation
+webPlatform.registerApiRoute("/status", 
   [this](WebRequest& req, WebResponse& res) {
     const AuthContext& auth = req.getAuthContext();
     String authMethod = (auth.authenticatedVia == AuthType::SESSION) ? "session" : "token";
@@ -397,9 +400,10 @@ ApiRoute("/status",
                  ",\"auth_method\":\"" + authMethod + "\"}";
     res.setContent(json, "application/json");
   }, 
-  {AuthType::SESSION, AuthType::TOKEN},
-  DeviceApiDocs::createGetDeviceStatus()
-)
+  {AuthType::SESSION, AuthType::TOKEN}, 
+  WebModule::WM_GET,
+  API_DOC_BLOCK(DeviceApiDocs::createGetDeviceStatus())
+);
 
 ## API Usage Examples
 

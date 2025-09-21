@@ -114,6 +114,7 @@ See the [Custom Module documentation](custom_module/README.md) for complete impl
 | Module Architecture | ❌ | ❌ | ✅ |
 | RESTful APIs | Basic | ✅ | ✅ |
 | Real-time Updates | ❌ | ❌ | ✅ |
+| OpenAPI Documentation | ❌ | Basic | ✅ |
 | NTP Time Sync | ❌ | ✅ | ❌ |
 | Error Pages | Basic | ❌ | ❌ |
 | URL Redirects | ✅ | ❌ | ❌ |
@@ -147,6 +148,11 @@ See the [Custom Module documentation](custom_module/README.md) for complete impl
    lib_deps = 
        bblanchon/ArduinoJson@^6.20.0
        # Add other sensor libraries as needed
+   
+   # Optional: Enable OpenAPI documentation for API exploration
+   build_flags = -DWEB_PLATFORM_OPENAPI=1
+   # Or disable for production builds (default):
+   # build_flags = -DWEB_PLATFORM_OPENAPI=0
    ```
 
 3. Build and upload:

@@ -80,7 +80,7 @@ void WebPlatform::registerRoute(const String &path,
       route.handler = handler;
       route.authRequirements = auth;
 
-      #if OPENAPI_ENABLED
+#if OPENAPI_ENABLED
       // Add OpenAPI documentation - store strings in pool
       route.summary = RouteStringPool::store(docs.summary);
       route.operationId = RouteStringPool::store(docs.operationId);
@@ -92,7 +92,7 @@ void WebPlatform::registerRoute(const String &path,
       route.responseSchema = RouteStringPool::store(docs.responseSchema);
       route.parameters = RouteStringPool::store(docs.parameters);
       route.responseInfo = RouteStringPool::store(docs.responsesJson);
-      #endif
+#endif
 
       return;
     }
@@ -101,7 +101,7 @@ void WebPlatform::registerRoute(const String &path,
   // Add new route
   RouteEntry newRoute(storedPath, method, handler, auth);
 
-  #if OPENAPI_ENABLED
+#if OPENAPI_ENABLED
   // Add OpenAPI documentation - store strings in pool
   newRoute.summary = RouteStringPool::store(docs.summary);
   newRoute.operationId = RouteStringPool::store(docs.operationId);
@@ -113,7 +113,7 @@ void WebPlatform::registerRoute(const String &path,
   newRoute.responseSchema = RouteStringPool::store(docs.responseSchema);
   newRoute.parameters = RouteStringPool::store(docs.parameters);
   newRoute.responseInfo = RouteStringPool::store(docs.responsesJson);
-  #endif
+#endif
 
   routeRegistry.push_back(newRoute);
 }

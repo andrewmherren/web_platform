@@ -4,10 +4,7 @@
 
 void WebPlatform::printUnifiedRoutes() const {
   // Determine what we're printing based on parameters
-  String headerTitle;
-  headerTitle = "WebPlatform Route Registry";
-
-  DEBUG_PRINTF("\n=== %s ===\n", headerTitle.c_str());
+  DEBUG_PRINTF("\n=== WebPlatform Route Registry ===\n");
   DEBUG_PRINTLN("PATH                        METHOD  AUTH");
   DEBUG_PRINTLN("--------------------------- ------- -------------");
 

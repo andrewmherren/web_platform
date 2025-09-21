@@ -1,5 +1,6 @@
-#if OPENAPI_ENABLED
 #include "docs/auth_api_docs.h"
+
+#if OPENAPI_ENABLED
 
 // Define module-specific tags
 const std::vector<String> AuthApiDocs::USER_MANAGEMENT_TAGS = {
@@ -371,4 +372,5 @@ OpenAPIDocumentation AuthApiDocs::createDeleteToken() {
 
   return doc;
 }
-#endif
+
+#endif // OPENAPI_ENABLED

@@ -4,11 +4,15 @@
 #include <Arduino.h>
 #include <vector>
 
+#ifndef WEB_PLATFORM_OPENAPI
+#define WEB_PLATFORM_OPENAPI 1  // Default to enabled
+#endif
+
 #define OPENAPI_ENABLED WEB_PLATFORM_OPENAPI
 
-#if OPENAPI_ENABLED
-// OpenAPI documentation structure for route registration
-struct OpenAPIDocumentation {
+// Template-based OpenAPI documentation - full implementation when enabled
+template<bool Enabled = OPENAPI_ENABLED>
+struct OpenAPIDoc {
   String summary;           // Short summary of the operation
   String operationId;       // Unique identifier for the operation
   String description;       // Detailed description
@@ -21,16 +25,15 @@ struct OpenAPIDocumentation {
   String responsesJson;     // JSON string containing response definitions
 
   // Default constructor
-  OpenAPIDocumentation() = default;
+  OpenAPIDoc() = default;
 
   // Convenience constructor with common fields - tags are now optional
-  OpenAPIDocumentation(const String &sum, const String &desc = "",
-                       const String &opId = "")
+  OpenAPIDoc(const String &sum, const String &desc = "", const String &opId = "")
       : summary(sum), operationId(opId), description(desc), tags({}) {}
 
   // Constructor with explicit tags (for when you want to override defaults)
-  OpenAPIDocumentation(const String &sum, const String &desc,
-                       const String &opId, const std::vector<String> &t)
+  OpenAPIDoc(const String &sum, const String &desc, const String &opId, 
+             const std::vector<String> &t)
       : summary(sum), operationId(opId), description(desc), tags(t) {}
 
   // Check if any documentation is provided
@@ -55,9 +58,39 @@ struct OpenAPIDocumentation {
     return result;
   }
 };
+
+// Template specialization - empty implementation when disabled
+template<>
+struct OpenAPIDoc<false> {
+  // Accept any constructor arguments and do nothing
+  OpenAPIDoc() = default;
+  
+  template<typename... Args>
+  OpenAPIDoc(Args&&... args) {}
+
+  // All methods return empty/default values and inline to nothing
+  bool hasDocumentation() const { return false; }
+  String getTagsString() const { return ""; }
+};
+
+// Type alias for easy use
+using OpenAPIDocumentation = OpenAPIDoc<OPENAPI_ENABLED>;
+
+// Convenience macros for cleaner API
+#if OPENAPI_ENABLED
+    #define API_DOC(...) OpenAPIDocumentation(__VA_ARGS__)
+    #define API_DOC_BLOCK(code) (code)
+    #define COMPLEX_API_DOC(summary, desc, reqSchema, respExample) \
+        []() { \
+            auto doc = OpenAPIDocumentation(summary, desc); \
+            doc.requestSchema = reqSchema; \
+            doc.responseExample = respExample; \
+            return doc; \
+        }()
 #else
-// Empty stub for when OpenAPI is disabled
-struct OpenAPIDocumentation {};
+    #define API_DOC(...) OpenAPIDocumentation()
+    #define API_DOC_BLOCK(code) OpenAPIDocumentation()
+    #define COMPLEX_API_DOC(...) OpenAPIDocumentation()
 #endif
 
 #endif // OPENAPI_TYPES_H

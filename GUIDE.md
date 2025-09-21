@@ -102,6 +102,9 @@ webPlatform.registerWebRoute("/path", [](WebRequest& req, WebResponse& res) {
 ```
 
 ### Register an API Route with OpenAPI Documentation
+
+WebPlatform supports optional OpenAPI documentation that can be enabled/disabled at build time for memory optimization:
+
 ```cpp
 // First, create a documentation factory class
 class SystemApiDocs {
@@ -138,7 +141,7 @@ public:
 // Define tags
 const std::vector<String> SystemApiDocs::SYSTEM_TAGS = {"System"};
 
-// Then use the factory in your route registration
+// Then use the factory in your route registration with the API_DOC_BLOCK macro
 webPlatform.registerApiRoute(
     "/status", 
     [](WebRequest& req, WebResponse& res) {
@@ -146,8 +149,21 @@ webPlatform.registerApiRoute(
     }, 
     {AuthType::TOKEN}, 
     WebModule::WM_GET,
-    SystemApiDocs::createGetSystemStatus()
+    API_DOC_BLOCK(SystemApiDocs::createGetSystemStatus())
 );
+```
+
+**OpenAPI Build Configuration**: OpenAPI documentation is now **optional** and controlled by a build flag:
+
+```ini
+# platformio.ini - Enable OpenAPI documentation
+build_flags = -DWEB_PLATFORM_OPENAPI=1
+
+# Or disable for production builds to save memory
+build_flags = -DWEB_PLATFORM_OPENAPI=0
+```
+
+When OpenAPI is disabled, the `API_DOC_BLOCK()` macro ensures documentation code has zero memory impact.
 ```
 
 ## OpenAPIFactory
@@ -335,11 +351,43 @@ IWebModule::setNavigationMenu(navItems);
 
 ## OpenAPI Integration
 
-WebPlatform includes built-in support for OpenAPI 3.0 specification generation, making it easy to document your API endpoints.
+WebPlatform includes optional support for OpenAPI 3.0 specification generation that can be enabled/disabled at build time.
+
+### Enabling OpenAPI Documentation
+
+OpenAPI support is **disabled by default** to conserve memory. Enable it with a build flag:
+
+```ini
+# platformio.ini
+build_flags = -DWEB_PLATFORM_OPENAPI=1
+```
+
+### Using OpenAPI Documentation Macros
+
+When OpenAPI is enabled, use these macros for memory-efficient documentation:
+
+```cpp
+// Simple documentation
+webPlatform.registerApiRoute("/status", handler, {AuthType::TOKEN}, WebModule::WM_GET,
+    API_DOC("Get system status", "Returns current device status"));
+
+// Complex documentation using factory classes
+webPlatform.registerApiRoute("/users", handler, {AuthType::SESSION}, WebModule::WM_GET,
+    API_DOC_BLOCK(UserApiDocs::createListUsers()));
+
+// Advanced documentation with inline configuration
+webPlatform.registerApiRoute("/config", handler, {AuthType::SESSION}, WebModule::WM_PUT,
+    API_DOC_BLOCK({
+        auto doc = OpenAPIDocumentation("Update configuration");
+        doc.requestExample = "{\"setting\":\"value\"}";
+        doc.responseExample = "{\"success\":true}";
+        return doc;
+    }()));
+```
 
 ### Accessing the OpenAPI Specification
 
-The OpenAPI specification is automatically generated and available at:
+When enabled, the OpenAPI specification is automatically generated and available at:
 ```
 /api/openapi.json
 ```
@@ -352,14 +400,37 @@ You can also filter the specification by authentication type:
 
 ### Benefits of Using OpenAPI Documentation
 
-1. **Automatic Documentation**: Your API endpoints are automatically documented based on the information you provide
-2. **Tool Integration**: The generated specification can be imported into tools like Postman, Swagger UI, or code generators
-3. **Self-documenting APIs**: New developers can quickly understand your API without reading code
-4. **Testing Support**: Tools can generate test cases based on your API documentation
+1. **Optional Memory Impact**: Zero overhead when disabled, full documentation when enabled
+2. **Build-Time Optimization**: Include documentation during development, disable for production
+3. **Tool Integration**: Generated specification works with Postman, Swagger UI, and code generators
+4. **Development Lifecycle Support**: Enable during API exploration, disable during optimization phase
 
-### Example: API Documentation with OpenAPI
+### Documentation Factory Pattern
 
-See the complete [OpenAPI Example](examples/openapi_example.cpp) for a working demonstration.
+The recommended pattern for organizing API documentation when OpenAPI is enabled:
+
+```cpp
+#if OPENAPI_ENABLED
+class ModuleApiDocs {
+public:
+    static const std::vector<String> MODULE_TAGS;
+    
+    static OpenAPIDocumentation createGetData() {
+        auto doc = OpenAPIFactory::create("Get module data", 
+                                         "Retrieves current module data", 
+                                         "getModuleData", MODULE_TAGS);
+        doc.responseExample = "{\"data\":\"value\"}";
+        return doc;
+    }
+};
+
+const std::vector<String> ModuleApiDocs::MODULE_TAGS = {"Module"};
+#endif
+
+// Usage in routes
+webPlatform.registerApiRoute("/data", handler, {AuthType::TOKEN}, WebModule::WM_GET,
+    API_DOC_BLOCK(ModuleApiDocs::createGetData()));
+```
 
 ## Examples
 
@@ -516,9 +587,21 @@ res.setContent(dynamicHtml, "text/html");
 ### Development
 1. **Clear Error Messages**: Provide useful error messages and status codes
 2. **Consistent Route Structure**: Use consistent URL patterns
-3. **Document API Endpoints**: Use OpenAPIDocumentation to properly document your APIs
+3. **Document API Endpoints**: Use OpenAPIDocumentation with `API_DOC_BLOCK()` for memory efficiency
 4. **Progressive Enhancement**: Ensure basic functionality works without JavaScript
 5. **Test on Both Platforms**: Verify on ESP32 device
+
+### Build Configuration
+1. **OpenAPI Documentation**: Disabled by default for memory optimization
+   ```ini
+   # Enable during development
+   build_flags = -DWEB_PLATFORM_OPENAPI=1
+   
+   # Disable for production (default)
+   build_flags = -DWEB_PLATFORM_OPENAPI=0
+   ```
+2. **Memory Optimization**: Use `API_DOC_BLOCK()` macro to ensure documentation has zero impact when disabled
+3. **Development Lifecycle**: Enable OpenAPI during API exploration, disable for production deployment
 
 ### API Documentation
 1. **Use Documentation Classes**: Create dedicated classes for API documentation using the pattern `ModuleNameDocs`

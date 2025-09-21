@@ -1,9 +1,7 @@
 #include "interface/web_module_interface.h"
 #include "web_platform.h"
-
-#if OPENAPI_ENABLED
+#include "interface/openapi_types.h"
 #include "docs/system_api_docs.h"
-#endif
 
 void WebPlatform::registerConnectedModeRoutes() {
   registerWebRoute("/assets/favicon.svg",
@@ -68,83 +66,59 @@ void WebPlatform::registerConnectedModeRoutes() {
                    std::bind(&WebPlatform::scanApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-                   WebModule::WM_GET
-#if OPENAPI_ENABLED
-                  , SystemApiDocs::createScanWifi()
-#endif
-                  );
+                   WebModule::WM_GET,
+                   API_DOC_BLOCK(SystemApiDocs::createScanWifi()));
 
   registerApiRoute("/status",
                    std::bind(&WebPlatform::statusApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-                   WebModule::WM_GET
-#if OPENAPI_ENABLED
-                  , SystemApiDocs::createGetStatus()
-#endif
-                  );
+                   WebModule::WM_GET,
+                   API_DOC_BLOCK(SystemApiDocs::createGetStatus()));
 
   registerApiRoute("/reset",
                    std::bind(&WebPlatform::resetApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-                   WebModule::WM_POST
-#if OPENAPI_ENABLED
-                  , SystemApiDocs::createResetDevice()
-#endif
-                  );
+                   WebModule::WM_POST,
+                   API_DOC_BLOCK(SystemApiDocs::createResetDevice()));
 
   registerApiRoute("/wifi",
                    std::bind(&WebPlatform::wifiConfigHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-                   WebModule::WM_POST
-#if OPENAPI_ENABLED
-                  , SystemApiDocs::createConfigureWifi()
-#endif
-                  );
+                   WebModule::WM_POST,
+                   API_DOC_BLOCK(SystemApiDocs::createConfigureWifi()));
 
   // Register RESTful API routes for system status data
   registerApiRoute("/system",
                    std::bind(&WebPlatform::getSystemStatusApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-                   WebModule::WM_GET
-#if OPENAPI_ENABLED
-                  , SystemApiDocs::createGetSystemStatus()
-#endif
-                  );
+                   WebModule::WM_GET,
+                   API_DOC_BLOCK(SystemApiDocs::createGetSystemStatus()));
 
   registerApiRoute("/network",
                    std::bind(&WebPlatform::getNetworkStatusApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-                   WebModule::WM_GET
-#if OPENAPI_ENABLED
-                  , SystemApiDocs::createGetNetworkStatus()
-#endif
-                  );
+                   WebModule::WM_GET,
+                   API_DOC_BLOCK(SystemApiDocs::createGetNetworkStatus()));
 
   registerApiRoute("/modules",
                    std::bind(&WebPlatform::getModulesApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
-                   WebModule::WM_GET
-#if OPENAPI_ENABLED
-                  , SystemApiDocs::createGetModules()
-#endif
-                  );
+                   WebModule::WM_GET,
+                   API_DOC_BLOCK(SystemApiDocs::createGetModules()));
 
-  #if OPENAPI_ENABLED
+#if OPENAPI_ENABLED
   // OpenAPI specification endpoints - cached & fresh versions
   registerApiRoute("/openapi.json",
                    std::bind(&WebPlatform::getOpenAPISpecHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::NONE}}, // No auth required for API docs
-                   WebModule::WM_GET
-#if OPENAPI_ENABLED
-                  , SystemApiDocs::createGetOpenAPISpec()
+                   WebModule::WM_GET,
+                   API_DOC_BLOCK(SystemApiDocs::createGetOpenAPISpec()));
 #endif
-                  );
-  #endif
 }
