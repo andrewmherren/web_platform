@@ -66,7 +66,7 @@ void WebPlatform::registerRoute(const String &path,
                                 const AuthRequirements &auth,
                                 WebModule::Method method,
                                 const OpenAPIDocumentation &docs) {
-  // Convert path to const char* and store it
+  // Convert path to const char* and store it - still needed for functional routing
   const char *storedPath = RouteStringPool::store(path);
 
   // Check if route already exists
@@ -80,42 +80,26 @@ void WebPlatform::registerRoute(const String &path,
       route.handler = handler;
       route.authRequirements = auth;
 
-#if OPENAPI_ENABLED
-      // Add OpenAPI documentation - store strings in pool
-      route.summary = RouteStringPool::store(docs.summary);
-      route.operationId = RouteStringPool::store(docs.operationId);
-      route.description = RouteStringPool::store(docs.description);
-      route.tags = RouteStringPool::store(docs.getTagsString());
-      route.requestExample = RouteStringPool::store(docs.requestExample);
-      route.responseExample = RouteStringPool::store(docs.responseExample);
-      route.requestSchema = RouteStringPool::store(docs.requestSchema);
-      route.responseSchema = RouteStringPool::store(docs.responseSchema);
-      route.parameters = RouteStringPool::store(docs.parameters);
-      route.responseInfo = RouteStringPool::store(docs.responsesJson);
-#endif
+      // Only store documentation during OpenAPI generation phase
+      if (openAPIGenerationContext.isGenerating()) {
+        // Always collect all routes during generation - let generation context filter
+        DEBUG_PRINTF("WebPlatform: Collecting docs during generation for replacement route: %s %s\n", 
+                     wmMethodToString(method).c_str(), path.c_str());
+        openAPIGenerationContext.addRouteDocumentation(path, method, docs, auth);
+      }
 
       return;
     }
   }
 
-  // Add new route
+  // Add new route - only stores functional routing data
   RouteEntry newRoute(storedPath, method, handler, auth);
-
-#if OPENAPI_ENABLED
-  // Add OpenAPI documentation - store strings in pool
-  newRoute.summary = RouteStringPool::store(docs.summary);
-  newRoute.operationId = RouteStringPool::store(docs.operationId);
-  newRoute.description = RouteStringPool::store(docs.description);
-  newRoute.tags = RouteStringPool::store(docs.getTagsString());
-  newRoute.requestExample = RouteStringPool::store(docs.requestExample);
-  newRoute.responseExample = RouteStringPool::store(docs.responseExample);
-  newRoute.requestSchema = RouteStringPool::store(docs.requestSchema);
-  newRoute.responseSchema = RouteStringPool::store(docs.responseSchema);
-  newRoute.parameters = RouteStringPool::store(docs.parameters);
-  newRoute.responseInfo = RouteStringPool::store(docs.responsesJson);
-#endif
-
   routeRegistry.push_back(newRoute);
+  
+  // Only store documentation during OpenAPI generation phase
+  if (openAPIGenerationContext.isGenerating()) {
+    openAPIGenerationContext.addRouteDocumentation(path, method, docs, auth);
+  }
 }
 
 // Helper function to check if a path matches a route pattern with wildcards

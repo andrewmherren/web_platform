@@ -132,7 +132,7 @@ build_flags = -DWEB_PLATFORM_OPENAPI=1
 
 When enabled, this provides:
 - Structured API documentation that can be consumed by tools like Postman or Swagger
-- Automatic `/api/openapi.json` endpoint generation
+- Automatic `/openapi.json` endpoint generation
 - Consistent documentation patterns across modules
 
 When disabled, the `API_DOC_BLOCK()` macro ensures zero memory impact, making the same code suitable for production deployments.

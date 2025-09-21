@@ -1,4 +1,5 @@
 #include "interface/openapi_types.h"
+#include "interface/web_module_types.h"
 #include "route_entry.h"
 #include "storage/storage_manager.h"
 #include "web_platform.h"
@@ -15,7 +16,13 @@ const String WebPlatform::OPENAPI_COLLECTION = "openapi";
 const String WebPlatform::OPENAPI_SPEC_KEY = "spec";
 
 void WebPlatform::generateOpenAPISpec() {
-  DEBUG_PRINTLN("WebPlatform: Generating OpenAPI specification to storage...");
+#if !OPENAPI_ENABLED
+  DEBUG_PRINTLN("WebPlatform: OpenAPI generation disabled at compile time");
+  openAPISpecReady = false;
+  return;
+#endif
+  
+  DEBUG_PRINTLN("WebPlatform: Generating OpenAPI specification to storage using temporary context...");
 
   // Check if we already have a valid spec in storage
   IDatabaseDriver *driver = StorageManager::driver();
@@ -33,10 +40,13 @@ void WebPlatform::generateOpenAPISpec() {
   size_t freeHeap = ESP.getFreeHeap();
   size_t targetSize;
   size_t maxBlock = ESP.getMaxAllocHeap();
-  size_t maxAllowable = (size_t)(maxBlock * 0.8);
-  targetSize = (maxAllowable < 24576) ? maxAllowable : 24576;
+  
+  // CRITICAL FIX: Increase target size for 23 API routes
+  // Based on validation results, 32KB is nearly full, increase to 40KB
+  size_t maxAllowable = (size_t)(maxBlock * 0.7);
+  targetSize = (maxAllowable < 40960) ? maxAllowable : 40960; // Increase from 32KB to 40KB
 
-  if (targetSize < 8192) {
+  if (targetSize < 16384) { // Increase minimum from 8KB to 16KB
     ERROR_PRINTLN("ERROR: Insufficient memory for OpenAPI generation!");
     openAPISpecReady = false;
     return;
@@ -79,70 +89,92 @@ void WebPlatform::generateOpenAPISpec() {
 
   JsonObject paths = doc.createNestedObject("paths");
 
-  // Process all routes
-  for (const auto &route : routeRegistry) {
-    if (!route.handler)
-      continue;
+  // Process routes from temporary storage instead of routeRegistry
+  const auto& apiRoutes = openAPIGenerationContext.getApiRoutes();
 
-    String routePathStr = route.path ? String(route.path) : String("");
-    if (routePathStr.indexOf("/api/") == -1)
+  // Process API routes from temporary storage
+  int processedCount = 0;
+  for (const auto& routeDoc : openAPIGenerationContext.getApiRoutes()) {
+    String routePathStr = routeDoc.path;
+    
+    // Skip non-API routes (should already be filtered but double-check)
+    if (routePathStr.indexOf("/api/") == -1) {
+      DEBUG_PRINTF("  Skipping non-API route: %s\n", routePathStr.c_str());
       continue;
+    }
+    
+    processedCount++;
 
+    // Ensure proper path key and method string
+    String pathKey = routeDoc.path;
+    String methodStr = wmMethodToString(routeDoc.method);
+    methodStr.toLowerCase(); // Ensure lowercase method names (get, post, put, delete)
+        
     JsonObject pathItem;
-    const char *pathKey = route.path ? route.path : "";
     if (paths.containsKey(pathKey)) {
       pathItem = paths[pathKey];
     } else {
       pathItem = paths.createNestedObject(pathKey);
     }
 
-    String methodStr = wmMethodToString(route.method);
-
     JsonObject operation = pathItem.createNestedObject(methodStr);
 
-    // Direct assignment - no String copies for stored documentation
-    if (route.summary && strlen(route.summary) > 0) {
-      operation["summary"] = route.summary;
+    // Use documentation from temporary storage or generate defaults
+    const OpenAPIDocumentation& docs = routeDoc.docs;
+    
+#if OPENAPI_ENABLED
+    if (!docs.summary.isEmpty()) {
+      operation["summary"] = docs.summary;
     } else {
       operation["summary"] = generateDefaultSummary(routePathStr, methodStr);
     }
 
-    if (route.operationId && strlen(route.operationId) > 0) {
-      operation["operationId"] = route.operationId;
+    if (!docs.operationId.isEmpty()) {
+      operation["operationId"] = docs.operationId;
     } else {
       operation["operationId"] = generateOperationId(methodStr, routePathStr);
     }
 
-    JsonArray tags = operation.createNestedArray("tags");
-    String defaultModuleTag = inferModuleFromPath(routePathStr);
-
-    if (route.tags && strlen(route.tags) > 0) {
-      tags.add(defaultModuleTag);
-      String tagsCopy = String(route.tags);
-      String lowerDefaultTag = defaultModuleTag;
-      lowerDefaultTag.toLowerCase();
-
-      while (tagsCopy.length() > 0) {
-        int commaIndex = tagsCopy.indexOf(',');
-        String tag =
-            (commaIndex != -1) ? tagsCopy.substring(0, commaIndex) : tagsCopy;
-        tag.trim();
-        if (tag.length() > 0) {
-          String lowerTag = tag;
-          lowerTag.toLowerCase();
-          if (lowerTag != lowerDefaultTag) {
-            tags.add(tag);
-          }
-        }
-        tagsCopy = (commaIndex != -1) ? tagsCopy.substring(commaIndex + 1) : "";
-      }
-    } else {
-      tags.add(defaultModuleTag);
+    if (!docs.description.isEmpty()) {
+      operation["description"] = docs.description;
     }
 
-    if (!route.authRequirements.empty()) {
+    // Handle tags - use provided tags or generate default (restored original logic)
+    JsonArray tags = operation.createNestedArray("tags");
+    String defaultModuleTag = inferModuleFromPath(routePathStr);
+    
+    if (!docs.tags.empty()) {
+      // Add default module tag first
+      tags.add(defaultModuleTag);
+      
+      // Add custom tags, avoiding duplicates
+      String lowerDefaultTag = defaultModuleTag;
+      lowerDefaultTag.toLowerCase();
+      
+      for (const String& tag : docs.tags) {
+        String lowerTag = tag;
+        lowerTag.toLowerCase();
+        if (lowerTag != lowerDefaultTag) {
+          tags.add(tag);
+        }
+      }
+    } else {
+      // Just add the default module tag
+      tags.add(defaultModuleTag);
+    }
+#else
+    // When OpenAPI is disabled, just generate basic operation info
+    operation["summary"] = generateDefaultSummary(routePathStr, methodStr);
+    operation["operationId"] = generateOperationId(methodStr, routePathStr);
+    
+    JsonArray tags = operation.createNestedArray("tags");
+    tags.add(inferModuleFromPath(routePathStr));
+#endif
+
+    // Add authentication requirements
+    if (!routeDoc.authRequirements.empty()) {
       JsonArray security = operation.createNestedArray("security");
-      for (const auto &authType : route.authRequirements) {
+      for (const auto &authType : routeDoc.authRequirements) {
         if (authType == AuthType::TOKEN) {
           JsonObject secObj = security.createNestedObject();
           secObj.createNestedArray("bearerAuth");
@@ -155,11 +187,62 @@ void WebPlatform::generateOpenAPISpec() {
       }
     }
 
-    addParametersToOperation(operation, route);
-    addResponsesToOperation(operation, route);
+    // Add parameters using the helper method to avoid duplication
+    addParametersToOperationFromDocs(operation, routeDoc);
 
-    if (methodStr == "post" || methodStr == "put" || methodStr == "patch") {
-      addRequestBodyToOperation(operation, route);
+    // Add request body for POST/PUT operations
+#if OPENAPI_ENABLED
+    if ((routeDoc.method == WebModule::WM_POST || routeDoc.method == WebModule::WM_PUT) && 
+        (!docs.requestSchema.isEmpty() || !docs.requestExample.isEmpty())) {
+      addRequestBodyToOperationFromDocs(operation, routeDoc);
+    }
+#else
+    if (routeDoc.method == WebModule::WM_POST || routeDoc.method == WebModule::WM_PUT) {
+      addRequestBodyToOperationFromDocs(operation, routeDoc);
+    }
+#endif
+
+    // Add responses
+#if OPENAPI_ENABLED
+    if (!docs.responsesJson.isEmpty() || !docs.responseSchema.isEmpty() || !docs.responseExample.isEmpty()) {
+      addResponsesToOperationFromDocs(operation, routeDoc);
+    } else {
+#else
+    {
+#endif
+      // Add basic responses
+      JsonObject responses = operation.createNestedObject("responses");
+      JsonObject response200 = responses.createNestedObject("200");
+      response200["description"] = "Successful operation";
+      
+      // Add auth error responses if needed
+      if (!routeDoc.authRequirements.empty()) {
+        JsonObject response401 = responses.createNestedObject("401");
+        response401["description"] = "Unauthorized - Authentication required";
+        JsonObject response403 = responses.createNestedObject("403");
+        response403["description"] = "Forbidden - Insufficient permissions";
+      }
+      
+      JsonObject response500 = responses.createNestedObject("500");
+      response500["description"] = "Internal server error";
+    }
+    
+    // Check if we're running low on memory
+    if (doc.memoryUsage() > doc.capacity() * 0.9) {
+      WARN_PRINTF("WARNING: JSON document nearly full at route #%d (%d/%d bytes)\n",
+                   processedCount, doc.memoryUsage(), doc.capacity());
+    }
+  }
+  
+  JsonObject pathsDebug = doc["paths"];
+  int totalPaths = 0;
+  int totalOperations = 0;
+  
+  for (JsonPair pathPair : pathsDebug) {
+    totalPaths++;
+    JsonObject pathObj = pathPair.value();
+    for (JsonPair methodPair : pathObj) {
+      totalOperations++;
     }
   }
 
@@ -187,11 +270,24 @@ void WebPlatform::generateOpenAPISpec() {
     openAPISpecReady = false;
   }
 
+  // Critical cleanup - free temporary storage
+  openAPIGenerationContext.endGeneration();
+  
+#if !OPENAPI_ENABLED
+  // This code should not be reached when disabled, but safety check
+  ERROR_PRINTLN("ERROR: OpenAPI generation code executed when disabled!");
+#endif
+  
   // Clear the temporary string to free memory
   openAPIJson = "";
 }
 
 void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
+#if !OPENAPI_ENABLED
+  res.setStatus(501);
+  res.setContent("{\"error\":\"OpenAPI specification generation disabled\"}", "application/json");
+  return;
+#else
   if (!openAPISpecReady) {
     res.setStatus(503);
     res.setContent("{\"error\":\"OpenAPI specification not ready\"}",
@@ -224,6 +320,7 @@ void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
   res.setContent(openAPISpec, "application/json");
   res.setHeader("Cache-Control", "public, max-age=300");
   res.setHeader("Content-Length", String(openAPISpec.length()));
+#endif // OPENAPI_ENABLED
 }
 
 // Helper functions for enhanced OpenAPI generation
@@ -307,19 +404,19 @@ String WebPlatform::formatModuleName(const String &moduleName) const {
   return formatted;
 }
 
-void WebPlatform::addParametersToOperation(JsonObject &operation,
-                                           const RouteEntry &route) const {
+void WebPlatform::addParametersToOperationFromDocs(JsonObject &operation,
+                                                   const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
+#if OPENAPI_ENABLED
   JsonArray parameters = operation.createNestedArray("parameters");
+  const OpenAPIDocumentation& docs = routeDoc.docs;
 
   // Track parameter names to avoid duplicates
   std::map<String, bool> parameterNames;
 
   // First, add custom parameters from module documentation
-  // These take precedence and may override auto-generated ones
-  if (route.parameters && strlen(route.parameters) > 0) {
+  if (!docs.parameters.isEmpty()) {
     DynamicJsonDocument paramDoc(2048);
-    if (deserializeJson(paramDoc, route.parameters) ==
-        DeserializationError::Ok) {
+    if (deserializeJson(paramDoc, docs.parameters) == DeserializationError::Ok) {
       if (paramDoc.is<JsonArray>()) {
         JsonArray customParams = paramDoc.as<JsonArray>();
         for (JsonVariant param : customParams) {
@@ -341,8 +438,8 @@ void WebPlatform::addParametersToOperation(JsonObject &operation,
     }
   }
 
-  // Then add auto-generated path parameters only if not already defined
-  String routePathStr = route.path ? String(route.path) : String("");
+  // Add auto-generated path parameters
+  String routePathStr = routeDoc.path;
   if (routePathStr.indexOf("{") != -1) {
     String pathCopy = routePathStr;
     int startPos = 0;
@@ -352,37 +449,29 @@ void WebPlatform::addParametersToOperation(JsonObject &operation,
         String paramName = pathCopy.substring(startPos + 1, endPos);
         String paramKey = paramName + ":path";
 
-        // Only add if not already defined by custom parameters
         if (parameterNames.find(paramKey) == parameterNames.end()) {
           JsonObject param = parameters.createNestedObject();
           param["name"] = paramName;
           param["in"] = "path";
           param["required"] = true;
-          param["description"] = "Path parameter: " + paramName;
+          
+          // Enhanced parameter descriptions
+          if (paramName == "id") {
+            param["description"] = "Resource identifier";
+          } else if (paramName == "userId") {
+            param["description"] = "User identifier (UUID)";
+          } else if (paramName == "tokenId") {
+            param["description"] = "Token identifier";
+          } else {
+            param["description"] = "Path parameter: " + paramName;
+          }
 
           JsonObject schema = param.createNestedObject("schema");
-          schema["type"] = "string";
-
-          // Add parameter constraints if available
-          if (route.parameterConstraints &&
-              strlen(route.parameterConstraints) > 0) {
-            // Parse parameter constraints JSON and apply to matching parameters
-            DynamicJsonDocument constraintsDoc(1024);
-            if (deserializeJson(constraintsDoc, route.parameterConstraints) ==
-                DeserializationError::Ok) {
-              if (constraintsDoc.containsKey(paramName)) {
-                JsonObject constraints = constraintsDoc[paramName];
-                if (constraints.containsKey("pattern")) {
-                  schema["pattern"] = constraints["pattern"];
-                }
-                if (constraints.containsKey("minLength")) {
-                  schema["minLength"] = constraints["minLength"];
-                }
-                if (constraints.containsKey("maxLength")) {
-                  schema["maxLength"] = constraints["maxLength"];
-                }
-              }
-            }
+          if (paramName.endsWith("Id") && paramName != "id") {
+            schema["type"] = "string";
+            schema["format"] = "uuid";
+          } else {
+            schema["type"] = "string";
           }
 
           parameterNames[paramKey] = true;
@@ -394,46 +483,64 @@ void WebPlatform::addParametersToOperation(JsonObject &operation,
       }
     }
   }
+  
+  // Add access_token parameter for routes that support token authentication
+  bool hasTokenAuth = false;
+  for (const auto& authType : routeDoc.authRequirements) {
+    if (authType == AuthType::TOKEN) {
+      hasTokenAuth = true;
+      break;
+    }
+  }
+  
+  if (hasTokenAuth && parameterNames.find("access_token:query") == parameterNames.end()) {
+    JsonObject tokenParam = parameters.createNestedObject();
+    tokenParam["name"] = "access_token";
+    tokenParam["in"] = "query";
+    tokenParam["required"] = false;
+    tokenParam["description"] = "API access token (alternative to Bearer header)";
+    JsonObject tokenSchema = tokenParam.createNestedObject("schema");
+    tokenSchema["type"] = "string";
+    parameterNames["access_token:query"] = true;
+  }
+#endif
 }
 
-void WebPlatform::addResponsesToOperation(JsonObject &operation,
-                                          const RouteEntry &route) const {
+void WebPlatform::addResponsesToOperationFromDocs(JsonObject &operation,
+                                                 const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
+#if OPENAPI_ENABLED
   JsonObject responses = operation.createNestedObject("responses");
+  const OpenAPIDocumentation& docs = routeDoc.docs;
 
   // Success response
   JsonObject response200 = responses.createNestedObject("200");
   response200["description"] = "Successful operation";
 
-  // Add content type and examples - direct assignment for stored content type
+  // Add content type and examples
   JsonObject content = response200.createNestedObject("content");
-  const char* contentType = (route.contentType && strlen(route.contentType) > 0)
-                           ? route.contentType
-                           : "application/json";
+  String contentType = "application/json"; // Default content type
   JsonObject mediaType = content.createNestedObject(contentType);
 
   // Add response schema if provided
-  if (route.responseSchema && strlen(route.responseSchema) > 0) {
+  if (!docs.responseSchema.isEmpty()) {
     DynamicJsonDocument schemaDoc(2048);
-    if (deserializeJson(schemaDoc, route.responseSchema) ==
-        DeserializationError::Ok) {
+    if (deserializeJson(schemaDoc, docs.responseSchema) == DeserializationError::Ok) {
       mediaType["schema"] = schemaDoc.as<JsonObject>();
     }
   }
 
   // Add response example if provided
-  if (route.responseExample && strlen(route.responseExample) > 0) {
+  if (!docs.responseExample.isEmpty()) {
     DynamicJsonDocument exampleDoc(2048);
-    if (deserializeJson(exampleDoc, route.responseExample) ==
-        DeserializationError::Ok) {
+    if (deserializeJson(exampleDoc, docs.responseExample) == DeserializationError::Ok) {
       mediaType["example"] = exampleDoc.as<JsonVariant>();
     }
   }
 
   // Add module-provided response info
-  if (route.responseInfo && strlen(route.responseInfo) > 0) {
+  if (!docs.responsesJson.isEmpty()) {
     DynamicJsonDocument responseDoc(2048);
-    if (deserializeJson(responseDoc, route.responseInfo) ==
-        DeserializationError::Ok) {
+    if (deserializeJson(responseDoc, docs.responsesJson) == DeserializationError::Ok) {
       // Merge additional response information
       for (JsonPair kv : responseDoc.as<JsonObject>()) {
         if (!responses.containsKey(kv.key().c_str())) {
@@ -444,7 +551,7 @@ void WebPlatform::addResponsesToOperation(JsonObject &operation,
   }
 
   // Add standard error responses for authenticated routes
-  if (!route.authRequirements.empty()) {
+  if (!routeDoc.authRequirements.empty()) {
     JsonObject response401 = responses.createNestedObject("401");
     response401["description"] = "Unauthorized - Authentication required";
 
@@ -454,37 +561,38 @@ void WebPlatform::addResponsesToOperation(JsonObject &operation,
 
   JsonObject response500 = responses.createNestedObject("500");
   response500["description"] = "Internal server error";
+
+#endif
 }
 
-void WebPlatform::addRequestBodyToOperation(JsonObject &operation,
-                                            const RouteEntry &route) const {
+void WebPlatform::addRequestBodyToOperationFromDocs(JsonObject &operation,
+                                                    const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
+#if OPENAPI_ENABLED
   JsonObject requestBody = operation.createNestedObject("requestBody");
   requestBody["description"] = "Request payload";
+  const OpenAPIDocumentation& docs = routeDoc.docs;
 
   JsonObject content = requestBody.createNestedObject("content");
-  const char* contentType = (route.contentType && strlen(route.contentType) > 0)
-                           ? route.contentType
-                           : "application/json";
+  String contentType = "application/json"; // Default content type
   JsonObject mediaType = content.createNestedObject(contentType);
 
   // Add request schema if provided
-  if (route.requestSchema && strlen(route.requestSchema) > 0) {
+  if (!docs.requestSchema.isEmpty()) {
     DynamicJsonDocument schemaDoc(2048);
-    if (deserializeJson(schemaDoc, route.requestSchema) ==
-        DeserializationError::Ok) {
+    if (deserializeJson(schemaDoc, docs.requestSchema) == DeserializationError::Ok) {
       mediaType["schema"] = schemaDoc.as<JsonObject>();
     }
   }
 
   // Add request example if provided
-  if (route.requestExample && strlen(route.requestExample) > 0) {
+  if (!docs.requestExample.isEmpty()) {
     DynamicJsonDocument exampleDoc(2048);
-    if (deserializeJson(exampleDoc, route.requestExample) ==
-        DeserializationError::Ok) {
+    if (deserializeJson(exampleDoc, docs.requestExample) == DeserializationError::Ok) {
       mediaType["example"] = exampleDoc.as<JsonVariant>();
     }
   }
 
   // Make request body required for POST/PUT operations by default
   requestBody["required"] = true;
+#endif
 }

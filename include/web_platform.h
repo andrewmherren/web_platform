@@ -2,6 +2,7 @@
 #define WEB_PLATFORM_H
 
 #include "interface/auth_types.h"
+#include "interface/openapi_generation_context.h"
 #include "interface/openapi_types.h"
 #include "interface/web_module_interface.h"
 #include "interface/web_request.h"
@@ -154,12 +155,14 @@ public:
   String generateOperationId(const String &method, const String &path) const;
   String inferModuleFromPath(const String &path) const;
   String formatModuleName(const String &moduleName) const;
-  void addParametersToOperation(JsonObject &operation,
-                                const RouteEntry &route) const;
-  void addResponsesToOperation(JsonObject &operation,
-                               const RouteEntry &route) const;
-  void addRequestBodyToOperation(JsonObject &operation,
-                                 const RouteEntry &route) const;
+  
+  // Methods that work with temporary storage
+  void addParametersToOperationFromDocs(JsonObject &operation,
+                                        const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
+  void addResponsesToOperationFromDocs(JsonObject &operation,
+                                       const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
+  void addRequestBodyToOperationFromDocs(JsonObject &operation,
+                                         const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
 
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
@@ -234,6 +237,9 @@ private:                            // Core server components
   static const String OPENAPI_COLLECTION;
   static const String OPENAPI_SPEC_KEY;
   String preGeneratedOpenAPISpec; // Store the complete spec
+  
+  // Temporary documentation storage
+  OpenAPIGenerationContext openAPIGenerationContext;
 
   // Platform configuration
   PlatformConfig platformConfig;
@@ -292,6 +298,10 @@ private:                            // Core server components
   void initializeAuth();
   void initializeRegisteredModules();
   void generateOpenAPISpec();
+  
+  // Temporary documentation collection
+  void beginOpenAPIGeneration();
+  void completeOpenAPIGeneration();
 
   // Mode-specific setup
   void setupConfigPortalMode();

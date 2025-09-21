@@ -11,8 +11,8 @@ private:
 
 public:
   StableStringStorage() {
-    // Pre-allocate maximum expected capacity - this prevents ANY reallocation
-    strings.reserve(256); // Generous capacity for all routes + documentation
+    // Only route paths are stored now (~43 routes vs previous ~430 strings)
+    strings.reserve(64); // Sufficient for route paths only
   }
 
   const char *store(const String &str) {

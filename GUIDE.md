@@ -389,13 +389,13 @@ webPlatform.registerApiRoute("/config", handler, {AuthType::SESSION}, WebModule:
 
 When enabled, the OpenAPI specification is automatically generated and available at:
 ```
-/api/openapi.json
+/openapi.json
 ```
 
 You can also filter the specification by authentication type:
 ```
-/api/openapi.json?filter=token  # Only show token-authenticated routes
-/api/openapi.json?filter=session  # Only show session-authenticated routes
+/openapi.json?filter=token  # Only show token-authenticated routes
+/openapi.json?filter=session  # Only show session-authenticated routes
 ```
 
 ### Benefits of Using OpenAPI Documentation

@@ -3,6 +3,8 @@
 #include "platform/route_string_pool.h"
 #include "route_entry.h"
 #include "web_platform.h"
+#include "docs/auth_api_docs.h"
+#include "docs/system_api_docs.h"
 
 #include <WebServer.h>
 
@@ -78,6 +80,9 @@ void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
   // Start server with appropriate configuration
   startServer();
 
+  // CRITICAL FIX: Start OpenAPI generation BEFORE any route setup so all routes are captured
+  openAPIGenerationContext.beginGeneration();
+
   // Initialize pre-registered modules if in CONNECTED mode
   if (currentMode == CONNECTED) {
     // Validate pending modules before initialization
@@ -91,6 +96,9 @@ void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
 
   // Setup routes based on current mode
   setupRoutes();
+
+  // Clean up temporary storage
+  openAPIGenerationContext.endGeneration();
 
   DEBUG_PRINTF("WebPlatform: Initialized in %s mode\n",
                currentMode == CONFIG_PORTAL ? "CONFIG_PORTAL" : "CONNECTED");
@@ -276,7 +284,7 @@ void WebPlatform::setupConfigPortalMode() {
 
 void WebPlatform::setupConnectedMode() {
   DEBUG_PRINTLN("WebPlatform: Setting up connected mode routes");
-
+  
   // Register core platform routes FIRST (before overrides are processed)
   registerConnectedModeRoutes();
 
@@ -289,12 +297,11 @@ void WebPlatform::setupConnectedMode() {
 
 DEBUG_PRINTF("\n=== WebPlatform OpenAPI Generation ===\n");
 #if OPENAPI_ENABLED
-    // Generate OpenAPI spec AFTER all routes are registered (modules + platform
-    // routes)
+    // Generate OpenAPI spec AFTER all routes are registered (modules + platform routes)
     measureHeapUsage("before openapi spec");
     generateOpenAPISpec();
-    measureHeapUsage("after openapi spec")
-    DEBUG_PRINTLN("Skipping generation complete.");
+    measureHeapUsage("after openapi spec");
+    DEBUG_PRINTLN("OpenAPI generation complete.");
 #else
     DEBUG_PRINTLN("Skipping spec generation. Add build flag WEB_PLATFORM_OPENAPI=1 to generate.");
 #endif

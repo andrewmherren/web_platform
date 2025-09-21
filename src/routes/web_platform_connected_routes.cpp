@@ -62,6 +62,15 @@ void WebPlatform::registerConnectedModeRoutes() {
                              std::placeholders::_1, std::placeholders::_2),
                    {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
+#if OPENAPI_ENABLED
+  // OpenAPI specification endpoints - cached & fresh versions
+  registerWebRoute("/openapi.json",
+                   std::bind(&WebPlatform::getOpenAPISpecHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {{AuthType::NONE}}, // No auth required for API docs
+                   WebModule::WM_GET);
+#endif
+
   registerApiRoute("/scan",
                    std::bind(&WebPlatform::scanApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
@@ -111,14 +120,4 @@ void WebPlatform::registerConnectedModeRoutes() {
                    {{AuthType::PAGE_TOKEN, AuthType::TOKEN, AuthType::SESSION}},
                    WebModule::WM_GET,
                    API_DOC_BLOCK(SystemApiDocs::createGetModules()));
-
-#if OPENAPI_ENABLED
-  // OpenAPI specification endpoints - cached & fresh versions
-  registerApiRoute("/openapi.json",
-                   std::bind(&WebPlatform::getOpenAPISpecHandler, this,
-                             std::placeholders::_1, std::placeholders::_2),
-                   {{AuthType::NONE}}, // No auth required for API docs
-                   WebModule::WM_GET,
-                   API_DOC_BLOCK(SystemApiDocs::createGetOpenAPISpec()));
-#endif
 }
