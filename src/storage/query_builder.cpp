@@ -1,4 +1,4 @@
-#include "../../include/storage/query_builder.h"
+#include "storage/query_builder.h"
 #include <ArduinoJson.h>
 
 QueryBuilder::QueryBuilder(IDatabaseDriver* driver, const String& collectionName) 
@@ -6,6 +6,7 @@ QueryBuilder::QueryBuilder(IDatabaseDriver* driver, const String& collectionName
       limitCount(-1), orderField(""), orderDirection("ASC") {
 }
 
+// TODO: optional third arg for =/<> etc
 QueryBuilder& QueryBuilder::where(const String& key, const String& value) {
     conditions[key] = value;
     return *this;
@@ -21,6 +22,7 @@ QueryBuilder& QueryBuilder::limit(int count) {
     return *this;
 }
 
+// TODO: support multiple order by
 QueryBuilder& QueryBuilder::orderBy(const String& field, const String& direction) {
     orderField = field;
     orderDirection = direction;

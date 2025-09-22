@@ -298,9 +298,7 @@ void WebPlatform::setupConnectedMode() {
 DEBUG_PRINTF("\n=== WebPlatform OpenAPI Generation ===\n");
 #if OPENAPI_ENABLED
     // Generate OpenAPI spec AFTER all routes are registered (modules + platform routes)
-    measureHeapUsage("before openapi spec");
     generateOpenAPISpec();
-    measureHeapUsage("after openapi spec");
     DEBUG_PRINTLN("OpenAPI generation complete.");
 #else
     DEBUG_PRINTLN("Skipping spec generation. Add build flag WEB_PLATFORM_OPENAPI=1 to generate.");

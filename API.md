@@ -133,9 +133,6 @@ size_t getRouteCount() const;
 // Print all registered routes (for debugging)
 void printUnifiedRoutes(const String* moduleBasePath = nullptr,
                        IWebModule* module = nullptr) const;
-                       
-// Validate all routes for consistency
-// void validateRoutes() const;
 ```
 
 ## IWebModule Interface

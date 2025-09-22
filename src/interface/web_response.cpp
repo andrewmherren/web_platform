@@ -1,6 +1,6 @@
-#include "../../include/interface/web_response.h"
-#include "../../include/interface/webserver_typedefs.h"
-#include "../../include/web_platform.h"
+#include "interface/web_response.h"
+#include "interface/webserver_typedefs.h"
+#include "web_platform.h"
 
 #include <WebServer.h>
 #include <esp_http_server.h>

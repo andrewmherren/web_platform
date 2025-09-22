@@ -11,7 +11,7 @@ private:
 
 public:
   StableStringStorage() {
-    // Only route paths are stored now (~43 routes vs previous ~430 strings)
+    // Only route paths are stored
     strings.reserve(64); // Sufficient for route paths only
   }
 

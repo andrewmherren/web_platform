@@ -11,12 +11,11 @@
 
 // In general, auth api routes should use Token and Session auth types because
 // only those two identify the actual user preforming interactions and we dont
-// wan to allow anonymous interaction with auth related resources (ie users,
+// want to allow anonymous interaction with auth related resources (ie users,
 // tokens, etc)
 
 // Register authentication-related routes
-void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
-                                         // (both GET and POST handlers)
+void WebPlatform::registerAuthRoutes() {
   registerWebRoute("/assets/account-page.js",
                    std::bind(&WebPlatform::accountPageJSAssetHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
@@ -44,7 +43,9 @@ void WebPlatform::registerAuthRoutes() { // Login page - accessible without auth
       "/account",
       std::bind(&WebPlatform::accountPageHandler, this, std::placeholders::_1,
                 std::placeholders::_2),
-      {AuthType::SESSION}); // RESTful API endpoints for user management
+      {AuthType::SESSION});
+      
+  // RESTful API endpoints for user management
 
   // List all users (admin only)
   registerApiRoute("/users",

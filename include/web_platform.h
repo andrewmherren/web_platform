@@ -136,7 +136,6 @@ public:
   // Debug and monitoring
   size_t getRouteCount() const;
   void printUnifiedRoutes() const;
-  // void validateRoutes() const;
 
   // Memory analysis functions
   void measureHeapUsage(const char *phase);

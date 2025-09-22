@@ -208,14 +208,12 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
 
 // Template processing helpers
 bool WebPlatform::shouldProcessResponse(const WebResponse &response) {
-  // Skip processing if explicitly disabled via
-  // header
+  // Skip processing if explicitly disabled via header
   if (response.getHeader("X-Skip-Template-Processing") == "true") {
     return false;
   }
 
-  // Only process responses with these content
-  // types
+  // Only process responses with these content types
   String contentType = response.getMimeType();
   return contentType == "text/html" || contentType == "text/plain";
 }
@@ -255,6 +253,6 @@ void WebPlatform::measureHeapUsage(const char *phase) {
   DEBUG_PRINTF("=== Heap Usage: %s ===\n", phase);
   DEBUG_PRINTF("Free heap: %d bytes\n", freeHeap);
   DEBUG_PRINTF("Total heap: %d bytes\n", heapSize);
-  Serial.printf("Heap usage: %.1f%%\n", heapUsagePercent);
+  DEBUG_PRINTF("Heap usage: %.1f%%\n", heapUsagePercent);
   DEBUG_PRINTF("==========================\n");
 }

@@ -1,11 +1,11 @@
 #include "../../assets/account_page_html.h"
 #include "../../assets/account_page_js.h"
 #include "../../assets/login_page_html.h"
-#include "../../include/auth/auth_constants.h"
-#include "../../include/interface/auth_types.h"
-#include "../../include/storage/auth_storage.h"
-#include "../../include/utilities/json_response_builder.h"
-#include "../../include/web_platform.h"
+#include "auth/auth_constants.h"
+#include "interface/auth_types.h"
+#include "storage/auth_storage.h"
+#include "utilities/json_response_builder.h"
+#include "web_platform.h"
 #include <functional>
 
 void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {

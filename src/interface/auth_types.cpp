@@ -1,4 +1,4 @@
-#include "../../include/interface/auth_types.h"
+#include "interface/auth_types.h"
 #include <algorithm>
 
 namespace AuthUtils {

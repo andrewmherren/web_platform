@@ -27,11 +27,16 @@ private:
 
   // In-memory cache for performance
   std::map<String, std::map<String, String>> cache;
+  
+  // Cache management
+  static const size_t MAX_CACHED_COLLECTIONS = 5;
 
   // Internal methods
   void loadCollection(const String &collection);
   void saveCollection(const String &collection);
   void ensureInitialized();
+  void evictOldCollections();
+  size_t calculateJsonSize(const std::map<String, String>& collectionData);
 
 public:
   JsonDatabaseDriver();
@@ -49,6 +54,8 @@ public:
   // Additional methods for JsonDatabaseDriver
   void clearCache();
   void clearCollection(const String &collection);
+  size_t getCacheSize() const;
+  void evictCollection(const String &collection);
 };
 
 #endif // JSON_DATABASE_DRIVER_H

@@ -1,4 +1,4 @@
-#include "../../include/auth/auth_utils.h"
+#include "auth/auth_utils.h"
 
 // Generate a cryptographically secure random token
 String AuthUtils::generateSecureToken(size_t length) {

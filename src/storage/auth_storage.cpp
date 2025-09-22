@@ -515,6 +515,7 @@ String AuthStorage::createPageToken(const String &clientIp) {
 
   return "";
 }
+
 bool AuthStorage::validatePageToken(const String &token,
                                     const String &clientIp) {
   ensureInitialized();

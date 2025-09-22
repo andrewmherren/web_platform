@@ -3,9 +3,9 @@
 #include "../../assets/system_status_html.h"
 #include "../../assets/system_status_js.h"
 #include "../../assets/wifi_management_html.h"
-#include "../../include/interface/web_module_interface.h"
-#include "../../include/storage/auth_storage.h"
-#include "../../include/web_platform.h"
+#include "interface/web_module_interface.h"
+#include "storage/auth_storage.h"
+#include "web_platform.h"
 
 #include <WebServer.h>
 

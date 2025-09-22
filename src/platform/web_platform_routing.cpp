@@ -210,7 +210,6 @@ bool WebPlatform::pathMatchesRoute(const char *routePath,
 }
 
 // Helper function to execute route with authentication and CSRF processing
-// (shared logic)
 void WebPlatform::executeRouteWithAuth(const RouteEntry &route,
                                        WebRequest &request,
                                        WebResponse &response,

@@ -41,7 +41,7 @@ bool StorageManager::setDefaultDriver(const String &name) {
     return true;
   }
 
-  DEBUG_PRINTF(
+  WARN_PRINTF(
       "StorageManager: Warning - driver '%s' not found, keeping default '%s'\n",
       name.c_str(), defaultDriverName.c_str());
   return false;
@@ -57,7 +57,7 @@ IDatabaseDriver *StorageManager::driver(const String &name) {
     return it->second.get();
   }
 
-  DEBUG_PRINTF("StorageManager: Warning - driver '%s' not found\n",
+  WARN_PRINTF("StorageManager: Warning - driver '%s' not found\n",
                targetName.c_str());
   return nullptr;
 }

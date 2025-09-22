@@ -3,7 +3,7 @@
 #include "../../assets/web_platform_utils_js.h"
 #include "../../assets/web_ui_styles.h"
 #include "../../assets/wifi_js.h"
-#include "../../include/web_platform.h"
+#include "web_platform.h"
 
 void WebPlatform::webPlatformCSSAssetHandler(WebRequest &req,
                                              WebResponse &res) {

@@ -1,6 +1,6 @@
-#include "../../include/storage/auth_storage.h"
-#include "../../include/utilities/json_response_builder.h"
-#include "../../include/web_platform.h"
+#include "storage/auth_storage.h"
+#include "utilities/json_response_builder.h"
+#include "web_platform.h"
 #include <functional>
 
 // RESTful API Handlers - User Management

@@ -1,7 +1,7 @@
-#include "../../include/auth/auth_utils.h"
-#include "../../include/interface/auth_types.h"
-#include "../../include/storage/auth_storage.h"
-#include "../../include/web_platform.h"
+#include "auth/auth_utils.h"
+#include "interface/auth_types.h"
+#include "storage/auth_storage.h"
+#include "web_platform.h"
 #include <functional>
 
 // Initialize authentication system
