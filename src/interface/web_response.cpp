@@ -1,5 +1,7 @@
 #include "interface/web_response.h"
 #include "interface/webserver_typedefs.h"
+#include "storage/storage_manager.h"
+#include "utilities/debug_macros.h"
 #include "web_platform.h"
 
 #include <WebServer.h>
@@ -10,7 +12,7 @@
 WebResponse::WebResponse()
     : statusCode(200), mimeType("text/html"), headersSent(false),
       responseSent(false), progmemData(nullptr), isProgmemContent(false),
-      jsonDoc(nullptr), isJsonContent(false) {}
+      jsonDoc(nullptr), isJsonContent(false), isStorageStreamContent(false) {}
 
 void WebResponse::setStatus(int code) {
   if (headersSent)
@@ -25,6 +27,7 @@ void WebResponse::setContent(const String &content, const String &mimeType) {
   this->mimeType = mimeType;
   this->isProgmemContent = false;
   this->progmemData = nullptr;
+  this->isStorageStreamContent = false;
 }
 
 void WebResponse::setProgmemContent(const char *progmemData,
@@ -35,6 +38,22 @@ void WebResponse::setProgmemContent(const char *progmemData,
   this->progmemData = progmemData;
   this->mimeType = mimeType;
   this->isProgmemContent = true;
+  this->isStorageStreamContent = false;
+  this->content = ""; // Clear regular content
+}
+
+void WebResponse::setStorageStreamContent(const String &collection,
+                                          const String &key,
+                                          const String &mimeType) {
+  if (responseSent || collection.isEmpty() || key.isEmpty())
+    return;
+
+  this->storageCollection = collection;
+  this->storageKey = key;
+  this->mimeType = mimeType;
+  this->isStorageStreamContent = true;
+  this->isProgmemContent = false;
+  this->progmemData = nullptr;
   this->content = ""; // Clear regular content
 }
 
@@ -82,11 +101,13 @@ void WebResponse::sendTo(WebServerClass *server) {
 
   markHeadersSent();
 
-  // Send response - use streaming for PROGMEM or JSON content
+  // Send response - use streaming for PROGMEM, JSON, or storage content
   if (isProgmemContent && progmemData != nullptr) {
     sendProgmemChunked(progmemData, server);
   } else if (isJsonContent && jsonDoc != nullptr) {
     streamJsonContent(*jsonDoc, server);
+  } else if (isStorageStreamContent) {
+    streamFromStorage(storageCollection, storageKey, server);
   } else {
     server->send(statusCode, mimeType, content);
   }
@@ -115,12 +136,14 @@ esp_err_t WebResponse::sendTo(httpd_req *req) {
   // Mark headers as sent
   markHeadersSent();
 
-  // Send response body - use streaming for PROGMEM or JSON content
+  // Send response body - use streaming for PROGMEM, JSON, or storage content
   esp_err_t ret;
   if (isProgmemContent && progmemData != nullptr) {
     ret = sendProgmemChunked(progmemData, req);
   } else if (isJsonContent && jsonDoc != nullptr) {
     ret = streamJsonContent(*jsonDoc, req);
+  } else if (isStorageStreamContent) {
+    ret = streamFromStorage(storageCollection, storageKey, req);
   } else {
     ret = httpd_resp_send(req, content.c_str(), content.length());
   }
@@ -292,6 +315,123 @@ esp_err_t WebResponse::sendProgmemChunked(const char *data, httpd_req *req) {
     DEBUG_PRINTLN("PROGMEM HTTPS streaming completed, buffer freed");
   } else {
     ERROR_PRINTLN("ERROR: PROGMEM HTTPS streaming failed, buffer freed");
+  }
+
+  return ret;
+}
+
+// Storage streaming implementation for Arduino WebServer
+void WebResponse::streamFromStorage(const String &collection, const String &key,
+                                    WebServerClass *server) {
+  if (!server || collection.isEmpty() || key.isEmpty()) {
+    server->send(500, "text/plain",
+                 "Internal server error: invalid storage parameters");
+    return;
+  }
+
+// Get storage driver (need to include storage manager)
+#include "storage/storage_manager.h"
+  IDatabaseDriver *driver = StorageManager::driver();
+  if (!driver) {
+    server->send(500, "text/plain", "Storage system unavailable");
+    return;
+  }
+
+  // We need to check if the data exists first to determine content length
+  // For now, we'll use chunked encoding since we can't determine length without
+  // loading
+  server->setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server->send(statusCode, mimeType, "");
+
+  // Stream data from storage in chunks
+  // Since our JsonDatabaseDriver loads the full content anyway, we'll implement
+  // a chunked approach that minimizes memory usage
+
+  const size_t STORAGE_CHUNK_SIZE = 512;
+  char *buffer = (char *)malloc(STORAGE_CHUNK_SIZE + 1);
+  if (!buffer) {
+    server->sendContent("{\"error\":\"Memory allocation failed\"}");
+    return;
+  }
+
+  // For now, we have to load the content and stream it in chunks
+  // This is still better than keeping it in a String object
+  String data = driver->retrieve(collection, key);
+  if (data.isEmpty()) {
+    free(buffer);
+    server->sendContent("{\"error\":\"Content not found in storage\"}");
+    return;
+  }
+
+  // Stream the data in chunks
+  size_t dataLen = data.length();
+  for (size_t i = 0; i < dataLen; i += STORAGE_CHUNK_SIZE) {
+    size_t chunkLen = min(STORAGE_CHUNK_SIZE, dataLen - i);
+    data.substring(i, i + chunkLen).toCharArray(buffer, chunkLen + 1);
+    server->sendContent(buffer);
+
+    // Yield periodically to prevent watchdog timeout
+    if (i % (STORAGE_CHUNK_SIZE * 10) == 0) {
+      yield();
+    }
+  }
+
+  free(buffer);
+  DEBUG_PRINTLN("Storage streaming completed for WebServer");
+}
+
+// Storage streaming implementation for ESP-IDF HTTPS server
+esp_err_t WebResponse::streamFromStorage(const String &collection,
+                                         const String &key, httpd_req *req) {
+  if (!req || collection.isEmpty() || key.isEmpty()) {
+    const char *error = "{\"error\":\"Invalid storage parameters\"}";
+    return httpd_resp_send(req, error, strlen(error));
+  }
+
+// Get storage driver
+#include "storage/storage_manager.h"
+  IDatabaseDriver *driver = StorageManager::driver();
+  if (!driver) {
+    const char *error = "{\"error\":\"Storage system unavailable\"}";
+    return httpd_resp_send(req, error, strlen(error));
+  }
+
+  const size_t STORAGE_CHUNK_SIZE = 512;
+  char *buffer = (char *)malloc(STORAGE_CHUNK_SIZE + 1);
+  if (!buffer) {
+    const char *error = "{\"error\":\"Memory allocation failed\"}";
+    return httpd_resp_send(req, error, strlen(error));
+  }
+
+  // Load and stream data
+  String data = driver->retrieve(collection, key);
+  if (data.isEmpty()) {
+    free(buffer);
+    const char *error = "{\"error\":\"Content not found in storage\"}";
+    return httpd_resp_send(req, error, strlen(error));
+  }
+
+  // Stream the data in chunks
+  esp_err_t ret = ESP_OK;
+  size_t dataLen = data.length();
+
+  for (size_t i = 0; i < dataLen && ret == ESP_OK; i += STORAGE_CHUNK_SIZE) {
+    size_t chunkLen = min(STORAGE_CHUNK_SIZE, dataLen - i);
+    data.substring(i, i + chunkLen).toCharArray(buffer, chunkLen + 1);
+    ret = httpd_resp_send_chunk(req, buffer, chunkLen);
+
+    // Yield periodically to prevent watchdog timeout
+    if (i % (STORAGE_CHUNK_SIZE * 10) == 0) {
+      yield();
+    }
+  }
+
+  free(buffer);
+
+  if (ret == ESP_OK) {
+    // End chunked transfer
+    ret = httpd_resp_send_chunk(req, NULL, 0);
+    DEBUG_PRINTLN("Storage streaming completed for HTTPS");
   }
 
   return ret;

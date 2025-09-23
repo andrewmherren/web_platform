@@ -31,6 +31,9 @@ private:
   bool isProgmemContent;
   const JsonDocument *jsonDoc;
   bool isJsonContent;
+  String storageCollection;
+  String storageKey;
+  bool isStorageStreamContent;
 
 public:
   WebResponse();
@@ -40,6 +43,8 @@ public:
   void setContent(const String &content, const String &mimeType = "text/html");
   void setProgmemContent(const char *progmemData, const String &mimeType);
   void setJsonContent(const JsonDocument &doc);
+  void setStorageStreamContent(const String &collection, const String &key,
+                               const String &mimeType);
   void setHeader(const String &name, const String &value);
   void redirect(const String &url, int code = 302);
 
@@ -72,6 +77,12 @@ private:
   // JSON streaming helper
   void streamJsonContent(const JsonDocument &doc, WebServerClass *server);
   esp_err_t streamJsonContent(const JsonDocument &doc, httpd_req *req);
+
+  // Storage-based streaming helpers
+  void streamFromStorage(const String &collection, const String &key,
+                         WebServerClass *server);
+  esp_err_t streamFromStorage(const String &collection, const String &key,
+                              httpd_req *req);
 
   // Allow WebPlatform to call private methods
   friend class WebPlatform;

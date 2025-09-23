@@ -25,18 +25,7 @@ void WebPlatform::generateOpenAPISpec() {
   DEBUG_PRINTLN("WebPlatform: Generating OpenAPI specification to storage "
                 "using temporary context...");
 
-  // Check if we already have a valid spec in storage
   IDatabaseDriver *driver = StorageManager::driver();
-  if (driver) {
-    String existingSpec =
-        driver->retrieve(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY);
-    if (existingSpec.length() > 100) { // Basic validation
-      DEBUG_PRINTF("WebPlatform: Found existing OpenAPI spec (%d bytes)\n",
-                   existingSpec.length());
-      openAPISpecReady = true;
-      return;
-    }
-  }
 
   size_t freeHeap = ESP.getFreeHeap();
   size_t targetSize;
@@ -353,18 +342,15 @@ void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
         openAPISpec.length());
   }
 
-  DEBUG_PRINTF("WebPlatform: Serving OpenAPI spec from storage (%d bytes)\n",
-               openAPISpec.length());
+  DEBUG_PRINTLN("WebPlatform: Serving OpenAPI spec using storage streaming");
 
   res.setStatus(200);
-  res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "public, max-age=300");
-  res.setHeader("Content-Length", String(openAPISpec.length()));
 
-  // For now, use the standard setContent method
-  // The existing WebResponse already has PROGMEM streaming for large content
-  // We can implement true JSON streaming later if needed
-  res.setContent(openAPISpec, "application/json");
+  // Use the new storage streaming feature instead of loading entire spec into
+  // memory
+  res.setStorageStreamContent(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY,
+                              "application/json");
 #endif // OPENAPI_ENABLED
 }
 

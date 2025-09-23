@@ -61,8 +61,6 @@ void OpenAPIGenerationContext::endGeneration() {
     return;
   }
 
-  DEBUG_PRINTLN("====>ending generation");
-
   // Critical: Free all temporary storage
   apiRouteDocs.clear();
   apiRouteDocs.shrink_to_fit(); // Force deallocation

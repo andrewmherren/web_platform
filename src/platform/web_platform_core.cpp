@@ -6,7 +6,6 @@
 #include "route_entry.h"
 #include "web_platform.h"
 
-
 #include <WebServer.h>
 
 // Core implementation of WebPlatform class
@@ -255,8 +254,6 @@ void WebPlatform::setupRoutes() {
     // Setup 404 handler
     server->onNotFound([this]() { handleNotFound(); });
   }
-
-  DEBUG_PRINTLN("====>setup routes complete");
 }
 
 void WebPlatform::setupConfigPortalMode() {
