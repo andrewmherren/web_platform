@@ -9,6 +9,7 @@
 #include "interface/web_response.h"
 #include "platform/ntp_client.h"
 #include "utilities/debug_macros.h"
+#include "utilities/json_response_builder.h"
 #include <ArduinoJson.h>
 #include <DNSServer.h>
 #include <EEPROM.h>
@@ -154,14 +155,17 @@ public:
   String generateOperationId(const String &method, const String &path) const;
   String inferModuleFromPath(const String &path) const;
   String formatModuleName(const String &moduleName) const;
-  
+
   // Methods that work with temporary storage
-  void addParametersToOperationFromDocs(JsonObject &operation,
-                                        const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
-  void addResponsesToOperationFromDocs(JsonObject &operation,
-                                       const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
-  void addRequestBodyToOperationFromDocs(JsonObject &operation,
-                                         const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
+  void addParametersToOperationFromDocs(
+      JsonObject &operation,
+      const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
+  void addResponsesToOperationFromDocs(
+      JsonObject &operation,
+      const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
+  void addRequestBodyToOperationFromDocs(
+      JsonObject &operation,
+      const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
 
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
@@ -236,7 +240,7 @@ private:                            // Core server components
   static const String OPENAPI_COLLECTION;
   static const String OPENAPI_SPEC_KEY;
   String preGeneratedOpenAPISpec; // Store the complete spec
-  
+
   // Temporary documentation storage
   OpenAPIGenerationContext openAPIGenerationContext;
 
@@ -297,7 +301,7 @@ private:                            // Core server components
   void initializeAuth();
   void initializeRegisteredModules();
   void generateOpenAPISpec();
-  
+
   // Temporary documentation collection
   void beginOpenAPIGeneration();
   void completeOpenAPIGeneration();

@@ -8,7 +8,7 @@
 class EnvironmentalSensorDocs {
 public:
   static const std::vector<String> SENSOR_TAGS;
-  
+
   // Documentation factory methods
   static OpenAPIDocumentation createGetCurrentReadings();
   static OpenAPIDocumentation createUpdateSensorConfig();

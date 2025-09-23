@@ -21,8 +21,9 @@ void WebPlatform::generateOpenAPISpec() {
   openAPISpecReady = false;
   return;
 #endif
-  
-  DEBUG_PRINTLN("WebPlatform: Generating OpenAPI specification to storage using temporary context...");
+
+  DEBUG_PRINTLN("WebPlatform: Generating OpenAPI specification to storage "
+                "using temporary context...");
 
   // Check if we already have a valid spec in storage
   IDatabaseDriver *driver = StorageManager::driver();
@@ -40,11 +41,12 @@ void WebPlatform::generateOpenAPISpec() {
   size_t freeHeap = ESP.getFreeHeap();
   size_t targetSize;
   size_t maxBlock = ESP.getMaxAllocHeap();
-  
+
   // CRITICAL FIX: Increase target size for 23 API routes
   // Based on validation results, 32KB is nearly full, increase to 40KB
   size_t maxAllowable = (size_t)(maxBlock * 0.7);
-  targetSize = (maxAllowable < 40960) ? maxAllowable : 40960; // Increase from 32KB to 40KB
+  targetSize = (maxAllowable < 40960) ? maxAllowable
+                                      : 40960; // Increase from 32KB to 40KB
 
   if (targetSize < 16384) { // Increase minimum from 8KB to 16KB
     ERROR_PRINTLN("ERROR: Insufficient memory for OpenAPI generation!");
@@ -90,26 +92,30 @@ void WebPlatform::generateOpenAPISpec() {
   JsonObject paths = doc.createNestedObject("paths");
 
   // Process routes from temporary storage instead of routeRegistry
-  const auto& apiRoutes = openAPIGenerationContext.getApiRoutes();
+  const auto &apiRoutes = openAPIGenerationContext.getApiRoutes();
+
+  DEBUG_PRINTF("WebPlatform: OpenAPI generation found %d routes in context\n",
+               apiRoutes.size());
 
   // Process API routes from temporary storage
   int processedCount = 0;
-  for (const auto& routeDoc : openAPIGenerationContext.getApiRoutes()) {
+  for (const auto &routeDoc : openAPIGenerationContext.getApiRoutes()) {
     String routePathStr = routeDoc.path;
-    
+
     // Skip non-API routes (should already be filtered but double-check)
     if (routePathStr.indexOf("/api/") == -1) {
       DEBUG_PRINTF("  Skipping non-API route: %s\n", routePathStr.c_str());
       continue;
     }
-    
+
     processedCount++;
 
     // Ensure proper path key and method string
     String pathKey = routeDoc.path;
     String methodStr = wmMethodToString(routeDoc.method);
-    methodStr.toLowerCase(); // Ensure lowercase method names (get, post, put, delete)
-        
+    methodStr.toLowerCase(); // Ensure lowercase method names (get, post, put,
+                             // delete)
+
     JsonObject pathItem;
     if (paths.containsKey(pathKey)) {
       pathItem = paths[pathKey];
@@ -120,8 +126,8 @@ void WebPlatform::generateOpenAPISpec() {
     JsonObject operation = pathItem.createNestedObject(methodStr);
 
     // Use documentation from temporary storage or generate defaults
-    const OpenAPIDocumentation& docs = routeDoc.docs;
-    
+    const OpenAPIDocumentation &docs = routeDoc.docs;
+
 #if OPENAPI_ENABLED
     if (!docs.summary.isEmpty()) {
       operation["summary"] = docs.summary;
@@ -139,19 +145,20 @@ void WebPlatform::generateOpenAPISpec() {
       operation["description"] = docs.description;
     }
 
-    // Handle tags - use provided tags or generate default (restored original logic)
+    // Handle tags - use provided tags or generate default (restored original
+    // logic)
     JsonArray tags = operation.createNestedArray("tags");
     String defaultModuleTag = inferModuleFromPath(routePathStr);
-    
+
     if (!docs.tags.empty()) {
       // Add default module tag first
       tags.add(defaultModuleTag);
-      
+
       // Add custom tags, avoiding duplicates
       String lowerDefaultTag = defaultModuleTag;
       lowerDefaultTag.toLowerCase();
-      
-      for (const String& tag : docs.tags) {
+
+      for (const String &tag : docs.tags) {
         String lowerTag = tag;
         lowerTag.toLowerCase();
         if (lowerTag != lowerDefaultTag) {
@@ -166,7 +173,7 @@ void WebPlatform::generateOpenAPISpec() {
     // When OpenAPI is disabled, just generate basic operation info
     operation["summary"] = generateDefaultSummary(routePathStr, methodStr);
     operation["operationId"] = generateOperationId(methodStr, routePathStr);
-    
+
     JsonArray tags = operation.createNestedArray("tags");
     tags.add(inferModuleFromPath(routePathStr));
 #endif
@@ -192,19 +199,22 @@ void WebPlatform::generateOpenAPISpec() {
 
     // Add request body for POST/PUT operations
 #if OPENAPI_ENABLED
-    if ((routeDoc.method == WebModule::WM_POST || routeDoc.method == WebModule::WM_PUT) && 
+    if ((routeDoc.method == WebModule::WM_POST ||
+         routeDoc.method == WebModule::WM_PUT) &&
         (!docs.requestSchema.isEmpty() || !docs.requestExample.isEmpty())) {
       addRequestBodyToOperationFromDocs(operation, routeDoc);
     }
 #else
-    if (routeDoc.method == WebModule::WM_POST || routeDoc.method == WebModule::WM_PUT) {
+    if (routeDoc.method == WebModule::WM_POST ||
+        routeDoc.method == WebModule::WM_PUT) {
       addRequestBodyToOperationFromDocs(operation, routeDoc);
     }
 #endif
 
     // Add responses
 #if OPENAPI_ENABLED
-    if (!docs.responsesJson.isEmpty() || !docs.responseSchema.isEmpty() || !docs.responseExample.isEmpty()) {
+    if (!docs.responsesJson.isEmpty() || !docs.responseSchema.isEmpty() ||
+        !docs.responseExample.isEmpty()) {
       addResponsesToOperationFromDocs(operation, routeDoc);
     } else {
 #else
@@ -214,7 +224,7 @@ void WebPlatform::generateOpenAPISpec() {
       JsonObject responses = operation.createNestedObject("responses");
       JsonObject response200 = responses.createNestedObject("200");
       response200["description"] = "Successful operation";
-      
+
       // Add auth error responses if needed
       if (!routeDoc.authRequirements.empty()) {
         JsonObject response401 = responses.createNestedObject("401");
@@ -222,22 +232,23 @@ void WebPlatform::generateOpenAPISpec() {
         JsonObject response403 = responses.createNestedObject("403");
         response403["description"] = "Forbidden - Insufficient permissions";
       }
-      
+
       JsonObject response500 = responses.createNestedObject("500");
       response500["description"] = "Internal server error";
     }
-    
+
     // Check if we're running low on memory
     if (doc.memoryUsage() > doc.capacity() * 0.9) {
-      WARN_PRINTF("WARNING: JSON document nearly full at route #%d (%d/%d bytes)\n",
-                   processedCount, doc.memoryUsage(), doc.capacity());
+      WARN_PRINTF(
+          "WARNING: JSON document nearly full at route #%d (%d/%d bytes)\n",
+          processedCount, doc.memoryUsage(), doc.capacity());
     }
   }
-  
+
   JsonObject pathsDebug = doc["paths"];
   int totalPaths = 0;
   int totalOperations = 0;
-  
+
   for (JsonPair pathPair : pathsDebug) {
     totalPaths++;
     JsonObject pathObj = pathPair.value();
@@ -272,12 +283,12 @@ void WebPlatform::generateOpenAPISpec() {
 
   // Critical cleanup - free temporary storage
   openAPIGenerationContext.endGeneration();
-  
+
 #if !OPENAPI_ENABLED
   // This code should not be reached when disabled, but safety check
   ERROR_PRINTLN("ERROR: OpenAPI generation code executed when disabled!");
 #endif
-  
+
   // Clear the temporary string to free memory
   openAPIJson = "";
 }
@@ -285,9 +296,13 @@ void WebPlatform::generateOpenAPISpec() {
 void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
 #if !OPENAPI_ENABLED
   res.setStatus(501);
-  res.setContent("{\"error\":\"OpenAPI specification generation disabled\"}", "application/json");
+  res.setContent("{\"error\":\"OpenAPI specification generation disabled\"}",
+                 "application/json");
   return;
 #else
+  DEBUG_PRINTF("WebPlatform: OpenAPI spec request - ready flag: %s\n",
+               openAPISpecReady ? "true" : "false");
+
   if (!openAPISpecReady) {
     res.setStatus(503);
     res.setContent("{\"error\":\"OpenAPI specification not ready\"}",
@@ -298,28 +313,58 @@ void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
   // Retrieve from storage system
   IDatabaseDriver *driver = StorageManager::driver();
   if (!driver) {
+    ERROR_PRINTLN("WebPlatform: Storage driver unavailable for OpenAPI spec");
     res.setStatus(500);
     res.setContent("{\"error\":\"Storage system unavailable\"}",
                    "application/json");
     return;
   }
 
+  DEBUG_PRINTF("WebPlatform: Attempting to retrieve OpenAPI spec from storage "
+               "(collection: %s, key: %s)\n",
+               OPENAPI_COLLECTION.c_str(), OPENAPI_SPEC_KEY.c_str());
+
   String openAPISpec = driver->retrieve(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY);
 
   if (openAPISpec.isEmpty()) {
-    res.setStatus(404);
-    res.setContent("{\"error\":\"OpenAPI specification not found in storage\"}",
-                   "application/json");
-    return;
+    ERROR_PRINTF("WebPlatform: OpenAPI spec not found in storage! Collection "
+                 "exists: %s\n",
+                 driver->exists(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY)
+                     ? "true"
+                     : "false");
+
+    // Try to regenerate the spec on-demand if it's missing
+    DEBUG_PRINTLN("WebPlatform: Attempting to regenerate OpenAPI spec...");
+    const_cast<WebPlatform *>(this)->generateOpenAPISpec();
+
+    // Try again after regeneration
+    openAPISpec = driver->retrieve(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY);
+    if (openAPISpec.isEmpty()) {
+      ERROR_PRINTLN("WebPlatform: Failed to regenerate OpenAPI spec");
+      res.setStatus(404);
+      res.setContent("{\"error\":\"OpenAPI specification not found in storage "
+                     "and regeneration failed\"}",
+                     "application/json");
+      return;
+    }
+
+    DEBUG_PRINTF(
+        "WebPlatform: Successfully regenerated OpenAPI spec (%d bytes)\n",
+        openAPISpec.length());
   }
 
-  DEBUG_PRINTF("Serving OpenAPI spec from storage (%d bytes)\n",
+  DEBUG_PRINTF("WebPlatform: Serving OpenAPI spec from storage (%d bytes)\n",
                openAPISpec.length());
 
   res.setStatus(200);
-  res.setContent(openAPISpec, "application/json");
+  res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "public, max-age=300");
   res.setHeader("Content-Length", String(openAPISpec.length()));
+
+  // For now, use the standard setContent method
+  // The existing WebResponse already has PROGMEM streaming for large content
+  // We can implement true JSON streaming later if needed
+  res.setContent(openAPISpec, "application/json");
 #endif // OPENAPI_ENABLED
 }
 
@@ -404,11 +449,12 @@ String WebPlatform::formatModuleName(const String &moduleName) const {
   return formatted;
 }
 
-void WebPlatform::addParametersToOperationFromDocs(JsonObject &operation,
-                                                   const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
+void WebPlatform::addParametersToOperationFromDocs(
+    JsonObject &operation,
+    const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
 #if OPENAPI_ENABLED
   JsonArray parameters = operation.createNestedArray("parameters");
-  const OpenAPIDocumentation& docs = routeDoc.docs;
+  const OpenAPIDocumentation &docs = routeDoc.docs;
 
   // Track parameter names to avoid duplicates
   std::map<String, bool> parameterNames;
@@ -416,7 +462,8 @@ void WebPlatform::addParametersToOperationFromDocs(JsonObject &operation,
   // First, add custom parameters from module documentation
   if (!docs.parameters.isEmpty()) {
     DynamicJsonDocument paramDoc(2048);
-    if (deserializeJson(paramDoc, docs.parameters) == DeserializationError::Ok) {
+    if (deserializeJson(paramDoc, docs.parameters) ==
+        DeserializationError::Ok) {
       if (paramDoc.is<JsonArray>()) {
         JsonArray customParams = paramDoc.as<JsonArray>();
         for (JsonVariant param : customParams) {
@@ -454,7 +501,7 @@ void WebPlatform::addParametersToOperationFromDocs(JsonObject &operation,
           param["name"] = paramName;
           param["in"] = "path";
           param["required"] = true;
-          
+
           // Enhanced parameter descriptions
           if (paramName == "id") {
             param["description"] = "Resource identifier";
@@ -483,22 +530,24 @@ void WebPlatform::addParametersToOperationFromDocs(JsonObject &operation,
       }
     }
   }
-  
+
   // Add access_token parameter for routes that support token authentication
   bool hasTokenAuth = false;
-  for (const auto& authType : routeDoc.authRequirements) {
+  for (const auto &authType : routeDoc.authRequirements) {
     if (authType == AuthType::TOKEN) {
       hasTokenAuth = true;
       break;
     }
   }
-  
-  if (hasTokenAuth && parameterNames.find("access_token:query") == parameterNames.end()) {
+
+  if (hasTokenAuth &&
+      parameterNames.find("access_token:query") == parameterNames.end()) {
     JsonObject tokenParam = parameters.createNestedObject();
     tokenParam["name"] = "access_token";
     tokenParam["in"] = "query";
     tokenParam["required"] = false;
-    tokenParam["description"] = "API access token (alternative to Bearer header)";
+    tokenParam["description"] =
+        "API access token (alternative to Bearer header)";
     JsonObject tokenSchema = tokenParam.createNestedObject("schema");
     tokenSchema["type"] = "string";
     parameterNames["access_token:query"] = true;
@@ -506,11 +555,12 @@ void WebPlatform::addParametersToOperationFromDocs(JsonObject &operation,
 #endif
 }
 
-void WebPlatform::addResponsesToOperationFromDocs(JsonObject &operation,
-                                                 const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
+void WebPlatform::addResponsesToOperationFromDocs(
+    JsonObject &operation,
+    const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
 #if OPENAPI_ENABLED
   JsonObject responses = operation.createNestedObject("responses");
-  const OpenAPIDocumentation& docs = routeDoc.docs;
+  const OpenAPIDocumentation &docs = routeDoc.docs;
 
   // Success response
   JsonObject response200 = responses.createNestedObject("200");
@@ -524,7 +574,8 @@ void WebPlatform::addResponsesToOperationFromDocs(JsonObject &operation,
   // Add response schema if provided
   if (!docs.responseSchema.isEmpty()) {
     DynamicJsonDocument schemaDoc(2048);
-    if (deserializeJson(schemaDoc, docs.responseSchema) == DeserializationError::Ok) {
+    if (deserializeJson(schemaDoc, docs.responseSchema) ==
+        DeserializationError::Ok) {
       mediaType["schema"] = schemaDoc.as<JsonObject>();
     }
   }
@@ -532,7 +583,8 @@ void WebPlatform::addResponsesToOperationFromDocs(JsonObject &operation,
   // Add response example if provided
   if (!docs.responseExample.isEmpty()) {
     DynamicJsonDocument exampleDoc(2048);
-    if (deserializeJson(exampleDoc, docs.responseExample) == DeserializationError::Ok) {
+    if (deserializeJson(exampleDoc, docs.responseExample) ==
+        DeserializationError::Ok) {
       mediaType["example"] = exampleDoc.as<JsonVariant>();
     }
   }
@@ -540,7 +592,8 @@ void WebPlatform::addResponsesToOperationFromDocs(JsonObject &operation,
   // Add module-provided response info
   if (!docs.responsesJson.isEmpty()) {
     DynamicJsonDocument responseDoc(2048);
-    if (deserializeJson(responseDoc, docs.responsesJson) == DeserializationError::Ok) {
+    if (deserializeJson(responseDoc, docs.responsesJson) ==
+        DeserializationError::Ok) {
       // Merge additional response information
       for (JsonPair kv : responseDoc.as<JsonObject>()) {
         if (!responses.containsKey(kv.key().c_str())) {
@@ -565,12 +618,13 @@ void WebPlatform::addResponsesToOperationFromDocs(JsonObject &operation,
 #endif
 }
 
-void WebPlatform::addRequestBodyToOperationFromDocs(JsonObject &operation,
-                                                    const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
+void WebPlatform::addRequestBodyToOperationFromDocs(
+    JsonObject &operation,
+    const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
 #if OPENAPI_ENABLED
   JsonObject requestBody = operation.createNestedObject("requestBody");
   requestBody["description"] = "Request payload";
-  const OpenAPIDocumentation& docs = routeDoc.docs;
+  const OpenAPIDocumentation &docs = routeDoc.docs;
 
   JsonObject content = requestBody.createNestedObject("content");
   String contentType = "application/json"; // Default content type
@@ -579,7 +633,8 @@ void WebPlatform::addRequestBodyToOperationFromDocs(JsonObject &operation,
   // Add request schema if provided
   if (!docs.requestSchema.isEmpty()) {
     DynamicJsonDocument schemaDoc(2048);
-    if (deserializeJson(schemaDoc, docs.requestSchema) == DeserializationError::Ok) {
+    if (deserializeJson(schemaDoc, docs.requestSchema) ==
+        DeserializationError::Ok) {
       mediaType["schema"] = schemaDoc.as<JsonObject>();
     }
   }
@@ -587,7 +642,8 @@ void WebPlatform::addRequestBodyToOperationFromDocs(JsonObject &operation,
   // Add request example if provided
   if (!docs.requestExample.isEmpty()) {
     DynamicJsonDocument exampleDoc(2048);
-    if (deserializeJson(exampleDoc, docs.requestExample) == DeserializationError::Ok) {
+    if (deserializeJson(exampleDoc, docs.requestExample) ==
+        DeserializationError::Ok) {
       mediaType["example"] = exampleDoc.as<JsonVariant>();
     }
   }

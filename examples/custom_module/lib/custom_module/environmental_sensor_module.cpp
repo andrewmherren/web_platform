@@ -144,6 +144,14 @@ void EnvironmentalSensorModule::updateSensorReadings() {
 
 void EnvironmentalSensorModule::mainPageHandler(WebRequest &req,
                                                 WebResponse &res) {
+
+  // NOTE: In production modules, consider storing HTML templates as PROGMEM constants
+  // and using res.setProgmemContent() to reduce heap usage. This example uses
+  // res.setContent() with raw strings for clarity and educational purposes.
+  // 
+  // Example PROGMEM pattern:
+  // const char SENSOR_PAGE_HTML[] PROGMEM = R"(<!DOCTYPE html>...)";
+  // res.setProgmemContent(SENSOR_PAGE_HTML, "text/html");
   String html =
       R"(
             <!DOCTYPE html>
@@ -262,18 +270,15 @@ void EnvironmentalSensorModule::mainPageHandler(WebRequest &req,
 void EnvironmentalSensorModule::getCurrentDataHandler(WebRequest &req,
                                                       WebResponse &res) {
   // Public endpoint - anyone can access current readings
-  DynamicJsonDocument doc(200);
-  doc["temperature"] = temperature;
-  doc["humidity"] = humidity;
-  doc["timestamp"] = time(nullptr); // Unix timestamp in seconds
-  doc["seconds_since_reading"] =
-      (millis() - lastReading) / 1000; // Seconds since last reading
-  doc["location"] = sensorLocation;
-  doc["status"] = sensorEnabled ? "active" : "disabled";
-
-  String json;
-  serializeJson(doc, json);
-  res.setContent(json, "application/json");
+  // Demonstrate JsonResponseBuilder for memory-safe JSON creation
+  JsonResponseBuilder::createResponse(res, [&](JsonObject &json) {
+    json["temperature"] = temperature;
+    json["humidity"] = humidity;
+    json["timestamp"] = time(nullptr);
+    json["seconds_since_reading"] = (millis() - lastReading) / 1000;
+    json["location"] = sensorLocation;
+    json["status"] = sensorEnabled ? "active" : "disabled";
+  });
 }
 
 void EnvironmentalSensorModule::configPageHandler(WebRequest &req,
@@ -429,29 +434,30 @@ void EnvironmentalSensorModule::updateConfigHandler(WebRequest &req,
 void EnvironmentalSensorModule::getDataAPIHandler(WebRequest &req,
                                                   WebResponse &res) {
   // API endpoint for external systems (requires API token)
-  DynamicJsonDocument doc(400);
+  // Use medium-sized response for complex JSON structure
+  JsonResponseBuilder::createResponse<512>(res, [&](JsonObject &json) {
+    JsonObject sensorInfo = json.createNestedObject("sensor_info");
+    sensorInfo["name"] = getModuleName();
+    sensorInfo["version"] = getModuleVersion();
+    sensorInfo["location"] = sensorLocation;
+    sensorInfo["enabled"] = sensorEnabled;
 
-  doc["sensor_info"]["name"] = getModuleName();
-  doc["sensor_info"]["version"] = getModuleVersion();
-  doc["sensor_info"]["location"] = sensorLocation;
-  doc["sensor_info"]["enabled"] = sensorEnabled;
+    JsonObject readings = json.createNestedObject("current_readings");
+    readings["temperature"] = temperature;
+    readings["humidity"] = humidity;
+    readings["timestamp"] = millis() / 1000;
+    readings["last_update"] = (millis() - lastReading) / 1000;
 
-  doc["current_readings"]["temperature"] = temperature;
-  doc["current_readings"]["humidity"] = humidity;
-  doc["current_readings"]["timestamp"] = millis() / 1000;
-  doc["current_readings"]["last_update"] = (millis() - lastReading) / 1000;
+    JsonObject config = json.createNestedObject("configuration");
+    config["temp_threshold"] = tempThreshold;
+    config["humidity_threshold"] = humidityThreshold;
+    config["alerts_enabled"] = alertsEnabled;
 
-  doc["configuration"]["temp_threshold"] = tempThreshold;
-  doc["configuration"]["humidity_threshold"] = humidityThreshold;
-  doc["configuration"]["alerts_enabled"] = alertsEnabled;
-
-  doc["status"]["temp_alert"] = temperature > tempThreshold;
-  doc["status"]["humidity_alert"] = humidity > humidityThreshold;
-  doc["status"]["operational"] = sensorEnabled;
-
-  String json;
-  serializeJson(doc, json);
-  res.setContent(json, "application/json");
+    JsonObject status = json.createNestedObject("status");
+    status["temp_alert"] = temperature > tempThreshold;
+    status["humidity_alert"] = humidity > humidityThreshold;
+    status["operational"] = sensorEnabled;
+  });
 }
 
 void EnvironmentalSensorModule::controlAPIHandler(WebRequest &req,

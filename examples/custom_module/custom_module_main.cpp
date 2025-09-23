@@ -29,17 +29,13 @@ void setup() {
       NavigationItem("System Info", "/status")};
   IWebModule::setNavigationMenu(navItems);
 
+  // register modules
+  webPlatform.registerModule("/sensors", &sensorModule);
   // Initialize WebPlatform
   webPlatform.begin("SensorDevice");
 
   if (webPlatform.isConnected()) {
     DEBUG_PRINTLN("WiFi connected! Registering environmental sensor module...");
-
-    // Initialize the custom module
-    sensorModule.begin();
-
-    // Register the custom module at /sensors/
-    webPlatform.registerModule("/sensors", &sensorModule);
 
     DEBUG_PRINT("Environmental sensor ready at: ");
     DEBUG_PRINTLN(webPlatform.getBaseUrl() + "/sensors/");
@@ -52,10 +48,6 @@ void setup() {
 
 void loop() {
   webPlatform.handle();
-
-  if (webPlatform.isConnected()) {
-    sensorModule.handle();
-  }
 
   delay(100);
 }

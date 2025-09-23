@@ -3,11 +3,13 @@
  *
  * This example shows how to create a simple embedded web application using
  * WebPlatform. It demonstrates:
- * - Basic WebPlatform initialization
- * - Navigation menu setup
- * - Custom route registration
- * - Static asset serving
+ * - Basic WebPlatform initialization with debug logging
+ * - Navigation menu setup using PROGMEM-friendly patterns
+ * - Custom route registration with current authentication patterns
+ * - Static asset serving with proper content types
  * - WiFi configuration handling
+ * - OpenAPI documentation patterns (conditional compilation)
+ * - Build flag usage (WEB_PLATFORM_DEBUG and WEB_PLATFORM_OPENAPI)
  */
 
 #include <Arduino.h>
@@ -21,9 +23,10 @@ void setup() {
   Serial.begin(115200);
   DEBUG_PRINTLN("Starting Basic WebPlatform Application...");
 
-  // Set up the navigation menu
+  // Set up the navigation menu using PROGMEM-friendly const char* strings
   std::vector<NavigationItem> navItems = {
-      NavigationItem("Home", "/"), NavigationItem("About", "/about"),
+      NavigationItem("Home", "/"), 
+      NavigationItem("About", "/about"),
       NavigationItem("Settings", "/settings")};
   IWebModule::setNavigationMenu(navItems);
 
@@ -38,190 +41,191 @@ void setup() {
 
   // Register routes before calling webPlatform.begin()
 
-  // Register custom home page
-  webPlatform.registerWebRoute("/", [](WebRequest &req, WebResponse &res) {
-    String html = R"(
-            <!DOCTYPE html>
-            <html><head>
-                <title>My Device - Home</title>
-                <link rel="stylesheet" href="/assets/style.css">
-            </head><body>
-                <div class="container">
-                    {{NAV_MENU}}
-                    <h1>Welcome to My Device</h1>
-                    <p>This is a simple embedded web application built with WebPlatform.</p>
-                    
-                    <div class="status-grid">
-                        <div class="status-card">
-                            <h3>Device Status</h3>
-                            <p class="success">Online</p>
-                        </div>
-                        <div class="status-card">
-                            <h3>Uptime</h3>
-                            <p>)" +
-                  String(millis() / 1000) + R"( seconds</p>
-                        </div>
-                        <div class="status-card">
-                            <h3>Free Memory</h3>
-                            <p>)" +
-                  String(ESP.getFreeHeap()) + R"( bytes</p>
-                        </div>
-                    </div>
-                    
-                    <div class="card">
-                        <h2>Quick Actions</h2>
-                        <button class="btn btn-primary" onclick="window.location='/about'">About This Device</button>
-                        <button class="btn btn-secondary" onclick="window.location='/settings'">Device Settings</button>
-                    </div>
-                </div>
-            </body></html>
-        )";
-    res.setContent(html, "text/html");
-  });
+  // Register custom home page using current patterns
+  webPlatform.registerWebRoute("/", 
+    [](WebRequest &req, WebResponse &res) {
+      String html = R"(
+<!DOCTYPE html>
+<html><head>
+    <title>My Device - Home</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/assets/favicon.ico" sizes="any">
+</head><body>
+    <div class="container">
+        {{NAV_MENU}}
+        <h1>Welcome to My Device</h1>
+        <p>This is a simple embedded web application built with WebPlatform.</p>
+        
+        <div class="status-grid">
+            <div class="status-card success">
+                <h3>Device Status</h3>
+                <p class="large-text">Online</p>
+            </div>
+            <div class="status-card info">
+                <h3>Uptime</h3>
+                <p class="large-text">)" + String(millis() / 1000) + R"( seconds</p>
+            </div>
+            <div class="status-card info">
+                <h3>Free Memory</h3>
+                <p class="large-text">)" + String(ESP.getFreeHeap()) + R"( bytes</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Quick Actions</h2>
+            <button class="btn btn-primary" onclick="window.location='/about'">About This Device</button>
+            <button class="btn btn-secondary" onclick="window.location='/settings'">Device Settings</button>
+        </div>
+    </div>
+</body></html>
+      )";
+      res.setContent(html, "text/html");
+    }, 
+    {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   // Register about page
-  webPlatform.registerWebRoute("/about", [](WebRequest &req, WebResponse &res) {
-    String html = R"(
-            <!DOCTYPE html>
-            <html><head>
-                <title>About My Device</title>
-                <link rel="stylesheet" href="/assets/style.css">
-            </head><body>
-                <div class="container">
-                    {{NAV_MENU}}
-                    <h1>About My Device</h1>
-                    <div class="card">
-                        <h2>Device Information</h2>
-                        <table class="info-table">
-                            <tr><td>Device Name:</td><td>)" +
-                  String(webPlatform.getDeviceName()) + R"(</td></tr>
-                            <tr><td>Firmware Version:</td><td>1.0.0</td></tr>
-                            <tr><td>WiFi SSID:</td><td>)" +
-                  WiFi.SSID() + R"(</td></tr>
-                            <tr><td>IP Address:</td><td>)" +
-                  WiFi.localIP().toString() + R"(</td></tr>
-                            <tr><td>Hostname:</td><td>)" +
-                  webPlatform.getHostname() + R"(</td></tr>
-                            <tr><td>HTTPS Enabled:</td><td>)" +
-                  String(webPlatform.isHttpsEnabled() ? "Yes" : "No") +
-                  R"(</td></tr>
-                        </table>
-                    </div>
-                    
-                    <div class="card">
-                        <h2>System Stats</h2>
-                        <table class="info-table">
-                            <tr><td>Uptime:</td><td>)" +
-                  String(millis() / 1000) + R"( seconds</td></tr>
-                            <tr><td>Free Heap:</td><td>)" +
-                  String(ESP.getFreeHeap()) + R"( bytes</td></tr>
-                            <tr><td>CPU Frequency:</td><td>)" +
-                  String(ESP.getCpuFreqMHz()) + R"( MHz</td></tr>
-                        </table>
-                    </div>
-                    
-                    <a href="/" class="btn btn-primary">Back to Home</a>
-                </div>
-            </body></html>
-        )";
-    res.setContent(html, "text/html");
-  });
+  webPlatform.registerWebRoute("/about", 
+    [](WebRequest &req, WebResponse &res) {
+      String html = R"(
+<!DOCTYPE html>
+<html><head>
+    <title>About My Device</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/assets/favicon.ico" sizes="any">
+</head><body>
+    <div class="container">
+        {{NAV_MENU}}
+        <h1>About My Device</h1>
+        
+        <div class="card">
+            <h2>Device Information</h2>
+            <table class="info-table">
+                <tr><td>Device Name:</td><td>)" + String(webPlatform.getDeviceName()) + R"(</td></tr>
+                <tr><td>Firmware Version:</td><td>1.0.0</td></tr>
+                <tr><td>WiFi SSID:</td><td>)" + WiFi.SSID() + R"(</td></tr>
+                <tr><td>IP Address:</td><td>)" + WiFi.localIP().toString() + R"(</td></tr>
+                <tr><td>Hostname:</td><td>)" + webPlatform.getHostname() + R"(</td></tr>
+                <tr><td>HTTPS Enabled:</td><td>)" + String(webPlatform.isHttpsEnabled() ? "Yes" : "No") + R"(</td></tr>
+            </table>
+        </div>
+        
+        <div class="card">
+            <h2>System Stats</h2>
+            <table class="info-table">
+                <tr><td>Uptime:</td><td>)" + String(millis() / 1000) + R"( seconds</td></tr>
+                <tr><td>Free Heap:</td><td>)" + String(ESP.getFreeHeap()) + R"( bytes</td></tr>
+                <tr><td>CPU Frequency:</td><td>)" + String(ESP.getCpuFreqMHz()) + R"( MHz</td></tr>
+            </table>
+        </div>
+        
+        <a href="/" class="btn btn-primary">Back to Home</a>
+    </div>
+</body></html>
+      )";
+      res.setContent(html, "text/html");
+    }, 
+    {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   // Register settings page
-  webPlatform.registerWebRoute(
-      "/settings", [](WebRequest &req, WebResponse &res) {
-        String html = R"(
-            <!DOCTYPE html>
-            <html><head>
-                <title>Device Settings</title>
-                <link rel="stylesheet" href="/assets/style.css">
-            </head><body>
-                <div class="container">
-                    {{NAV_MENU}}
-                    <h1>Device Settings</h1>
-                    <div class="card">
-                        <h2>WiFi Configuration</h2>
-                        <p>Current Network: <strong>)" +
-                      WiFi.SSID() + R"(</strong></p>
-                        <p>Signal Strength: <strong>)" +
-                      String(WiFi.RSSI()) + R"( dBm</strong></p>
-                        <button class="btn btn-secondary" onclick="window.location='/wifi'">WiFi Settings</button>
-                    </div>
-                    
-                    <div class="card">
-                        <h2>System Actions</h2>
-                        <button class="btn btn-warning" onclick='confirmRestart()'>Restart Device</button>
-                        <button class="btn btn-danger" onclick='confirmFactoryReset()'>Factory Reset</button>
-                    </div>
-                </div>
-                
-                <script>
-                    function confirmRestart() {
-                        if (confirm('Are you sure you want to restart the device?')) {
-                            fetch("/api/restart", {method: "POST"})
-                                .then(() => alert("Device is restarting..."))
-                                .catch(err => alert("Error: " + err));
-                        }
-                    }
-                    
-                    function confirmFactoryReset() {
-                        if (confirm("Are you sure you want to factory reset? This will erase all settings!")) {
-                            if (confirm("This action cannot be undone. Continue?")) {
-                                fetch("/api/factory-reset", {method: "POST"})
-                                    .then(() => alert("Factory reset initiated..."))
-                                    .catch(err => alert("Error: " + err));
-                            }
-                        }
-                    }
-                </script>
-            </body></html>
-        )";
-        res.setContent(html, "text/html");
-      });
-
-  // Add API endpoints
-  webPlatform.registerApiRoute(
-      "/restart",
-      [](WebRequest &req, WebResponse &res) {
-        if (req.getMethod() != WebModule::WM_POST) {
-          res.setStatus(405);
-          res.setContent("{\"error\":\"Method not allowed\"}",
-                         "application/json");
-          return;
+  webPlatform.registerWebRoute("/settings", 
+    [](WebRequest &req, WebResponse &res) {
+      String html = R"(
+<!DOCTYPE html>
+<html><head>
+    <title>Device Settings</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/assets/favicon.ico" sizes="any">
+    <script src="/assets/web-platform-utils.js"></script>
+</head><body>
+    <div class="container">
+        {{NAV_MENU}}
+        <h1>Device Settings</h1>
+        
+        <div class="card">
+            <h2>WiFi Configuration</h2>
+            <p>Current Network: <strong>)" + WiFi.SSID() + R"(</strong></p>
+            <p>Signal Strength: <strong>)" + String(WiFi.RSSI()) + R"( dBm</strong></p>
+            <button class="btn btn-secondary" onclick="window.location='/wifi'">WiFi Settings</button>
+        </div>
+        
+        <div class="card">
+            <h2>System Actions</h2>
+            <button class="btn btn-warning" onclick='confirmRestart()'>Restart Device</button>
+            <button class="btn btn-danger" onclick='confirmFactoryReset()'>Factory Reset</button>
+        </div>
+    </div>
+    
+    <script>
+        async function confirmRestart() {
+            if (confirm('Are you sure you want to restart the device?')) {
+                try {
+                    const response = await AuthUtils.fetch("/api/restart", {method: "POST"});
+                    const result = await response.json();
+                    UIUtils.showAlert('Success', 'Device is restarting...', 'success');
+                } catch (error) {
+                    UIUtils.showAlert('Error', 'Failed to restart device: ' + error.message, 'error');
+                }
+            }
         }
-
-        res.setContent(
-            "{\"success\":true,\"message\":\"Restarting device...\"}",
-            "application/json");
-
-        // Restart after a short delay
-        delay(1000);
-        ESP.restart();
-      },
-      {AuthType::NONE}, WebModule::WM_POST);
-
-  webPlatform.registerApiRoute(
-      "/factory-reset",
-      [](WebRequest &req, WebResponse &res) {
-        if (req.getMethod() != WebModule::WM_POST) {
-          res.setStatus(405);
-          res.setContent("{\"error\":\"Method not allowed\"}",
-                         "application/json");
-          return;
+        
+        async function confirmFactoryReset() {
+            if (confirm("Are you sure you want to factory reset? This will erase all settings!")) {
+                if (confirm("This action cannot be undone. Continue?")) {
+                    try {
+                        const response = await AuthUtils.fetch("/api/factory-reset", {method: "POST"});
+                        const result = await response.json();
+                        UIUtils.showAlert('Success', 'Factory reset initiated...', 'success');
+                    } catch (error) {
+                        UIUtils.showAlert('Error', 'Failed to factory reset: ' + error.message, 'error');
+                    }
+                }
+            }
         }
+    </script>
+</body></html>
+      )";
+      res.setContent(html, "text/html");
+    }, 
+    {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
-        // Clear WiFi credentials
-        webPlatform.resetWiFiCredentials();
+  // Add API endpoints with proper documentation and error handling
+  webPlatform.registerApiRoute("/restart", 
+    [](WebRequest &req, WebResponse &res) {
+      res.setContent(
+          "{\"success\":true,\"message\":\"Restarting device...\"}",
+          "application/json");
+      
+      DEBUG_PRINTLN("Device restart requested via API");
+      
+      // Restart after a short delay to send response first
+      delay(1000);
+      ESP.restart();
+    },
+    {AuthType::LOCAL_ONLY}, WebModule::WM_POST,
+    API_DOC("Restart device", 
+           "Restarts the device immediately. All current connections will be terminated."));
 
-        res.setContent("{\"success\":true,\"message\":\"Factory reset "
-                       "complete. Restarting...\"}",
-                       "application/json");
-
-        // Restart after a short delay
-        delay(1000);
-        ESP.restart();
-      },
-      {AuthType::NONE}, WebModule::WM_POST);
+  webPlatform.registerApiRoute("/factory-reset", 
+    [](WebRequest &req, WebResponse &res) {
+      DEBUG_PRINTLN("Factory reset requested via API");
+      
+      // Clear WiFi credentials
+      webPlatform.resetWiFiCredentials();
+      
+      res.setContent(
+          "{\"success\":true,\"message\":\"Factory reset complete. Restarting...\"}",
+          "application/json");
+      
+      // Restart after a short delay to send response first
+      delay(1000);
+      ESP.restart();
+    },
+    {AuthType::LOCAL_ONLY}, WebModule::WM_POST,
+    API_DOC("Factory reset device", 
+           "Clears all WiFi credentials and restarts the device in configuration mode."));
 
   // Register modules if you have any
   // webPlatform.registerModule("/sensors", &sensorModule);
@@ -231,14 +235,25 @@ void setup() {
   IWebModule::addRedirect("/home", "/");
 
   // Initialize WebPlatform with device name
+  DEBUG_PRINTLN("Initializing WebPlatform...");
   webPlatform.begin("MyDevice");
-
-  // Only register application routes when connected to WiFi
+  
+  // Log initialization results
   if (webPlatform.isConnected()) {
-    DEBUG_PRINT("Application ready at: ");
+    DEBUG_PRINTLN("=== Basic WebPlatform Application Ready ===");
+    DEBUG_PRINT("Device URL: ");
     DEBUG_PRINTLN(webPlatform.getBaseUrl());
+    DEBUG_PRINT("HTTPS Enabled: ");
+    DEBUG_PRINTLN(webPlatform.isHttpsEnabled() ? "Yes" : "No");
+    DEBUG_PRINT("Registered Routes: ");
+    DEBUG_PRINTLN(webPlatform.getRouteCount());
+#if WEB_PLATFORM_OPENAPI
+    DEBUG_PRINTLN("OpenAPI Documentation: Enabled");
+#else
+    DEBUG_PRINTLN("OpenAPI Documentation: Disabled (enable with -DWEB_PLATFORM_OPENAPI=1)");
+#endif
   } else {
-    DEBUG_PRINTLN("Running in WiFi configuration mode");
+    DEBUG_PRINTLN("=== Running in WiFi Configuration Mode ===");
     DEBUG_PRINT("Connect to WiFi network: ");
     DEBUG_PRINTLN(webPlatform.getAPName());
     DEBUG_PRINTLN("Open browser to configure WiFi settings");
@@ -254,9 +269,11 @@ void loop() {
     // sensorModule.handle();
   }
 
-  // Optional: Add some indication of operation
+  // Optional: Add some indication of operation with different blink rates
   static unsigned long lastBlink = 0;
-  if (millis() - lastBlink > (webPlatform.isConnected() ? 1000 : 250)) {
+  unsigned long blinkInterval = webPlatform.isConnected() ? 2000 : 500; // Slow when connected, fast when configuring
+  
+  if (millis() - lastBlink > blinkInterval) {
     lastBlink = millis();
     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
   }

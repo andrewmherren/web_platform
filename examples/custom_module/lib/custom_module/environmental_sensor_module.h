@@ -2,16 +2,18 @@
  * Environmental Sensor Module - Header File
  *
  * This is a complete, self-contained example showing how to create a custom
- * web module. Simply copy these files to your project and include in main.cpp
+ * web module using current WebPlatform patterns. Simply copy these files
+ * to your project and include in main.cpp
  *
  * Features demonstrated:
  * - Complete IWebModule interface implementation
  * - Mixed authentication requirements (public/protected endpoints)
  * - Real-time data updates with JavaScript
- * - Configuration management with forms
- * - RESTful API design
- * - CSRF protection for forms
- * - Module state management
+ * - Configuration management with forms and AuthUtils.js
+ * - RESTful API design with OpenAPI documentation
+ * - CSRF protection using current patterns
+ * - Module state management and lifecycle methods
+ * - Build flag awareness (WEB_PLATFORM_OPENAPI)
  */
 
 #pragma once
@@ -73,6 +75,10 @@ private:
   void updateConfigHandler(WebRequest &req, WebResponse &res);
   void getDataAPIHandler(WebRequest &req, WebResponse &res);
   void controlAPIHandler(WebRequest &req, WebResponse &res);
+
+  // PROGMEM route optimization helpers
+  WebModule::UnifiedRouteHandler getHandlerForRoute(int routeIndex);
+  OpenAPIDocumentation getDocumentationForRoute(int routeIndex);
 };
 
 // Global instance of the module (declared here, defined in .cpp)

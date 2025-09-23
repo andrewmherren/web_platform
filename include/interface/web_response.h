@@ -60,7 +60,6 @@ public:
 
   // Header access
   String getHeader(const String &name) const;
-  // std::map<String, String> getAllHeaders() const { return headers; }
 
 private:
   void markHeadersSent() { headersSent = true; }

@@ -558,6 +558,45 @@ void loop() {
 }
 ```
 
+## Build Flags
+
+WebPlatform supports two main build flags for controlling features:
+
+### Debug Logging
+```ini
+# Enable debug logging (default: disabled)
+build_flags = -DWEB_PLATFORM_DEBUG=1
+
+# Disable debug logging for production
+build_flags = -DWEB_PLATFORM_DEBUG=0
+```
+
+**Note**: When `WEB_PLATFORM_DEBUG=0`, all `DEBUG_PRINT*` macros compile to nothing, saving memory. `WARN_*` and `ERROR_*` macros always print regardless of this setting.
+
+### OpenAPI Documentation
+```ini
+# Enable OpenAPI documentation (default: enabled for compatibility, but consider disabling for production)
+build_flags = -DWEB_PLATFORM_OPENAPI=1
+
+# Disable OpenAPI documentation to save memory
+build_flags = -DWEB_PLATFORM_OPENAPI=0
+```
+
+**Note**: When `WEB_PLATFORM_OPENAPI=0`, all `API_DOC*` macros and documentation classes compile to nothing, significantly reducing memory usage.
+
+### Combined Example
+```ini
+# Development build with full debugging and API docs
+build_flags = 
+  -DWEB_PLATFORM_DEBUG=1
+  -DWEB_PLATFORM_OPENAPI=1
+
+# Production build optimized for memory
+build_flags = 
+  -DWEB_PLATFORM_DEBUG=0
+  -DWEB_PLATFORM_OPENAPI=0
+```
+
 ## Best Practices
 
 ### Security

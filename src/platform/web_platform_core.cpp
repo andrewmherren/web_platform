@@ -1,10 +1,11 @@
+#include "docs/auth_api_docs.h"
+#include "docs/system_api_docs.h"
 #include "interface/platform_service.h"
 #include "platform/ntp_client.h"
 #include "platform/route_string_pool.h"
 #include "route_entry.h"
 #include "web_platform.h"
-#include "docs/auth_api_docs.h"
-#include "docs/system_api_docs.h"
+
 
 #include <WebServer.h>
 
@@ -80,7 +81,7 @@ void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
   // Start server with appropriate configuration
   startServer();
 
-  // CRITICAL FIX: Start OpenAPI generation BEFORE any route setup so all routes are captured
+  // Start OpenAPI generation BEFORE any route setup so all routes are captured
   openAPIGenerationContext.beginGeneration();
 
   // Initialize pre-registered modules if in CONNECTED mode
@@ -254,6 +255,8 @@ void WebPlatform::setupRoutes() {
     // Setup 404 handler
     server->onNotFound([this]() { handleNotFound(); });
   }
+
+  DEBUG_PRINTLN("====>setup routes complete");
 }
 
 void WebPlatform::setupConfigPortalMode() {
@@ -284,7 +287,7 @@ void WebPlatform::setupConfigPortalMode() {
 
 void WebPlatform::setupConnectedMode() {
   DEBUG_PRINTLN("WebPlatform: Setting up connected mode routes");
-  
+
   // Register core platform routes FIRST (before overrides are processed)
   registerConnectedModeRoutes();
 
@@ -295,13 +298,15 @@ void WebPlatform::setupConnectedMode() {
     registerUnifiedHttpsRoutes();
   }
 
-DEBUG_PRINTF("\n=== WebPlatform OpenAPI Generation ===\n");
+  DEBUG_PRINTF("\n=== WebPlatform OpenAPI Generation ===\n");
 #if OPENAPI_ENABLED
-    // Generate OpenAPI spec AFTER all routes are registered (modules + platform routes)
-    generateOpenAPISpec();
-    DEBUG_PRINTLN("OpenAPI generation complete.");
+  // Generate OpenAPI spec AFTER all routes are registered (modules + platform
+  // routes)
+  generateOpenAPISpec();
+  DEBUG_PRINTLN("OpenAPI generation complete.");
 #else
-    DEBUG_PRINTLN("Skipping spec generation. Add build flag WEB_PLATFORM_OPENAPI=1 to generate.");
+  DEBUG_PRINTLN("Skipping spec generation. Add build flag "
+                "WEB_PLATFORM_OPENAPI=1 to generate.");
 #endif
 }
 
