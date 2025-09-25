@@ -618,6 +618,26 @@ webPlatform.registerApiRoute("/resource", handler, {AuthType::TOKEN}, WebModule:
     API_DOC_BLOCK(ModuleNameDocs::createGetResource()));
 ```
 
+### Accessing the OpenAPI Specification
+
+When enabled, the full OpenAPI specification is available at:
+```
+/openapi.json
+```
+
+You can also filter by authentication type:
+```
+/openapi.json?filter=token    # Token-authenticated routes only
+/openapi.json?filter=session  # Session-authenticated routes only
+```
+
+### Third-Party Tool Integration
+
+The OpenAPI specification can be used with external tools for API exploration and testing:
+- **Swagger UI**: Import `/openapi.json` to generate interactive documentation
+- **Postman**: Import the specification for API testing and collection management
+- **Code Generators**: Generate client libraries using tools like OpenAPI Generator
+
 ### Development Workflow
 
 1. **Development Phase**: Enable OpenAPI for API exploration and testing

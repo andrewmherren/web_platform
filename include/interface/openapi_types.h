@@ -8,7 +8,12 @@
 #define WEB_PLATFORM_OPENAPI 1  // Default to enabled
 #endif
 
+#ifndef WEB_PLATFORM_MAKERAPI
+#define WEB_PLATFORM_MAKERAPI 0  // Default to enabled
+#endif
+
 #define OPENAPI_ENABLED WEB_PLATFORM_OPENAPI
+#define MAKERAPI_ENABLED WEB_PLATFORM_MAKERAPI
 
 // Template-based OpenAPI documentation - full implementation when enabled
 template<bool Enabled = OPENAPI_ENABLED>

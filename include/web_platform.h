@@ -147,8 +147,9 @@ public:
 
   String prepareHtml(String html, WebRequest req, const String &csrfToken = "");
 
-  // Pre-generated OpenAPI serving (memory efficient)
+  // Pre-generated OpenAPI serving
   void streamPreGeneratedOpenAPISpec(WebResponse &res) const;
+  void streamPreGeneratedMakerAPISpec(WebResponse &res) const;
 
   // OpenAPI generation helper methods
   String generateDefaultSummary(const String &path, const String &method) const;
@@ -166,6 +167,9 @@ public:
   void addRequestBodyToOperationFromDocs(
       JsonObject &operation,
       const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
+      
+  // Maker API helper functions
+  bool isMakerAPIRoute(const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
 
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
@@ -227,6 +231,7 @@ private:                            // Core server components
   void getNetworkStatusApiHandler(WebRequest &req, WebResponse &res);
   void getModulesApiHandler(WebRequest &req, WebResponse &res);
   void getOpenAPISpecHandler(WebRequest &req, WebResponse &res);
+  void getMakerAPISpecHandler(WebRequest &req, WebResponse &res);
 
   // Platform state
   PlatformMode currentMode;
@@ -237,9 +242,11 @@ private:                            // Core server components
 
   // OpenAPI generation system - stored in storage system
   bool openAPISpecReady = false;
+  bool makerAPISpecReady = false;
   static const String OPENAPI_COLLECTION;
   static const String OPENAPI_SPEC_KEY;
-  String preGeneratedOpenAPISpec; // Store the complete spec
+  static const String MAKER_OPENAPI_SPEC_KEY;
+  String preGeneratedOpenAPISpec;
 
   // Temporary documentation storage
   OpenAPIGenerationContext openAPIGenerationContext;
@@ -305,6 +312,9 @@ private:                            // Core server components
   // Temporary documentation collection
   void beginOpenAPIGeneration();
   void completeOpenAPIGeneration();
+  
+  // Maker API configuration
+  std::vector<String> makerApiTags = {"maker"}; // Default to just "maker" tag
 
   // Mode-specific setup
   void setupConfigPortalMode();

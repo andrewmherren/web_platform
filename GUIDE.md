@@ -387,7 +387,7 @@ webPlatform.registerApiRoute("/config", handler, {AuthType::SESSION}, WebModule:
 
 ### Accessing the OpenAPI Specification
 
-When enabled, the OpenAPI specification is automatically generated and available at:
+When enabled, the full OpenAPI specification is automatically generated and available at:
 ```
 /openapi.json
 ```
@@ -397,6 +397,13 @@ You can also filter the specification by authentication type:
 /openapi.json?filter=token  # Only show token-authenticated routes
 /openapi.json?filter=session  # Only show session-authenticated routes
 ```
+
+### Using OpenAPI with Third-Party Tools
+
+The generated OpenAPI specification is compatible with third-party tools for API exploration and testing:
+- **Swagger UI**: Create interactive API documentation by importing the `/openapi.json` endpoint
+- **Postman**: Import the OpenAPI specification for easy API testing and collection generation
+- **API Clients**: Use code generators to create client libraries in various programming languages
 
 ### Benefits of Using OpenAPI Documentation
 

@@ -431,3 +431,8 @@ void WebPlatform::getOpenAPISpecHandler(WebRequest &req, WebResponse &res) {
   // Serve pre-generated OpenAPI spec (generated once during initialization)
   streamPreGeneratedOpenAPISpec(res);
 }
+
+void WebPlatform::getMakerAPISpecHandler(WebRequest &req, WebResponse &res) {
+  // Serve pre-generated Maker OpenAPI spec (generated once during initialization)
+  streamPreGeneratedMakerAPISpec(res);
+}

@@ -199,6 +199,20 @@ WebPlatform includes built-in support for OpenAPI 3.0 specification generation. 
 - **Swagger UI**: Generate interactive API documentation
 - **Code Generators**: Automatically generate client libraries
 
+### Accessing OpenAPI Documentation
+
+When enabled, the full OpenAPI specification is available at:
+```
+/openapi.json
+```
+
+### Using OpenAPI with Third-Party Tools
+
+The generated OpenAPI specification can be consumed by tools like:
+- **Swagger UI**: Generate interactive API documentation
+- **Postman**: Import OpenAPI specs for easy API testing  
+- **Code Generators**: Automatically generate client libraries
+
 ### Example with OpenAPI Documentation
 
 ```cpp
@@ -217,5 +231,3 @@ webPlatform.registerApiRoute("/device/status",
     )
 );
 ```
-
-The Maker API module provides a complete web interface for exploring, testing, and managing these documented APIs directly from your device.

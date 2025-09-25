@@ -1,7 +1,7 @@
+#include "docs/system_api_docs.h"
+#include "interface/openapi_types.h"
 #include "interface/web_module_interface.h"
 #include "web_platform.h"
-#include "interface/openapi_types.h"
-#include "docs/system_api_docs.h"
 
 void WebPlatform::registerConnectedModeRoutes() {
   registerWebRoute("/assets/favicon.svg",
@@ -66,6 +66,15 @@ void WebPlatform::registerConnectedModeRoutes() {
   // OpenAPI specification endpoints - cached & fresh versions
   registerWebRoute("/openapi.json",
                    std::bind(&WebPlatform::getOpenAPISpecHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {{AuthType::NONE}}, // No auth required for API docs
+                   WebModule::WM_GET);
+#endif
+
+#if MAKERAPI_ENABLED
+  // OpenAPI specification endpoints - cached & fresh versions
+  registerWebRoute("/maker/openapi.json",
+                   std::bind(&WebPlatform::getMakerAPISpecHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::NONE}}, // No auth required for API docs
                    WebModule::WM_GET);
