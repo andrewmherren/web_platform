@@ -14,6 +14,14 @@ const AuthUtils = {
     return meta ? meta.getAttribute('content') : null;
   },
 
+  getModulePrefix() {
+    return document.body.dataset.modulePrefix || '';
+  },
+
+  getDeviceName() {
+    return document.body.dataset.deviceName || 'Device';
+  },
+
   // Make authenticated fetch request with CSRF token
   async fetch(url, options = {}) {
     const csrfToken = this.getCsrfToken();

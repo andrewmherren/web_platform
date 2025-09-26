@@ -145,10 +145,11 @@ void EnvironmentalSensorModule::updateSensorReadings() {
 void EnvironmentalSensorModule::mainPageHandler(WebRequest &req,
                                                 WebResponse &res) {
 
-  // NOTE: In production modules, consider storing HTML templates as PROGMEM constants
-  // and using res.setProgmemContent() to reduce heap usage. This example uses
-  // res.setContent() with raw strings for clarity and educational purposes.
-  // 
+  // NOTE: In production modules, consider storing HTML templates as PROGMEM
+  // constants and using res.setProgmemContent() to reduce heap usage. This
+  // example uses res.setContent() with raw strings for clarity and educational
+  // purposes.
+  //
   // Example PROGMEM pattern:
   // const char SENSOR_PAGE_HTML[] PROGMEM = R"(<!DOCTYPE html>...)";
   // res.setProgmemContent(SENSOR_PAGE_HTML, "text/html");
@@ -160,10 +161,12 @@ void EnvironmentalSensorModule::mainPageHandler(WebRequest &req,
                 <link rel="stylesheet" href="/assets/style.css">
                 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
                 <link rel="icon" href="/assets/favicon.ico" sizes="any">
+                <script src="/assets/web-platform-utils.js"></script>
                 <script>
                     // Auto-refresh data every 30 seconds
                     function updateReadings() {
-                        fetch('/sensors/api/current')
+                        const modulePrefix = AuthUtils.getModulePrefix();
+                        AuthUtils.fetch(`${modulePrefix}/api/current`)
                             .then(response => response.json())
                             .then(data => {
                                 document.getElementById('temperature').textContent = data.temperature.toFixed(1) + '\u00B0C';
@@ -239,7 +242,7 @@ void EnvironmentalSensorModule::mainPageHandler(WebRequest &req,
                     <div class="card">
                         <h2>Quick Actions</h2>
                         <button class="btn btn-primary" onclick='updateReadings()'>Refresh Data</button>
-                        <button class="btn btn-secondary" onclick="window.location='/sensors/config'">Configuration</button>
+                        <button class="btn btn-secondary" onclick="window.location=AuthUtils.getModulePrefix()+'/config'">Configuration</button>
                     </div>
 
                     <div class="card mt-3">
@@ -247,19 +250,29 @@ void EnvironmentalSensorModule::mainPageHandler(WebRequest &req,
                         
                         <h3>Public Access</h3>
                         <div class="status-card mb-2">
-                            <p><strong>GET</strong> <code>/sensors/api/current</code></p>
+                            <p><strong>GET</strong> <code><span id="current-endpoint"></span>/api/current</code></p>
                             <p>Current sensor readings</p>
                         </div>
                         
                         <h3>API Token Required</h3>
                         <div class="status-card mb-1">
-                            <p><strong>GET</strong> <code>/sensors/api/data</code></p>
+                            <p><strong>GET</strong> <code><span id="data-endpoint"></span>/api/data</code></p>
                             <p>Detailed sensor data with configuration</p>
                         </div>
                         <div class="status-card">
-                            <p><strong>POST</strong> <code>/sensors/api/control</code></p>
+                            <p><strong>POST</strong> <code><span id="control-endpoint"></span>/api/control</code></p>
                             <p>Control sensor operations (refresh, enable, disable, reset-alerts)</p>
                         </div>
+                        
+                        <script>
+                            // Update API endpoint displays with correct module prefix
+                            document.addEventListener('DOMContentLoaded', function() {
+                                const modulePrefix = AuthUtils.getModulePrefix();
+                                document.getElementById('current-endpoint').textContent = modulePrefix;
+                                document.getElementById('data-endpoint').textContent = modulePrefix;
+                                document.getElementById('control-endpoint').textContent = modulePrefix;
+                            });
+                        </script>
                     </div>
                 </div>
             </body></html>
@@ -296,7 +309,7 @@ void EnvironmentalSensorModule::configPageHandler(WebRequest &req,
                 <div class="container">
                   {{NAV_MENU}}
                     <h1>Sensor Configuration</h1>
-                    <form id="config-form" method="post" action="/sensors/api/config">
+                    <form id="config-form" method="post">
                         <div class="card">
                             <h2>Sensor Settings</h2>
                             <div class="form-group">
@@ -338,7 +351,7 @@ void EnvironmentalSensorModule::configPageHandler(WebRequest &req,
                         </div>
                         
                         <button type="submit" class="btn btn-primary">Save Configuration</button>
-                        <a href="/sensors/" class="btn btn-secondary">Cancel</a>
+                        <a href="#" class="btn btn-secondary" onclick="window.location=AuthUtils.getModulePrefix()+'/'; return false;">Cancel</a>
                     </form>
                     
                     <div id="result"></div>
@@ -351,7 +364,8 @@ void EnvironmentalSensorModule::configPageHandler(WebRequest &req,
                         const formData = new FormData(this);
                         
                         try {
-                            const result = await AuthUtils.fetch('/sensors/api/config', {
+                            const modulePrefix = AuthUtils.getModulePrefix();
+                            const result = await AuthUtils.fetch(`${modulePrefix}/api/config`, {
                                 method: 'POST',
                                 headers: {
                                     // content type header is important. application/x-www-form-urlencoded
@@ -365,7 +379,7 @@ void EnvironmentalSensorModule::configPageHandler(WebRequest &req,
                             if (result.success) {
                                 document.getElementById('result').innerHTML = 
                                     '<div class="card success"><p>Configuration saved successfully!</p></div>';
-                                setTimeout(() => window.location = '/sensors/', 2000);
+                                setTimeout(() => window.location = AuthUtils.getModulePrefix() + '/', 2000);
                             } else {
                                 document.getElementById('result').innerHTML = 
                                     '<div class="card error"><p>Error: ' + result.error + '</p></div>';

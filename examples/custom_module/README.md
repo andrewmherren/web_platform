@@ -11,6 +11,7 @@ This is a complete, working example of a custom web module for the WebPlatform l
 - **RESTful API Design**: JSON APIs for external system integration
 - **Module State Management**: Persistent configuration and sensor state
 - **Professional Structure**: Proper C++ class design with public/private separation
+- **Module Prefix Independence**: Uses `AuthUtils.getModulePrefix()` for flexible URL routing
 
 ## File Structure
 
@@ -46,9 +47,16 @@ src/
 3. **Build and upload** to your ESP32
 
 4. **Access the interface**:
-   - Main sensor dashboard: `http://yourdevice.local/sensors/`
-   - Configuration page: `http://yourdevice.local/sensors/config`
-   - API endpoints: `http://yourdevice.local/sensors/api/current`
+   - Main sensor dashboard: `http://yourdevice.local/[YOUR_PREFIX]/`
+   - Configuration page: `http://yourdevice.local/[YOUR_PREFIX]/config`
+   - API endpoints: `http://yourdevice.local/[YOUR_PREFIX]/api/current`
+   
+   The `[YOUR_PREFIX]` depends on how you register the module:
+   ```cpp
+   webPlatform.registerModule("/sensors", &sensorModule);        // URLs: /sensors/*
+   webPlatform.registerModule("/environment", &sensorModule);    // URLs: /environment/*
+   webPlatform.registerModule("/lab-sensor", &sensorModule);     // URLs: /lab-sensor/*
+   ```
 
 ## Authentication Levels Demonstrated
 
@@ -75,27 +83,29 @@ Most endpoints accept multiple auth methods for flexibility:
 
 ### Public Access (Local Network)
 ```bash
-GET /sensors/                    # Main dashboard (HTML)
+GET /[PREFIX]/                    # Main dashboard (HTML)
 ```
 
 ### Session Required
 ```bash
-GET /sensors/config              # Configuration page (HTML)
-GET /sensors/api/current         # Current sensor readings (JSON)
-POST /sensors/api/config         # Update configuration (JSON)
+GET /[PREFIX]/config              # Configuration page (HTML)
+GET /[PREFIX]/api/current         # Current sensor readings (JSON)
+POST /[PREFIX]/api/config         # Update configuration (JSON)
 ```
 
 ### API Token Required
 ```bash
-GET /sensors/api/data            # Complete sensor data (JSON)
-POST /sensors/api/control        # Control commands (JSON)
+GET /[PREFIX]/api/data            # Complete sensor data (JSON)
+POST /[PREFIX]/api/control        # Control commands (JSON)
 ```
+
+**Note:** Replace `[PREFIX]` with your chosen module prefix from registration.
 
 ### Example API Usage
 
 **Get current readings:**
 ```bash
-curl "http://yourdevice.local/sensors/api/current"
+curl "http://yourdevice.local/[YOUR_PREFIX]/api/current"
 ```
 
 **Control sensor (with API token):**
@@ -103,7 +113,7 @@ curl "http://yourdevice.local/sensors/api/current"
 curl -H "Authorization: Bearer YOUR_TOKEN" \
      -X POST \
      -d "command=refresh" \
-     "http://yourdevice.local/sensors/api/control"
+     "http://yourdevice.local/[YOUR_PREFIX]/api/control"
 ```
 
 ## API Documentation
@@ -220,6 +230,63 @@ This example uses simulated sensor readings. To adapt for real sensors:
 - All updates happen in `handle()` method
 - No shared state concerns
 
+## Module Prefix Independence
+
+This example demonstrates **module prefix independence** - the ability to register your module with any URL prefix without breaking functionality. This is achieved using the WebPlatform's automatic data attribute injection system.
+
+### How It Works
+
+1. **Server-Side**: WebPlatform automatically injects module prefix into HTML:
+   ```html
+   <body data-module-prefix="/your-chosen-prefix" data-device-name="YourDevice">
+   ```
+
+2. **Client-Side**: JavaScript uses utility functions to get the prefix:
+   ```javascript
+   const modulePrefix = AuthUtils.getModulePrefix();
+   fetch(`${modulePrefix}/api/current`)  // Always uses correct prefix
+   ```
+
+### Key Implementation Points
+
+**✅ DO - Use AuthUtils for dynamic URLs:**
+```javascript
+// Flexible - works with any registration prefix
+const modulePrefix = AuthUtils.getModulePrefix();
+fetch(`${modulePrefix}/api/current`);
+window.location = `${modulePrefix}/config`;
+```
+
+**❌ DON'T - Hardcode module URLs:**
+```javascript
+// Brittle - only works if registered as "/sensors"
+fetch('/sensors/api/current');
+window.location = '/sensors/config';
+```
+
+**✅ DO - Update API documentation displays:**
+```javascript
+// Show correct endpoint URLs in documentation
+document.addEventListener('DOMContentLoaded', function() {
+    const modulePrefix = AuthUtils.getModulePrefix();
+    document.getElementById('api-endpoint').textContent = `${modulePrefix}/api/data`;
+});
+```
+
+### Registration Flexibility
+
+With prefix independence, users can register your module with any prefix:
+
+```cpp
+// All of these work with the same module code:
+webPlatform.registerModule("/sensors", &sensorModule);
+webPlatform.registerModule("/environmental", &sensorModule);
+webPlatform.registerModule("/lab-room-1", &sensorModule);
+webPlatform.registerModule("/greenhouse-monitoring", &sensorModule);
+```
+
+The module automatically adapts to any prefix without code changes.
+
 ## Development Notes
 
 This module serves as a template for creating your own web-enabled device modules. Key patterns to follow:
@@ -230,6 +297,7 @@ This module serves as a template for creating your own web-enabled device module
 4. **Mixed authentication** to support both web and API users
 5. **Proper error handling** with meaningful responses
 6. **Configuration persistence** (extend with StorageManager if needed)
+7. **Module prefix independence** using `AuthUtils.getModulePrefix()`
 
 ## License
 

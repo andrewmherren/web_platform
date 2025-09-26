@@ -1,6 +1,11 @@
 #include "storage/auth_storage.h"
 #include "web_platform.h"
 
+// Forward declaration for body tag processing
+static String parseAndMergeBodyTag(const char *bodyTagStart,
+                                   const String &modulePrefix,
+                                   const String &deviceName);
+
 String WebPlatform::prepareHtml(String html, WebRequest req,
                                 const String &csrfToken) {
   // Optimized template processing with minimal heap allocations
@@ -48,7 +53,6 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
         }
       }
 
-
       navHtml = IWebModule::generateNavigationHtml(isAuthenticated);
 
       csrfTokenValue = csrfToken.isEmpty()
@@ -81,26 +85,46 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
   size_t pos = 0;
 
   while (pos < inputLength) {
-    // Look for next template marker or head tag
+    // Look for next template marker, head tag, or body tag
     const char *markerStart = strchr(src + pos, '{');
     const char *headStart = nullptr;
+    const char *bodyStart = nullptr;
 
     // Look for <head> tag from current position
     if (pos <= inputLength - 6) {
       headStart = strstr(src + pos, "<head>");
     }
 
-    // Determine which comes first: template marker or head tag
+    // Look for <body tag from current position (allowing for attributes)
+    if (pos <= inputLength - 5) {
+      const char *searchStart = src + pos;
+      const char *currentPos = strstr(searchStart, "<body");
+      if (currentPos) {
+        // Verify this is actually a body tag (not part of another word)
+        char nextChar = currentPos[5];
+        if (nextChar == '>' || nextChar == ' ' || nextChar == '\t' ||
+            nextChar == '\n' || nextChar == '\r') {
+          bodyStart = currentPos;
+        }
+      }
+    }
+
+    // Determine which comes first: template marker, head tag, or body tag
     size_t nextPos = inputLength; // Default to end of string
     bool isTemplateMarker = false;
     bool isHeadTag = false;
+    bool isBodyTag = false;
 
-    if (markerStart && (!headStart || markerStart < headStart)) {
+    if (markerStart && (!headStart || markerStart < headStart) &&
+        (!bodyStart || markerStart < bodyStart)) {
       nextPos = markerStart - src;
       isTemplateMarker = true;
-    } else if (headStart) {
+    } else if (headStart && (!bodyStart || headStart < bodyStart)) {
       nextPos = headStart - src;
       isHeadTag = true;
+    } else if (bodyStart) {
+      nextPos = bodyStart - src;
+      isBodyTag = true;
     }
 
     // Copy content before the next marker/tag
@@ -196,6 +220,21 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
       result += cache.csrfTokenValue;
       result += F("\">");
       pos += 6;
+    } else if (isBodyTag) {
+      // Body tag processing with data attribute injection
+      cache.computeAuthValues(req, csrfToken, this);
+
+      String processedBodyTag =
+          parseAndMergeBodyTag(src + pos, cache.modulePrefix, cache.deviceName);
+      result += processedBodyTag;
+
+      // Find the end of the body tag to update position
+      const char *bodyTagEnd = strchr(src + pos, '>');
+      if (bodyTagEnd) {
+        pos = (bodyTagEnd + 1) - src;
+      } else {
+        pos += 5; // fallback, should not happen with valid HTML
+      }
     } else {
       // This shouldn't happen with new logic, but safety fallback
       result += src[pos];
@@ -255,4 +294,66 @@ void WebPlatform::measureHeapUsage(const char *phase) {
   DEBUG_PRINTF("Total heap: %d bytes\n", heapSize);
   DEBUG_PRINTF("Heap usage: %.1f%%\n", heapUsagePercent);
   DEBUG_PRINTF("==========================\n");
+}
+
+// Parse and merge body tag with data attributes
+static String parseAndMergeBodyTag(const char *bodyTagStart,
+                                   const String &modulePrefix,
+                                   const String &deviceName) {
+  // Find the end of the body tag
+  const char *tagEnd = strchr(bodyTagStart, '>');
+  if (!tagEnd) {
+    // Malformed HTML, return original
+    return String(bodyTagStart).substring(0, 5); // Just "<body"
+  }
+
+  // Extract the full body tag content
+  size_t tagLength = (tagEnd - bodyTagStart) + 1;
+  String originalTag = String(bodyTagStart).substring(0, tagLength);
+
+  // Parse existing attributes
+  String existingAttributes = "";
+  if (tagLength > 6) { // More than just "<body>"
+    // Extract everything between "<body" and ">"
+    existingAttributes = originalTag.substring(5, tagLength - 1);
+    existingAttributes.trim();
+  }
+
+  // Build new attributes while preserving existing ones
+  String newAttributes = "";
+
+  // Add our required data attributes first
+  newAttributes += " data-module-prefix=\"" + modulePrefix + "\"";
+  newAttributes += " data-device-name=\"" + deviceName + "\"";
+
+  // Process existing attributes, skipping our reserved ones
+  if (existingAttributes.length() > 0) {
+    // Simple attribute parsing - split by spaces and rebuild
+    String remainingAttrs = existingAttributes;
+    remainingAttrs.replace("data-module-prefix=",
+                           "SKIP_data-module-prefix="); // Mark for removal
+    remainingAttrs.replace("data-device-name=",
+                           "SKIP_data-device-name="); // Mark for removal
+
+    // Split and rebuild attributes
+    int startPos = 0;
+    while (startPos < remainingAttrs.length()) {
+      // Find next attribute
+      int spacePos = remainingAttrs.indexOf(' ', startPos);
+      if (spacePos == -1)
+        spacePos = remainingAttrs.length();
+
+      String attr = remainingAttrs.substring(startPos, spacePos);
+      attr.trim();
+
+      // Only include if not marked for skipping
+      if (attr.length() > 0 && !attr.startsWith("SKIP_")) {
+        newAttributes += " " + attr;
+      }
+
+      startPos = spacePos + 1;
+    }
+  }
+
+  return "<body" + newAttributes + ">";
 }
