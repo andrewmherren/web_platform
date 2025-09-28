@@ -484,14 +484,29 @@ void errorHandler(WebRequest& req, WebResponse& res) {
 
 ## OpenAPI Documentation (Optional)
 
-**Build Flag Control**: OpenAPI documentation is controlled by the `WEB_PLATFORM_OPENAPI` build flag and is **disabled by default** to conserve memory.
+**Dual OpenAPI System**: WebPlatform now supports two types of OpenAPI specifications:
+
+1. **Full OpenAPI Specification** - Complete API documentation for all routes
+2. **Maker API Specification** - Filtered specification containing only routes tagged for public/maker consumption
+
+**Build Flag Control**: Both systems are controlled by separate build flags and are **disabled by default** to conserve memory.
 
 ```ini
-# Enable OpenAPI documentation
+# Enable full OpenAPI documentation
 build_flags = -DWEB_PLATFORM_OPENAPI=1
 
-# Disable for production (default)
-build_flags = -DWEB_PLATFORM_OPENAPI=0
+# Enable Maker API documentation (filtered subset)
+build_flags = -DWEB_PLATFORM_MAKERAPI=1
+
+# Enable both (recommended for development)
+build_flags = 
+  -DWEB_PLATFORM_OPENAPI=1
+  -DWEB_PLATFORM_MAKERAPI=1
+
+# Disable both for production (default)
+build_flags = 
+  -DWEB_PLATFORM_OPENAPI=0
+  -DWEB_PLATFORM_MAKERAPI=0
 ```
 
 ### OpenAPIDocumentation Class
@@ -618,29 +633,81 @@ webPlatform.registerApiRoute("/resource", handler, {AuthType::TOKEN}, WebModule:
     API_DOC_BLOCK(ModuleNameDocs::createGetResource()));
 ```
 
-### Accessing the OpenAPI Specification
+### Accessing the OpenAPI Specifications
 
-When enabled, the full OpenAPI specification is available at:
+When enabled, two OpenAPI specifications are available:
+
+**Full OpenAPI Specification** (when `OPENAPI_ENABLED`):
 ```
 /openapi.json
 ```
 
-You can also filter by authentication type:
+**Maker API Specification** (when `MAKERAPI_ENABLED`):
 ```
-/openapi.json?filter=token    # Token-authenticated routes only
-/openapi.json?filter=session  # Session-authenticated routes only
+/maker/openapi.json
 ```
+
+The Maker API contains only routes that are:
+- Tagged with configured "maker" tags (default: "maker")
+- Intended for public/external consumption
+- Suitable for maker projects and integrations
 
 ### Third-Party Tool Integration
 
-The OpenAPI specification can be used with external tools for API exploration and testing:
-- **Swagger UI**: Import `/openapi.json` to generate interactive documentation
-- **Postman**: Import the specification for API testing and collection management
-- **Code Generators**: Generate client libraries using tools like OpenAPI Generator
+Both OpenAPI specifications can be used with external tools:
+
+**Full API Documentation**:
+- **Swagger UI**: Import `/openapi.json` for complete API documentation
+- **Internal Development**: Full access to all system endpoints
+- **Administrative Tools**: Complete API coverage for system management
+
+**Maker API Documentation**:
+- **Public Documentation**: Import `/maker/openapi.json` for user-facing docs
+- **Client Libraries**: Generate SDKs for only the public/maker endpoints
+- **Postman Collections**: Create focused collections for public APIs
+- **Integration Guides**: Simplified API reference for external developers
 
 ### Development Workflow
 
-1. **Development Phase**: Enable OpenAPI for API exploration and testing
-2. **Documentation Phase**: Create comprehensive API documentation using factories
-3. **Production Phase**: Disable OpenAPI to optimize memory usage
-4. **Maintenance Phase**: Re-enable OpenAPI when updating APIs
+1. **Development Phase**: Enable both OpenAPI and Maker API for full exploration
+2. **Documentation Phase**: Create comprehensive API documentation and tag routes for maker inclusion
+3. **Public API Phase**: Use Maker API spec for external documentation and client generation
+4. **Production Phase**: Choose appropriate flags based on deployment needs:
+   - Internal systems: Both disabled for maximum memory efficiency
+   - Public-facing devices: Keep Maker API enabled for user documentation
+   - Development environments: Keep both enabled
+
+### Maker API Route Tagging
+
+To include routes in the Maker API specification, tag them appropriately:
+
+```cpp
+// Route automatically included in Maker API (has "maker" tag)
+webPlatform.registerApiRoute("/device/status", handler, {AuthType::TOKEN}, WebModule::WM_GET,
+    API_DOC("Get device status", "Returns current device status", "getStatus", {"maker"}));
+
+// Route included with custom maker tags
+webPlatform.registerApiRoute("/sensor/data", handler, {AuthType::TOKEN}, WebModule::WM_GET,
+    API_DOC("Get sensor data", "Returns sensor readings", "getSensorData", {"maker", "sensor"}));
+
+// Route NOT included in Maker API (no maker tags)
+webPlatform.registerApiRoute("/admin/config", handler, {AuthType::SESSION}, WebModule::WM_GET,
+    API_DOC("Get admin config", "Internal configuration", "getConfig", {"admin"}));
+```
+
+### Custom Maker API Tag Configuration
+
+When registering the Maker API module, you can specify which tags should be included:
+
+```cpp
+// Default: only "maker" tag included
+webPlatform.registerModule("/api-explorer", &makerAPI);
+
+// Custom: include routes with "maker", "public", or "external" tags
+DynamicJsonDocument tagsConfig(256);
+JsonArray tagsArray = tagsConfig.createNestedArray("tags");
+tagsArray.add("maker");
+tagsArray.add("public");
+tagsArray.add("external");
+webPlatform.registerModule("/api-explorer", &makerAPI, tagsConfig);
+```

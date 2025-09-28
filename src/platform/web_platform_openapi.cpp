@@ -20,7 +20,7 @@ const String WebPlatform::MAKER_OPENAPI_SPEC_KEY = "maker";
 bool WebPlatform::isMakerAPIRoute(
     const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
   // Check if route has any of the maker tags
-  for (const String &routeTag : routeDoc.docs.tags) {
+  for (const String &routeTag : routeDoc.docs.getTags()) {
     for (const String &makerTag : makerApiTags) {
       if (routeTag.equalsIgnoreCase(makerTag)) {
         return true;
@@ -148,20 +148,20 @@ void WebPlatform::generateOpenAPISpec() {
     const OpenAPIDocumentation &docs = routeDoc.docs;
 
 #if OPENAPI_ENABLED
-    if (!docs.summary.isEmpty()) {
-      operation["summary"] = docs.summary;
+    if (!docs.getSummary().isEmpty()) {
+      operation["summary"] = docs.getSummary();
     } else {
       operation["summary"] = generateDefaultSummary(routePathStr, methodStr);
     }
 
-    if (!docs.operationId.isEmpty()) {
-      operation["operationId"] = docs.operationId;
+    if (!docs.getOperationId().isEmpty()) {
+      operation["operationId"] = docs.getOperationId();
     } else {
       operation["operationId"] = generateOperationId(methodStr, routePathStr);
     }
 
-    if (!docs.description.isEmpty()) {
-      operation["description"] = docs.description;
+    if (!docs.getDescription().isEmpty()) {
+      operation["description"] = docs.getDescription();
     }
 
     // Handle tags - use provided tags or generate default (restored original
@@ -169,7 +169,7 @@ void WebPlatform::generateOpenAPISpec() {
     JsonArray tags = operation.createNestedArray("tags");
     String defaultModuleTag = inferModuleFromPath(routePathStr);
 
-    if (!docs.tags.empty()) {
+    if (!docs.getTags().empty()) {
       // Add default module tag first
       tags.add(defaultModuleTag);
 
@@ -177,7 +177,7 @@ void WebPlatform::generateOpenAPISpec() {
       String lowerDefaultTag = defaultModuleTag;
       lowerDefaultTag.toLowerCase();
 
-      for (const String &tag : docs.tags) {
+      for (const String &tag : docs.getTags()) {
         String lowerTag = tag;
         lowerTag.toLowerCase();
         if (lowerTag != lowerDefaultTag) {
@@ -220,7 +220,8 @@ void WebPlatform::generateOpenAPISpec() {
 #if OPENAPI_ENABLED
     if ((routeDoc.method == WebModule::WM_POST ||
          routeDoc.method == WebModule::WM_PUT) &&
-        (!docs.requestSchema.isEmpty() || !docs.requestExample.isEmpty())) {
+        (!docs.getRequestSchema().isEmpty() ||
+         !docs.getRequestExample().isEmpty())) {
       addRequestBodyToOperationFromDocs(operation, routeDoc);
     }
 #else
@@ -232,8 +233,9 @@ void WebPlatform::generateOpenAPISpec() {
 
     // Add responses
 #if OPENAPI_ENABLED
-    if (!docs.responsesJson.isEmpty() || !docs.responseSchema.isEmpty() ||
-        !docs.responseExample.isEmpty()) {
+    if (!docs.getResponsesJson().isEmpty() ||
+        !docs.getResponseSchema().isEmpty() ||
+        !docs.getResponseExample().isEmpty()) {
       addResponsesToOperationFromDocs(operation, routeDoc);
     } else {
 #else
@@ -390,17 +392,17 @@ void WebPlatform::generateOpenAPISpec() {
 
       // Add basic properties
       operation["summary"] =
-          docs.summary.isEmpty()
+          docs.getSummary().isEmpty()
               ? generateDefaultSummary(routePathStr, methodStr)
-              : docs.summary;
+              : docs.getSummary();
 
       operation["operationId"] =
-          docs.operationId.isEmpty()
+          docs.getOperationId().isEmpty()
               ? generateOperationId(methodStr, routePathStr)
-              : docs.operationId;
+              : docs.getOperationId();
 
-      if (!docs.description.isEmpty()) {
-        operation["description"] = docs.description;
+      if (!docs.getDescription().isEmpty()) {
+        operation["description"] = docs.getDescription();
       }
 
       // Add tags (but keep only maker tag and module tag)
@@ -741,9 +743,9 @@ void WebPlatform::addParametersToOperationFromDocs(
   std::map<String, bool> parameterNames;
 
   // First, add custom parameters from module documentation
-  if (!docs.parameters.isEmpty()) {
+  if (!docs.getParameters().isEmpty()) {
     DynamicJsonDocument paramDoc(2048);
-    if (deserializeJson(paramDoc, docs.parameters) ==
+    if (deserializeJson(paramDoc, docs.getParameters()) ==
         DeserializationError::Ok) {
       if (paramDoc.is<JsonArray>()) {
         JsonArray customParams = paramDoc.as<JsonArray>();
@@ -853,27 +855,27 @@ void WebPlatform::addResponsesToOperationFromDocs(
   JsonObject mediaType = content.createNestedObject(contentType);
 
   // Add response schema if provided
-  if (!docs.responseSchema.isEmpty()) {
+  if (!docs.getResponseSchema().isEmpty()) {
     DynamicJsonDocument schemaDoc(2048);
-    if (deserializeJson(schemaDoc, docs.responseSchema) ==
+    if (deserializeJson(schemaDoc, docs.getResponseSchema()) ==
         DeserializationError::Ok) {
       mediaType["schema"] = schemaDoc.as<JsonObject>();
     }
   }
 
   // Add response example if provided
-  if (!docs.responseExample.isEmpty()) {
+  if (!docs.getResponseExample().isEmpty()) {
     DynamicJsonDocument exampleDoc(2048);
-    if (deserializeJson(exampleDoc, docs.responseExample) ==
+    if (deserializeJson(exampleDoc, docs.getResponseExample()) ==
         DeserializationError::Ok) {
       mediaType["example"] = exampleDoc.as<JsonVariant>();
     }
   }
 
   // Add module-provided response info
-  if (!docs.responsesJson.isEmpty()) {
+  if (!docs.getResponsesJson().isEmpty()) {
     DynamicJsonDocument responseDoc(2048);
-    if (deserializeJson(responseDoc, docs.responsesJson) ==
+    if (deserializeJson(responseDoc, docs.getResponsesJson()) ==
         DeserializationError::Ok) {
       // Merge additional response information
       for (JsonPair kv : responseDoc.as<JsonObject>()) {
@@ -912,18 +914,18 @@ void WebPlatform::addRequestBodyToOperationFromDocs(
   JsonObject mediaType = content.createNestedObject(contentType);
 
   // Add request schema if provided
-  if (!docs.requestSchema.isEmpty()) {
+  if (!docs.getRequestSchema().isEmpty()) {
     DynamicJsonDocument schemaDoc(2048);
-    if (deserializeJson(schemaDoc, docs.requestSchema) ==
+    if (deserializeJson(schemaDoc, docs.getRequestSchema()) ==
         DeserializationError::Ok) {
       mediaType["schema"] = schemaDoc.as<JsonObject>();
     }
   }
 
   // Add request example if provided
-  if (!docs.requestExample.isEmpty()) {
+  if (!docs.getRequestExample().isEmpty()) {
     DynamicJsonDocument exampleDoc(2048);
-    if (deserializeJson(exampleDoc, docs.requestExample) ==
+    if (deserializeJson(exampleDoc, docs.getRequestExample()) ==
         DeserializationError::Ok) {
       mediaType["example"] = exampleDoc.as<JsonVariant>();
     }

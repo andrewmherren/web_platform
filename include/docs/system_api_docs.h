@@ -3,7 +3,6 @@
 #include "../interface/openapi_factory.h"
 #include <vector>
 
-#if OPENAPI_ENABLED
 /**
  * Documentation factory for system and WiFi-related API endpoints
  * Following the recommended pattern of separating documentation from
@@ -28,7 +27,5 @@ public:
   static OpenAPIDocumentation createScanWifi();
   static OpenAPIDocumentation createConfigureWifi();
 };
-
-#endif // OPENAPI_ENABLED
 
 #endif

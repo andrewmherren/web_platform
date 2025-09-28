@@ -359,7 +359,7 @@ ApiRoute("/update-config", WebModule::WM_POST,
 
 ### Combining Authentication and API Documentation
 
-When creating API endpoints that require authentication, combine proper authentication requirements with clear documentation using the memory-efficient macro system:
+When creating API endpoints that require authentication, combine proper authentication requirements with clear documentation using the memory-efficient macro system. Consider whether routes should be included in the Maker API for external consumption:
 
 ```cpp
 // Wrap documentation class to disappear when OpenAPI disabled
@@ -367,19 +367,38 @@ When creating API endpoints that require authentication, combine proper authenti
 class DeviceApiDocs {
 public:
   static const std::vector<String> DEVICE_TAGS;
+  static const std::vector<String> MAKER_DEVICE_TAGS;  // Tags for maker-friendly routes
   
   static OpenAPIDocumentation createGetDeviceStatus() {
     OpenAPIDocumentation doc = OpenAPIFactory::create(
       "Get device status",
       "Returns the current status of the device with authentication details",
       "getDeviceStatus", 
-      DEVICE_TAGS
+      MAKER_DEVICE_TAGS  // Include "maker" tag for public API
     );
     
     doc.responseExample = R"({
       "status": "online",
       "uptime": 3600,
-      "auth_method": "session"
+      "auth_method": "token"
+    })";
+    
+    return doc;
+  }
+  
+  static OpenAPIDocumentation createGetAdminStatus() {
+    OpenAPIDocumentation doc = OpenAPIFactory::create(
+      "Get admin status",
+      "Returns detailed admin status (internal use only)",
+      "getAdminStatus", 
+      DEVICE_TAGS  // No "maker" tag - internal only
+    );
+    
+    doc.responseExample = R"({
+      "status": "online",
+      "uptime": 3600,
+      "auth_method": "session",
+      "internal_metrics": {...}
     })";
     
     return doc;
@@ -388,9 +407,10 @@ public:
 
 // Define tags
 const std::vector<String> DeviceApiDocs::DEVICE_TAGS = {"Device"};
+const std::vector<String> DeviceApiDocs::MAKER_DEVICE_TAGS = {"Device", "maker"};  // Public API
 #endif // OPENAPI_ENABLED
 
-// Use in API route with authentication and memory-efficient documentation
+// Public API route - appears in both Full API and Maker API
 webPlatform.registerApiRoute("/status", 
   [this](WebRequest& req, WebResponse& res) {
     const AuthContext& auth = req.getAuthContext();
@@ -404,6 +424,47 @@ webPlatform.registerApiRoute("/status",
   WebModule::WM_GET,
   API_DOC_BLOCK(DeviceApiDocs::createGetDeviceStatus())
 );
+
+// Internal API route - appears only in Full API (no maker tag)
+webPlatform.registerApiRoute("/admin/status", 
+  [this](WebRequest& req, WebResponse& res) {
+    // Include sensitive internal metrics
+    String json = getDetailedAdminStatus();  // Implementation with internal details
+    res.setContent(json, "application/json");
+  }, 
+  {AuthType::SESSION},  // Session-only for admin interface
+  WebModule::WM_GET,
+  API_DOC_BLOCK(DeviceApiDocs::createGetAdminStatus())
+);
+```
+
+### API Documentation Strategy for Authentication
+
+When designing authenticated APIs, consider the dual OpenAPI system:
+
+1. **Public/Maker APIs** (`/maker/openapi.json`):
+   - Tag with "maker" or configured public tags
+   - Use token authentication for API access
+   - Provide clean, focused documentation
+   - Hide internal implementation details
+
+2. **Internal APIs** (full `/openapi.json`):
+   - No maker tags - internal development only
+   - Can use session authentication for admin interfaces
+   - Include detailed implementation information
+   - Document admin-only functionality
+
+```cpp
+// Example: Public sensor reading API
+webPlatform.registerApiRoute("/sensor/reading", handler, {AuthType::TOKEN}, WebModule::WM_GET,
+    API_DOC("Get sensor reading", "Returns current sensor value", "getSensorReading", 
+            {"maker", "sensor"}));  // Public API
+
+// Example: Internal sensor calibration API  
+webPlatform.registerApiRoute("/admin/sensor/calibrate", handler, {AuthType::SESSION}, WebModule::WM_POST,
+    API_DOC("Calibrate sensor", "Internal sensor calibration", "calibrateSensor", 
+            {"admin", "sensor"}));  // Internal only
+```
 
 ## API Usage Examples
 
@@ -449,7 +510,7 @@ async function apiRequest(endpoint, options = {}) {
     return await response.json();
 }
 
-// Get device status
+// Get device status (public API - available in Maker API spec)
 async function getDeviceStatus() {
     try {
         const status = await apiRequest('/api/device/status');
@@ -459,7 +520,7 @@ async function getDeviceStatus() {
     }
 }
 
-// Send control command
+// Send control command (public API - available in Maker API spec)
 async function sendCommand(command) {
     try {
         const result = await apiRequest('/api/device/control', {
@@ -472,9 +533,61 @@ async function sendCommand(command) {
     }
 }
 
+// Admin function (internal API - NOT in Maker API spec)
+async function performFactoryReset() {
+    try {
+        const result = await apiRequest('/api/admin/factory-reset', {
+            method: 'POST'
+        });
+        console.log('Factory reset result:', result);
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
 // Usage examples
-getDeviceStatus();
-sendCommand('restart');
+getDeviceStatus();    // Public API
+sendCommand('restart'); // Public API
+// performFactoryReset(); // Admin API - typically not exposed to external developers
+```
+
+### API Discovery Using OpenAPI Specifications
+
+```javascript
+// Discover available public APIs using Maker API spec
+async function discoverPublicAPIs() {
+    try {
+        const spec = await fetch('/maker/openapi.json');
+        const openapi = await spec.json();
+        
+        console.log('Available public APIs:', Object.keys(openapi.paths));
+        console.log('API Server:', openapi.servers[0].url);
+        console.log('API Title:', openapi.info.title);
+        
+        // Extract available endpoints
+        const endpoints = [];
+        for (const [path, methods] of Object.entries(openapi.paths)) {
+            for (const [method, details] of Object.entries(methods)) {
+                endpoints.push({
+                    path: path,
+                    method: method.toUpperCase(),
+                    summary: details.summary,
+                    description: details.description
+                });
+            }
+        }
+        
+        return endpoints;
+    } catch (error) {
+        console.error('Failed to discover APIs:', error);
+        return [];
+    }
+}
+
+// Use API discovery
+discoverPublicAPIs().then(endpoints => {
+    console.log('Public API Endpoints:', endpoints);
+});
 ```
 
 ## Authentication Context
@@ -552,50 +665,73 @@ void apiHandler(WebRequest& req, WebResponse& res) {
 
 ## RESTful API Endpoints
 
-WebPlatform provides built-in RESTful API endpoints for user and token management:
+WebPlatform provides built-in RESTful API endpoints for user and token management. These endpoints appear in different OpenAPI specifications based on their intended audience:
 
-### User Management
+### User Management (Internal APIs - Full OpenAPI Only)
 ```bash
-# List all users (admin only)
+# List all users (admin only) - NOT in Maker API
 GET /api/users
 
-# Create new user (admin only)
+# Create new user (admin only) - NOT in Maker API
 POST /api/users
 {"username": "newuser", "password": "password123"}
 
-# Get specific user by ID
+# Get specific user by ID - NOT in Maker API
 GET /api/users/{userId}
 
-# Update user password
+# Update user password - NOT in Maker API
 PUT /api/users/{userId}
 {"password": "newpassword"}
 
-# Delete user (admin only)
+# Delete user (admin only) - NOT in Maker API
 DELETE /api/users/{userId}
 ```
 
-### Current User (Convenience Endpoints)
+### Current User (Convenience Endpoints - Internal APIs Only)
 ```bash
-# Get current user info
+# Get current user info - NOT in Maker API
 GET /api/user
 
-# Update current user password
+# Update current user password - NOT in Maker API
 PUT /api/user
 {"password": "newpassword"}
 ```
 
-### Token Management
+### Token Management (Mixed - Some in Maker API)
 ```bash
-# Get user's API tokens
+# Get user's API tokens - NOT in Maker API (admin function)
 GET /api/users/{userId}/tokens
 
-# Create new token for user
+# Create new token for user - NOT in Maker API (admin function)
 POST /api/users/{userId}/tokens
 {"name": "My API Token"}
 
-# Delete specific token
+# Delete specific token - Could be in Maker API if tagged
 DELETE /api/tokens/{tokenId}
 ```
+
+### System Information (Public APIs - Available in Maker API)
+```bash
+# Get system status - Available in Maker API
+GET /api/system/status
+
+# Get network status - Available in Maker API
+GET /api/system/network
+
+# Get available modules - Available in Maker API
+GET /api/system/modules
+```
+
+### OpenAPI Specifications
+```bash
+# Full API specification (all endpoints)
+GET /openapi.json
+
+# Maker API specification (public endpoints only)
+GET /maker/openapi.json
+```
+
+**Note**: The built-in user management endpoints are considered internal administrative functions and do not appear in the Maker API specification by default. Public-facing devices should implement their own maker-friendly user management APIs if needed for external consumption.
 
 ## Storage Integration
 
@@ -635,3 +771,5 @@ WebPlatform creates a default admin account on first boot:
 - All user data is stored using UUID primary keys for better security and scalability
 
 The authentication system provides comprehensive security features while remaining flexible enough for various use cases. Application developers can choose the level of security appropriate for their needs, while module developers can suggest reasonable defaults that can be overridden when necessary.
+
+The dual OpenAPI system allows for clear separation between internal administrative APIs (full specification) and public/maker-friendly APIs (Maker specification), ensuring that sensitive management functions remain internal while providing clean, focused documentation for external integrations.

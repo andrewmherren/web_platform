@@ -167,9 +167,23 @@ public:
   void addRequestBodyToOperationFromDocs(
       JsonObject &operation,
       const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
-      
+
   // Maker API helper functions
-  bool isMakerAPIRoute(const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
+  bool isMakerAPIRoute(
+      const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
+
+  // New OpenAPI generation helper methods
+  void addSecuritySchemesToSpec(DynamicJsonDocument &doc) const;
+  void
+  addRouteToSpec(JsonObject &paths,
+                 const OpenAPIGenerationContext::RouteDocumentation &routeDoc,
+                 bool isMakerAPI) const;
+  bool generateSpecification(
+      std::function<bool(const OpenAPIGenerationContext::RouteDocumentation &)>
+          routeFilter,
+      const String &title, const String &description,
+      const String &serverDescription, const String &storageKey,
+      size_t targetSize, bool isMakerAPI) const;
 
 private:                            // Core server components
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
@@ -310,9 +324,8 @@ private:                            // Core server components
   void generateOpenAPISpec();
 
   // Temporary documentation collection
-  void beginOpenAPIGeneration();
   void completeOpenAPIGeneration();
-  
+
   // Maker API configuration
   std::vector<String> makerApiTags = {"maker"}; // Default to just "maker" tag
 

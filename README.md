@@ -188,46 +188,78 @@ For more information on WebPlatform features, see the [User Guide](GUIDE.md).
 
 The following modules are designed to work with WebPlatform:
 
-- **[Maker API](https://github.com/andrewmherren/maker_api)** - Interactive API documentation and testing interface with OpenAPI 3.0 support
+- **[Maker API](../maker_api/)** - Interactive API documentation and testing interface specifically for maker-friendly public APIs
 - More modules coming soon...
 
-## OpenAPI 3.0 Support
+## Dual OpenAPI 3.0 Support
 
-WebPlatform includes built-in support for OpenAPI 3.0 specification generation. When you register API routes using `registerApiRoute()`, the platform automatically generates comprehensive API documentation that can be consumed by tools like:
+WebPlatform includes built-in support for dual OpenAPI 3.0 specification generation:
 
-- **Postman**: Import OpenAPI specs for easy API testing
-- **Swagger UI**: Generate interactive API documentation
-- **Code Generators**: Automatically generate client libraries
+### Full OpenAPI Specification
+- Complete API documentation for all registered routes
+- Intended for internal development and system administration
+- Available at `/openapi.json` when enabled
 
-### Accessing OpenAPI Documentation
+### Maker API Specification
+- Filtered specification containing only routes tagged for public/maker consumption
+- Routes tagged with "maker" or configured tags
+- Ideal for external documentation and client SDK generation
+- Available at `/maker/openapi.json` when enabled
 
-When enabled, the full OpenAPI specification is available at:
-```
-/openapi.json
+### Build Configuration
+
+Both systems are **disabled by default** to conserve memory:
+
+```ini
+# Enable full OpenAPI documentation
+build_flags = -DWEB_PLATFORM_OPENAPI=1
+
+# Enable Maker API documentation (filtered subset)
+build_flags = -DWEB_PLATFORM_MAKERAPI=1
+
+# Enable both (recommended for development)
+build_flags = 
+  -DWEB_PLATFORM_OPENAPI=1
+  -DWEB_PLATFORM_MAKERAPI=1
 ```
 
 ### Using OpenAPI with Third-Party Tools
 
-The generated OpenAPI specification can be consumed by tools like:
-- **Swagger UI**: Generate interactive API documentation
-- **Postman**: Import OpenAPI specs for easy API testing  
-- **Code Generators**: Automatically generate client libraries
+**Full OpenAPI Specification** (`/openapi.json`):
+- **Internal Development**: Complete API reference for system developers
+- **Administrative Tools**: Full access to all system endpoints
+- **Swagger UI**: Comprehensive interactive documentation
 
-### Example with OpenAPI Documentation
+**Maker API Specification** (`/maker/openapi.json`):
+- **Public Documentation**: Clean, focused API docs for end users
+- **Postman**: Generate focused collections for public APIs
+- **Client SDKs**: Generate libraries containing only public endpoints
+- **Integration Guides**: Simplified API reference for makers
+
+### Example with Dual OpenAPI Documentation
 
 ```cpp
-// Register an API route with detailed OpenAPI documentation
+// Route appears in both Full API and Maker API (has "maker" tag)
 webPlatform.registerApiRoute("/device/status", 
     [](WebRequest& req, WebResponse& res) {
         res.setContent("{\"status\":\"online\",\"uptime\":12345}", "application/json");
     }, 
     {AuthType::TOKEN}, 
     WebModule::WM_GET,
-    OpenAPIDocumentation(
-        "Get device status",
-        "Returns current device status including uptime and connection info",
-        "getDeviceStatus", 
-        {"Device Management"}
-    )
-);
+    API_DOC("Get device status", 
+            "Returns current device status including uptime and connection info",
+            "getDeviceStatus", 
+            {"maker", "device"}));
+
+// Route appears only in Full API (no maker tag)
+webPlatform.registerApiRoute("/admin/config", 
+    [](WebRequest& req, WebResponse& res) {
+        res.setContent("{\"config\":\"internal\"}", "application/json");
+    }, 
+    {AuthType::SESSION}, 
+    WebModule::WM_GET,
+    API_DOC("Get admin config", 
+            "Internal system configuration",
+            "getAdminConfig", 
+            {"admin"}));
 ```

@@ -7,6 +7,13 @@ OpenAPIDocumentation OpenAPIFactory::create(const String &summary,
   return OpenAPIDocumentation(summary, description, operationId, tags);
 }
 
+OpenAPIDocumentation OpenAPIFactory::createWithSuccessResponse(
+    const String &summary, const String &description, const String &operationId,
+    const std::vector<String> &tags, const String &responseDescription) {
+  return OpenAPIDocumentation(summary, description, operationId, tags)
+      .withResponseSchema(createSuccessResponse(responseDescription));
+}
+
 String OpenAPIFactory::createSuccessResponse(const String &description) {
   return R"({
     "type": "object",
@@ -42,28 +49,6 @@ String OpenAPIFactory::createListResponse(const String &itemDescription) {
       "total": {"type": "integer", "description": "Total number of items"}
     },
     "required": ["items", "total"]
-  })";
-}
-
-String OpenAPIFactory::createJsonRequest(const String &description,
-                                         const String &properties) {
-  return R"({
-    "type": "object",
-    "description": ")" +
-         description + R"(",
-    "properties": )" +
-         properties + R"(
-  })";
-}
-
-String OpenAPIFactory::createStringRequest(const String &description,
-                                           int minLength) {
-  return R"({
-    "type": "string",
-    "description": ")" +
-         description + R"(",
-    "minLength": )" +
-         String(minLength) + R"(
   })";
 }
 

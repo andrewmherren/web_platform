@@ -296,14 +296,15 @@ void WebPlatform::setupConnectedMode() {
   }
 
   DEBUG_PRINTF("\n=== WebPlatform OpenAPI Generation ===\n");
-#if OPENAPI_ENABLED
+#if OPENAPI_ENABLED || MAKERAPI_ENABLED
   // Generate OpenAPI spec AFTER all routes are registered (modules + platform
   // routes)
   generateOpenAPISpec();
   DEBUG_PRINTLN("OpenAPI generation complete.");
 #else
-  DEBUG_PRINTLN("Skipping spec generation. Add build flag "
-                "WEB_PLATFORM_OPENAPI=1 to generate.");
+  DEBUG_PRINTLN(
+      "Skipping spec generation. Add build flag "
+      "WEB_PLATFORM_OPENAPI=1 and or WEB_PLATFORM_MAKERAPI=1 to generate.");
 #endif
 }
 
@@ -348,34 +349,36 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *module,
 
   // Store module for initialization during begin()
   pendingModules.emplace_back(basePath, module, config);
-  
+
   // Check for Maker API module and extract tags configuration
   String basePathStr = String(basePath);
   if (basePathStr.indexOf("/maker") != -1 && !config.isNull()) {
     if (config.containsKey("tags") && config["tags"].is<JsonArray>()) {
       // Clear default tags and add configured ones
       makerApiTags.clear();
-      
+
       JsonArray tagArray = config["tags"].as<JsonArray>();
       for (JsonVariant tag : tagArray) {
-        if (tag.is<const char*>() || tag.is<String>()) {
+        if (tag.is<const char *>() || tag.is<String>()) {
           String tagStr = tag.as<String>();
           if (!tagStr.isEmpty()) {
             makerApiTags.push_back(tagStr);
-            DEBUG_PRINTF("MakerAPI: Added configured tag: %s\n", tagStr.c_str());
+            DEBUG_PRINTF("MakerAPI: Added configured tag: %s\n",
+                         tagStr.c_str());
           }
         }
       }
-      
+
       // If no valid tags were added, restore the default
       if (makerApiTags.empty()) {
         makerApiTags.push_back("maker");
       }
-      
-      DEBUG_PRINTF("MakerAPI: Using %d custom tags for filtering\n", makerApiTags.size());
+
+      DEBUG_PRINTF("MakerAPI: Using %d custom tags for filtering\n",
+                   makerApiTags.size());
     }
   }
-  
+
   DEBUG_PRINTF("WebPlatform: Pre-registered module '%s' at path: %s\n",
                module->getModuleName().c_str(), basePath);
   return true;

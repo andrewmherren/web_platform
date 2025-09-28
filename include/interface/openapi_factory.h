@@ -19,18 +19,18 @@ public:
                                      const String &operationId = "",
                                      const std::vector<String> &tags = {});
 
+  // Shorthand for common response patterns with builder pattern
+  static OpenAPIDocumentation createWithSuccessResponse(
+      const String &summary, const String &description,
+      const String &operationId, const std::vector<String> &tags,
+      const String &responseDescription = "Operation successful");
+
   // Schema generators for common response patterns
   static String
   createSuccessResponse(const String &description = "Operation successful");
   static String
   createErrorResponse(const String &description = "Operation failed");
   static String createListResponse(const String &itemDescription = "items");
-
-  // Request body generators for common patterns
-  static String createJsonRequest(const String &description,
-                                  const String &properties = "{}");
-  static String createStringRequest(const String &description,
-                                    int minLength = 1);
 
   // Common parameter schemas
   static String

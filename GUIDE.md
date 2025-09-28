@@ -351,15 +351,40 @@ IWebModule::setNavigationMenu(navItems);
 
 ## OpenAPI Integration
 
-WebPlatform includes optional support for OpenAPI 3.0 specification generation that can be enabled/disabled at build time.
+WebPlatform includes optional support for dual OpenAPI 3.0 specification generation that can be enabled/disabled at build time.
+
+### Dual OpenAPI System
+
+WebPlatform now supports two complementary OpenAPI specifications:
+
+1. **Full OpenAPI Specification** (`OPENAPI_ENABLED`)
+   - Complete API documentation for all registered routes
+   - Intended for internal development and system administration
+   - Available at `/openapi.json`
+
+2. **Maker API Specification** (`MAKERAPI_ENABLED`)
+   - Filtered specification containing only public/maker-friendly routes
+   - Routes tagged with specified "maker" tags (default: "maker")
+   - Ideal for external documentation and client SDK generation
+   - Available at `/maker/openapi.json`
 
 ### Enabling OpenAPI Documentation
 
-OpenAPI support is **disabled by default** to conserve memory. Enable it with a build flag:
+Both systems are **disabled by default** to conserve memory. Enable them independently:
 
 ```ini
 # platformio.ini
+
+# Full OpenAPI documentation
 build_flags = -DWEB_PLATFORM_OPENAPI=1
+
+# Maker API documentation (filtered subset)
+build_flags = -DWEB_PLATFORM_MAKERAPI=1
+
+# Both systems (recommended for development)
+build_flags = 
+  -DWEB_PLATFORM_OPENAPI=1
+  -DWEB_PLATFORM_MAKERAPI=1
 ```
 
 ### Using OpenAPI Documentation Macros
@@ -385,32 +410,85 @@ webPlatform.registerApiRoute("/config", handler, {AuthType::SESSION}, WebModule:
     }()));
 ```
 
-### Accessing the OpenAPI Specification
+### Accessing the OpenAPI Specifications
 
-When enabled, the full OpenAPI specification is automatically generated and available at:
+When enabled, the specifications are automatically generated and available at:
+
+**Full OpenAPI Specification** (when `OPENAPI_ENABLED`):
 ```
 /openapi.json
 ```
 
-You can also filter the specification by authentication type:
+**Maker API Specification** (when `MAKERAPI_ENABLED`):
 ```
-/openapi.json?filter=token  # Only show token-authenticated routes
-/openapi.json?filter=session  # Only show session-authenticated routes
+/maker/openapi.json
+```
+
+### Route Tagging for Maker API
+
+To include routes in the Maker API specification, tag them with "maker" or configured tags:
+
+```cpp
+// This route will appear in both specifications
+webPlatform.registerApiRoute("/device/status", statusHandler, {AuthType::TOKEN}, WebModule::WM_GET,
+    API_DOC("Get device status", "Returns current device status", "getStatus", {"maker"}));
+
+// This route appears only in full OpenAPI (no maker tag)
+webPlatform.registerApiRoute("/admin/config", configHandler, {AuthType::SESSION}, WebModule::WM_GET,
+    API_DOC("Get admin config", "Internal system configuration", "getConfig", {"admin"}));
+
+// This route appears in Maker API with multiple relevant tags
+webPlatform.registerApiRoute("/sensor/reading", sensorHandler, {AuthType::TOKEN}, WebModule::WM_GET,
+    API_DOC("Get sensor reading", "Returns current sensor value", "getSensorReading", 
+            {"maker", "sensor", "public"}));
 ```
 
 ### Using OpenAPI with Third-Party Tools
 
-The generated OpenAPI specification is compatible with third-party tools for API exploration and testing:
-- **Swagger UI**: Create interactive API documentation by importing the `/openapi.json` endpoint
-- **Postman**: Import the OpenAPI specification for easy API testing and collection generation
-- **API Clients**: Use code generators to create client libraries in various programming languages
+Both specifications are compatible with third-party tools:
 
-### Benefits of Using OpenAPI Documentation
+**Full OpenAPI Specification** (`/openapi.json`):
+- **Internal Development**: Complete API reference for system developers
+- **Administrative Tools**: Full access to all system endpoints
+- **Debug/Testing**: Comprehensive endpoint coverage during development
 
-1. **Optional Memory Impact**: Zero overhead when disabled, full documentation when enabled
-2. **Build-Time Optimization**: Include documentation during development, disable for production
-3. **Tool Integration**: Generated specification works with Postman, Swagger UI, and code generators
-4. **Development Lifecycle Support**: Enable during API exploration, disable during optimization phase
+**Maker API Specification** (`/maker/openapi.json`):
+- **Public Documentation**: Clean, focused API docs for end users
+- **Swagger UI**: Create user-friendly interactive documentation
+- **Postman**: Generate focused collections for public APIs
+- **Client SDKs**: Generate libraries containing only public endpoints
+- **Integration Guides**: Simplified API reference for makers and integrators
+
+### Benefits of Dual OpenAPI System
+
+1. **Optional Memory Impact**: Zero overhead when disabled, selective overhead when enabled
+2. **Flexible Documentation**: Choose full internal docs, public maker docs, or both
+3. **Separation of Concerns**: Internal APIs separate from public/maker APIs
+4. **Build-Time Optimization**: Enable/disable independently based on deployment needs
+5. **Tool Integration**: Both specifications work with standard OpenAPI tools
+6. **Development Lifecycle Support**: 
+   - Development: Enable both for complete API exploration
+   - Documentation: Use Maker API for user-facing documentation
+   - Production: Choose based on device purpose (internal vs. maker-facing)
+
+### Production Deployment Strategies
+
+```ini
+# Internal/Enterprise Device (no public API access needed)
+build_flags = 
+  -DWEB_PLATFORM_OPENAPI=0
+  -DWEB_PLATFORM_MAKERAPI=0
+
+# Maker-Friendly Device (public API documentation needed)
+build_flags = 
+  -DWEB_PLATFORM_OPENAPI=0
+  -DWEB_PLATFORM_MAKERAPI=1
+
+# Development Device (full API exploration needed)
+build_flags = 
+  -DWEB_PLATFORM_OPENAPI=1
+  -DWEB_PLATFORM_MAKERAPI=1
+```
 
 ### Documentation Factory Pattern
 
@@ -567,7 +645,7 @@ void loop() {
 
 ## Build Flags
 
-WebPlatform supports two main build flags for controlling features:
+WebPlatform supports several build flags for controlling features:
 
 ### Debug Logging
 ```ini
@@ -580,28 +658,41 @@ build_flags = -DWEB_PLATFORM_DEBUG=0
 
 **Note**: When `WEB_PLATFORM_DEBUG=0`, all `DEBUG_PRINT*` macros compile to nothing, saving memory. `WARN_*` and `ERROR_*` macros always print regardless of this setting.
 
-### OpenAPI Documentation
+### OpenAPI Documentation Systems
 ```ini
-# Enable OpenAPI documentation (default: enabled for compatibility, but consider disabling for production)
+# Enable full OpenAPI documentation (default: disabled)
 build_flags = -DWEB_PLATFORM_OPENAPI=1
 
-# Disable OpenAPI documentation to save memory
-build_flags = -DWEB_PLATFORM_OPENAPI=0
+# Enable Maker API documentation (default: disabled)
+build_flags = -DWEB_PLATFORM_MAKERAPI=1
+
+# Disable both to save memory (production default)
+build_flags = 
+  -DWEB_PLATFORM_OPENAPI=0
+  -DWEB_PLATFORM_MAKERAPI=0
 ```
 
-**Note**: When `WEB_PLATFORM_OPENAPI=0`, all `API_DOC*` macros and documentation classes compile to nothing, significantly reducing memory usage.
+**Note**: When disabled, all `API_DOC*` macros and documentation classes compile to nothing, significantly reducing memory usage. The systems are independent - you can enable one, both, or neither.
 
-### Combined Example
+### Combined Examples
 ```ini
-# Development build with full debugging and API docs
+# Development build with full debugging and both API docs
 build_flags = 
   -DWEB_PLATFORM_DEBUG=1
   -DWEB_PLATFORM_OPENAPI=1
+  -DWEB_PLATFORM_MAKERAPI=1
+
+# Maker-friendly device (public API docs only)
+build_flags = 
+  -DWEB_PLATFORM_DEBUG=0
+  -DWEB_PLATFORM_OPENAPI=0
+  -DWEB_PLATFORM_MAKERAPI=1
 
 # Production build optimized for memory
 build_flags = 
   -DWEB_PLATFORM_DEBUG=0
   -DWEB_PLATFORM_OPENAPI=0
+  -DWEB_PLATFORM_MAKERAPI=0
 ```
 
 ## Best Practices
