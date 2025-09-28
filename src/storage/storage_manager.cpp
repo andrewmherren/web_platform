@@ -1,5 +1,6 @@
 #include "storage/storage_manager.h"
 #include "storage/json_database_driver.h"
+#include "storage/littlefs_database_driver.h"
 #include "storage/query_builder.h"
 #include "utilities/debug_macros.h"
 #include <ArduinoJson.h>
@@ -16,6 +17,13 @@ void StorageManager::ensureInitialized() {
       drivers["json"] =
           std::unique_ptr<IDatabaseDriver>(new JsonDatabaseDriver());
     }
+
+    // Create LittleFS driver if it doesn't exist
+    if (drivers.find("littlefs") == drivers.end()) {
+      drivers["littlefs"] = std::unique_ptr<IDatabaseDriver>(
+          new LittleFSDatabaseDriver("/openapi_storage"));
+    }
+
     initialized = true;
   }
 }
@@ -58,7 +66,7 @@ IDatabaseDriver *StorageManager::driver(const String &name) {
   }
 
   WARN_PRINTF("StorageManager: Warning - driver '%s' not found\n",
-               targetName.c_str());
+              targetName.c_str());
   return nullptr;
 }
 
