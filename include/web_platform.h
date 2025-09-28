@@ -172,6 +172,15 @@ public:
   bool isMakerAPIRoute(
       const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
 
+  // OpenAPI generation helper methods
+  void createOpenAPIDocumentStructure(
+      DynamicJsonDocument &doc, const String &title, const String &description) const;
+  bool generateAndStoreSpec(
+      size_t targetSize, const String &title, const String &description,
+      std::function<bool(const OpenAPIGenerationContext::RouteDocumentation&)> routeFilter,
+      std::function<void(JsonArray&, const OpenAPIGenerationContext::RouteDocumentation&)> tagModifier,
+      const String &storageKey, const String &specType);
+
   // New OpenAPI generation helper methods
   void addSecuritySchemesToSpec(DynamicJsonDocument &doc) const;
   void

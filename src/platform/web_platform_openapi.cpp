@@ -31,57 +31,15 @@ bool WebPlatform::isMakerAPIRoute(
   return false;
 }
 
-void WebPlatform::generateOpenAPISpec() {
-#if !OPENAPI_ENABLED && !MAKERAPI_ENABLED
-  DEBUG_PRINTLN("WebPlatform: All OpenAPI generation disabled at compile time");
-  openAPISpecReady = false;
-  makerAPISpecReady = false;
-  return;
-#endif
-
-  // Skip full OpenAPI if it's disabled but still continue for Maker API if
-  // enabled
-#if !OPENAPI_ENABLED
-  DEBUG_PRINTLN("WebPlatform: Full OpenAPI generation disabled, checking for "
-                "Maker API...");
-  openAPISpecReady = false;
-
-// If neither is enabled, there's nothing to do
-#if !MAKERAPI_ENABLED
-  DEBUG_PRINTLN("WebPlatform: Maker API also disabled, skipping generation");
-  makerAPISpecReady = false;
-  return;
-#endif
-#endif
-
-  DEBUG_PRINTLN("WebPlatform: Generating OpenAPI specification to storage "
-                "using temporary context...");
-
-  IDatabaseDriver *driver = StorageManager::driver();
-
-  size_t freeHeap = ESP.getFreeHeap();
-  size_t targetSize;
-  size_t maxBlock = ESP.getMaxAllocHeap();
-
-  size_t maxAllowable = (size_t)(maxBlock * 0.7);
-  targetSize = (maxAllowable < 40960) ? maxAllowable
-                                      : 40960; // Increase from 32KB to 40KB
-
-  if (targetSize < 16384) { // Increase minimum from 8KB to 16KB
-    ERROR_PRINTLN("ERROR: Insufficient memory for OpenAPI generation!");
-    openAPISpecReady = false;
-    return;
-  }
-
-  DynamicJsonDocument doc(targetSize);
-
-  // Build the complete OpenAPI spec
+// Helper function to create basic OpenAPI document structure
+void WebPlatform::createOpenAPIDocumentStructure(
+    DynamicJsonDocument &doc, const String &title,
+    const String &description) const {
   doc["openapi"] = "3.0.3";
 
   JsonObject info = doc.createNestedObject("info");
-  info["title"] = String(deviceName) + " API";
-  info["description"] = "RESTful API endpoints for " + String(deviceName) +
-                        ". Only routes containing '/api/' are documented here.";
+  info["title"] = title;
+  info["description"] = description;
   info["version"] = "1.0.0";
 
   JsonArray servers = doc.createNestedArray("servers");
@@ -107,33 +65,41 @@ void WebPlatform::generateOpenAPISpec() {
   tokenParam["type"] = "apiKey";
   tokenParam["in"] = "query";
   tokenParam["name"] = "access_token";
+}
+
+// Helper function to generate and store a spec
+bool WebPlatform::generateAndStoreSpec(
+    size_t targetSize, const String &title, const String &description,
+    std::function<bool(const OpenAPIGenerationContext::RouteDocumentation &)>
+        routeFilter,
+    std::function<void(JsonArray &,
+                       const OpenAPIGenerationContext::RouteDocumentation &)>
+        tagModifier,
+    const String &storageKey, const String &specType) {
+
+  DynamicJsonDocument doc(targetSize);
+  createOpenAPIDocumentStructure(doc, title, description);
 
   JsonObject paths = doc.createNestedObject("paths");
 
-  // Process routes from temporary storage instead of routeRegistry
   const auto &apiRoutes = openAPIGenerationContext.getApiRoutes();
+  DEBUG_PRINTF("WebPlatform: %s generation found %d routes in context\n",
+               specType.c_str(), apiRoutes.size());
 
-  DEBUG_PRINTF("WebPlatform: OpenAPI generation found %d routes in context\n",
-               apiRoutes.size());
-
-  // Process API routes from temporary storage
   int processedCount = 0;
-  for (const auto &routeDoc : openAPIGenerationContext.getApiRoutes()) {
-    String routePathStr = routeDoc.path;
-
-    // Skip non-API routes (should already be filtered but double-check)
-    if (routePathStr.indexOf("/api/") == -1) {
-      DEBUG_PRINTF("  Skipping non-API route: %s\n", routePathStr.c_str());
+  for (const auto &routeDoc : apiRoutes) {
+    // Apply route filter
+    if (!routeFilter(routeDoc)) {
       continue;
     }
 
+    String routePathStr = routeDoc.path;
     processedCount++;
 
     // Ensure proper path key and method string
     String pathKey = routeDoc.path;
     String methodStr = wmMethodToString(routeDoc.method);
-    methodStr.toLowerCase(); // Ensure lowercase method names (get, post, put,
-                             // delete)
+    methodStr.toLowerCase();
 
     JsonObject pathItem;
     if (paths.containsKey(pathKey)) {
@@ -143,10 +109,9 @@ void WebPlatform::generateOpenAPISpec() {
     }
 
     JsonObject operation = pathItem.createNestedObject(methodStr);
-
-    // Use documentation from temporary storage or generate defaults
     const OpenAPIDocumentation &docs = routeDoc.docs;
 
+    // Add basic operation properties
 #if OPENAPI_ENABLED
     if (!docs.getSummary().isEmpty()) {
       operation["summary"] = docs.getSummary();
@@ -164,8 +129,7 @@ void WebPlatform::generateOpenAPISpec() {
       operation["description"] = docs.getDescription();
     }
 
-    // Handle tags - use provided tags or generate default (restored original
-    // logic)
+    // Handle tags using the provided modifier
     JsonArray tags = operation.createNestedArray("tags");
     String defaultModuleTag = inferModuleFromPath(routePathStr);
 
@@ -188,6 +152,9 @@ void WebPlatform::generateOpenAPISpec() {
       // Just add the default module tag
       tags.add(defaultModuleTag);
     }
+
+    // Apply custom tag modification (e.g., for Maker API)
+    tagModifier(tags, routeDoc);
 #else
     // When OpenAPI is disabled, just generate basic operation info
     operation["summary"] = generateDefaultSummary(routePathStr, methodStr);
@@ -195,6 +162,7 @@ void WebPlatform::generateOpenAPISpec() {
 
     JsonArray tags = operation.createNestedArray("tags");
     tags.add(inferModuleFromPath(routePathStr));
+    tagModifier(tags, routeDoc);
 #endif
 
     // Add authentication requirements
@@ -213,7 +181,7 @@ void WebPlatform::generateOpenAPISpec() {
       }
     }
 
-    // Add parameters using the helper method to avoid duplication
+    // Add parameters, request body, and responses
     addParametersToOperationFromDocs(operation, routeDoc);
 
     // Add request body for POST/PUT operations
@@ -258,23 +226,21 @@ void WebPlatform::generateOpenAPISpec() {
       response500["description"] = "Internal server error";
     }
 
-    // Check if we're running low on memory
-    if (doc.memoryUsage() > doc.capacity() * 0.9) {
-      WARN_PRINTF(
-          "WARNING: JSON document nearly full at route #%d (%d/%d bytes)\n",
-          processedCount, doc.memoryUsage(), doc.capacity());
-    }
-  }
+    // Check if we're running low on memory - only warn after processing some
+    // routes and if we have less than 10% capacity remaining
+    if (processedCount > 2 && doc.memoryUsage() > doc.capacity() * 0.9) {
+      size_t remainingBytes = doc.capacity() - doc.memoryUsage();
+      WARN_PRINTF("WARNING: %s JSON document nearly full at route #%d (%d/%d "
+                  "bytes, %d remaining)\n",
+                  specType.c_str(), processedCount, doc.memoryUsage(),
+                  doc.capacity(), remainingBytes);
 
-  JsonObject pathsDebug = doc["paths"];
-  int totalPaths = 0;
-  int totalOperations = 0;
-
-  for (JsonPair pathPair : pathsDebug) {
-    totalPaths++;
-    JsonObject pathObj = pathPair.value();
-    for (JsonPair methodPair : pathObj) {
-      totalOperations++;
+      // Consider breaking early if we're truly out of space
+      if (remainingBytes < 1024) {
+        WARN_PRINTF("WARNING: Breaking early due to insufficient memory for "
+                    "more routes\n");
+        break;
+      }
     }
   }
 
@@ -285,28 +251,98 @@ void WebPlatform::generateOpenAPISpec() {
 
   size_t bytesWritten = serializeJson(doc, openAPIJson);
 
+  // Critical cleanup - clear the JSON document immediately after serialization
+  doc.clear();
+
   if (bytesWritten == 0 || openAPIJson.length() == 0) {
-    ERROR_PRINTLN("ERROR: Failed to serialize OpenAPI spec");
-    openAPISpecReady = false;
-    return;
+    ERROR_PRINTF("ERROR: Failed to serialize %s spec\n", openAPIJson.c_str());
+    openAPIJson = "";
+    return false;
   }
 
   // Store in storage system
-  if (driver &&
-      driver->store(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY, openAPIJson)) {
-    openAPISpecReady = true;
-    DEBUG_PRINTF("WebPlatform: OpenAPI spec generated and stored (%d bytes)\n",
-                 openAPIJson.length());
+  IDatabaseDriver *driver = StorageManager::driver();
+  if (driver && driver->store(OPENAPI_COLLECTION, storageKey, openAPIJson)) {
+    DEBUG_PRINTF(
+        "WebPlatform: %s spec generated and stored (%d bytes, %d routes)\n",
+        specType.c_str(), openAPIJson.length(), processedCount);
+
+    // Critical cleanup - free temporary string immediately
+    openAPIJson = "";
+    return true;
   } else {
-    ERROR_PRINTLN("ERROR: Failed to store OpenAPI spec in storage system");
+    ERROR_PRINTF("ERROR: Failed to store %s spec in storage system\n",
+                 specType.c_str());
+
+    // Critical cleanup - free temporary string immediately
+    openAPIJson = "";
+    return false;
+  }
+}
+
+void WebPlatform::generateOpenAPISpec() {
+  // Skip full OpenAPI if it's disabled but still continue for Maker API if
+  // enabled
+#if !OPENAPI_ENABLED
+  DEBUG_PRINTLN("WebPlatform: Full OpenAPI generation disabled, checking for "
+                "Maker API...");
+  openAPISpecReady = false;
+
+// If neither is enabled, there's nothing to do
+#if !MAKERAPI_ENABLED
+  DEBUG_PRINTLN("WebPlatform: Maker API also disabled, skipping generation");
+  makerAPISpecReady = false;
+  return;
+#endif
+#endif
+
+  DEBUG_PRINTLN("WebPlatform: Generating OpenAPI specification to storage "
+                "using temporary context...");
+
+  IDatabaseDriver *driver = StorageManager::driver();
+  if (!driver) {
+    ERROR_PRINTLN("ERROR: Storage driver unavailable for OpenAPI generation!");
     openAPISpecReady = false;
+    makerAPISpecReady = false;
+    return;
   }
 
-#if MAKERAPI_ENABLED
-  // Now generate the Maker API spec with a smaller size JSON document
-  // This runs whether or not OPENAPI_ENABLED is defined
+  size_t freeHeap = ESP.getFreeHeap();
+  size_t maxBlock = ESP.getMaxAllocHeap();
+  size_t maxAllowable = (size_t)(maxBlock * 0.7);
+  size_t targetSize = (maxAllowable < 40960) ? maxAllowable : 40960;
 
-  // Skip if no routes have the maker tag
+  if (targetSize < 16384) {
+    ERROR_PRINTLN("ERROR: Insufficient memory for OpenAPI generation!");
+    openAPISpecReady = false;
+    makerAPISpecReady = false;
+    return;
+  }
+
+#if OPENAPI_ENABLED
+  // Generate full OpenAPI spec
+  auto allRoutesFilter =
+      [](const OpenAPIGenerationContext::RouteDocumentation &routeDoc) -> bool {
+    // Skip non-API routes
+    return routeDoc.path.indexOf("/api/") != -1;
+  };
+
+  auto defaultTagModifier =
+      [](JsonArray &tags,
+         const OpenAPIGenerationContext::RouteDocumentation &routeDoc) {
+        // No additional tag modification for full API
+      };
+
+  openAPISpecReady = generateAndStoreSpec(
+      targetSize, String(deviceName) + " API",
+      "RESTful API endpoints for " + String(deviceName) + ".", allRoutesFilter,
+      defaultTagModifier, OPENAPI_SPEC_KEY, "OpenAPI");
+#else
+  openAPISpecReady = false;
+#endif
+
+#if MAKERAPI_ENABLED
+  // Generate Maker API spec - check if we have any maker routes first
   bool hasMakerRoutes = false;
   for (const auto &routeDoc : openAPIGenerationContext.getApiRoutes()) {
     if (isMakerAPIRoute(routeDoc)) {
@@ -322,167 +358,44 @@ void WebPlatform::generateOpenAPISpec() {
   } else {
     DEBUG_PRINTLN("WebPlatform: Generating Maker API OpenAPI specification...");
 
-    // Use a smaller document size for Maker API (it will have fewer routes)
-    size_t makerTargetSize = (maxAllowable < 20480) ? maxAllowable : 20480;
+    auto makerRoutesFilter =
+        [this](const OpenAPIGenerationContext::RouteDocumentation &routeDoc)
+        -> bool { return isMakerAPIRoute(routeDoc); };
 
-    DynamicJsonDocument makerDoc(makerTargetSize);
-
-    // Build the Maker API spec (similar structure but different content)
-    makerDoc["openapi"] = "3.0.3";
-
-    JsonObject makerInfo = makerDoc.createNestedObject("info");
-    makerInfo["title"] = String(deviceName) + " Maker API";
-    makerInfo["description"] =
-        "Public Maker API endpoints for " + String(deviceName) +
-        ". Only routes with 'maker' tag are included here.";
-    makerInfo["version"] = "1.0.0";
-
-    JsonArray makerServers = makerDoc.createNestedArray("servers");
-    JsonObject makerServer = makerServers.createNestedObject();
-    makerServer["url"] = getBaseUrl();
-    makerServer["description"] = "Device Maker API Server";
-
-    // Security schemes (same as main API)
-    JsonObject makerComponents = makerDoc.createNestedObject("components");
-    JsonObject makerSecuritySchemes =
-        makerComponents.createNestedObject("securitySchemes");
-
-    JsonObject makerBearerAuth =
-        makerSecuritySchemes.createNestedObject("bearerAuth");
-    makerBearerAuth["type"] = "http";
-    makerBearerAuth["scheme"] = "bearer";
-    makerBearerAuth["bearerFormat"] = "JWT";
-
-    JsonObject makerTokenParam =
-        makerSecuritySchemes.createNestedObject("tokenParam");
-    makerTokenParam["type"] = "apiKey";
-    makerTokenParam["in"] = "query";
-    makerTokenParam["name"] = "access_token";
-
-    JsonObject makerPaths = makerDoc.createNestedObject("paths");
-
-    // Process only routes with the "maker" tag
-    int makerProcessedCount = 0;
-
-    for (const auto &routeDoc : openAPIGenerationContext.getApiRoutes()) {
-      // Skip routes that aren't Maker API routes
-      if (!isMakerAPIRoute(routeDoc)) {
-        continue;
-      }
-
-      String routePathStr = routeDoc.path;
-      makerProcessedCount++;
-
-      // Ensure proper path key and method string
-      String pathKey = routeDoc.path;
-      String methodStr = wmMethodToString(routeDoc.method);
-      methodStr.toLowerCase();
-
-      JsonObject pathItem;
-      if (makerPaths.containsKey(pathKey)) {
-        pathItem = makerPaths[pathKey];
-      } else {
-        pathItem = makerPaths.createNestedObject(pathKey);
-      }
-
-      JsonObject operation = pathItem.createNestedObject(methodStr);
-
-      // Use documentation from temporary storage
-      const OpenAPIDocumentation &docs = routeDoc.docs;
-
-      // Add basic properties
-      operation["summary"] =
-          docs.getSummary().isEmpty()
-              ? generateDefaultSummary(routePathStr, methodStr)
-              : docs.getSummary();
-
-      operation["operationId"] =
-          docs.getOperationId().isEmpty()
-              ? generateOperationId(methodStr, routePathStr)
-              : docs.getOperationId();
-
-      if (!docs.getDescription().isEmpty()) {
-        operation["description"] = docs.getDescription();
-      }
-
-      // Add tags (but keep only maker tag and module tag)
-      JsonArray tags = operation.createNestedArray("tags");
-      tags.add("Maker API"); // Always add Maker API tag
-
-      String defaultModuleTag = inferModuleFromPath(routePathStr);
-      if (defaultModuleTag != "Maker API") {
-        tags.add(defaultModuleTag);
-      }
-
-      // Add authentication requirements
-      if (!routeDoc.authRequirements.empty()) {
-        JsonArray security = operation.createNestedArray("security");
-        for (const auto &authType : routeDoc.authRequirements) {
-          if (authType == AuthType::TOKEN) {
-            JsonObject secObj = security.createNestedObject();
-            secObj.createNestedArray("bearerAuth");
-            JsonObject tokenSecObj = security.createNestedObject();
-            tokenSecObj.createNestedArray("tokenParam");
+    auto makerTagModifier =
+        [](JsonArray &tags,
+           const OpenAPIGenerationContext::RouteDocumentation &routeDoc) {
+          // Just clear and rebuild with Maker API tag first - matches original
+          // simple logic
+          String moduleTag = "";
+          if (tags.size() > 0) {
+            moduleTag = tags[0].as<String>();
           }
-        }
-      }
+          tags.clear();
+          tags.add("Maker API");
+          if (!moduleTag.isEmpty() && moduleTag != "Maker API") {
+            tags.add(moduleTag);
+          }
+        };
 
-      // Add parameters, request body and responses using the same helpers as
-      // the main API
-      addParametersToOperationFromDocs(operation, routeDoc);
+    // Use appropriate size for Maker API - it should be smaller than main API
+    // but not tiny
+    size_t makerTargetSize = std::min(maxAllowable, targetSize / 2);
+    if (makerTargetSize < 24576)
+      makerTargetSize = 24576; // Minimum 24KB
 
-      if (routeDoc.method == WebModule::WM_POST ||
-          routeDoc.method == WebModule::WM_PUT) {
-        addRequestBodyToOperationFromDocs(operation, routeDoc);
-      }
-
-      addResponsesToOperationFromDocs(operation, routeDoc);
-
-      // Check memory usage
-      if (makerDoc.memoryUsage() > makerDoc.capacity() * 0.9) {
-        WARN_PRINTF("WARNING: Maker API JSON document nearly full at route #%d "
-                    "(%d/%d bytes)\n",
-                    makerProcessedCount, makerDoc.memoryUsage(),
-                    makerDoc.capacity());
-      }
-    }
-
-    // Serialize the Maker API spec to string
-    String makerAPIJson;
-    size_t makerEstimatedSize = measureJson(makerDoc);
-    makerAPIJson.reserve(makerEstimatedSize + 256);
-
-    size_t makerBytesWritten = serializeJson(makerDoc, makerAPIJson);
-
-    if (makerBytesWritten == 0 || makerAPIJson.length() == 0) {
-      ERROR_PRINTLN("ERROR: Failed to serialize Maker API spec");
-      makerAPISpecReady = false;
-    } else if (driver && driver->store(OPENAPI_COLLECTION,
-                                       MAKER_OPENAPI_SPEC_KEY, makerAPIJson)) {
-      makerAPISpecReady = true;
-      DEBUG_PRINTF("WebPlatform: Maker API spec generated and stored (%d "
-                   "bytes, %d routes)\n",
-                   makerAPIJson.length(), makerProcessedCount);
-    } else {
-      ERROR_PRINTLN("ERROR: Failed to store Maker API spec in storage system");
-      makerAPISpecReady = false;
-    }
-
-    // Clear temporary string to free memory
-    makerAPIJson = "";
+    makerAPISpecReady = generateAndStoreSpec(
+        makerTargetSize, String(deviceName) + " Maker API",
+        "Public Maker API endpoints for " + String(deviceName) + ".",
+        makerRoutesFilter, makerTagModifier, MAKER_OPENAPI_SPEC_KEY,
+        "Maker API");
   }
+#else
+  makerAPISpecReady = false;
 #endif
 
   // Critical cleanup - free temporary storage
   openAPIGenerationContext.endGeneration();
-
-#if !OPENAPI_ENABLED
-  // This code should not be reached when disabled, but safety check
-  ERROR_PRINTLN("ERROR: OpenAPI generation code executed when disabled!");
-#endif
-
-  // Clear the temporary string to free memory
-  openAPIJson = "";
 }
 
 void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
@@ -567,25 +480,6 @@ void WebPlatform::streamPreGeneratedMakerAPISpec(WebResponse &res) const {
   return;
 #else
   // Check if we have any Maker API routes
-  if (!makerAPISpecReady) {
-#if OPENAPI_ENABLED
-    // If OpenAPI is enabled, suggest using that endpoint instead
-    res.setStatus(404);
-    res.setContent("{\"error\":\"No Maker API routes found. Have any routes "
-                   "been tagged for inclusion in the maker API?.\"}",
-                   "application/json");
-#else
-    // Standard error if OpenAPI is also disabled
-    res.setStatus(404);
-    res.setContent(
-        "{\"error\":\"No Maker API routes found or generation failed\"}",
-        "application/json");
-#endif
-    return;
-  }
-  DEBUG_PRINTF("WebPlatform: Maker API spec request - ready flag: %s\n",
-               makerAPISpecReady ? "true" : "false");
-
   if (!makerAPISpecReady) {
     res.setStatus(503);
     res.setContent("{\"error\":\"Maker API specification not ready\"}",
