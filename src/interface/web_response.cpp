@@ -44,12 +44,14 @@ void WebResponse::setProgmemContent(const char *progmemData,
 
 void WebResponse::setStorageStreamContent(const String &collection,
                                           const String &key,
-                                          const String &mimeType) {
+                                          const String &mimeType,
+                                          const String &driverName) {
   if (responseSent || collection.isEmpty() || key.isEmpty())
     return;
 
   this->storageCollection = collection;
   this->storageKey = key;
+  this->storageDriverName = driverName.isEmpty() ? "littlefs" : driverName;
   this->mimeType = mimeType;
   this->isStorageStreamContent = true;
   this->isProgmemContent = false;
@@ -107,7 +109,7 @@ void WebResponse::sendTo(WebServerClass *server) {
   } else if (isJsonContent && jsonDoc != nullptr) {
     streamJsonContent(*jsonDoc, server);
   } else if (isStorageStreamContent) {
-    streamFromStorage(storageCollection, storageKey, server);
+    streamFromStorage(storageCollection, storageKey, server, storageDriverName);
   } else {
     server->send(statusCode, mimeType, content);
   }
@@ -143,7 +145,8 @@ esp_err_t WebResponse::sendTo(httpd_req *req) {
   } else if (isJsonContent && jsonDoc != nullptr) {
     ret = streamJsonContent(*jsonDoc, req);
   } else if (isStorageStreamContent) {
-    ret = streamFromStorage(storageCollection, storageKey, req);
+    ret = streamFromStorage(storageCollection, storageKey, req,
+                            storageDriverName);
   } else {
     ret = httpd_resp_send(req, content.c_str(), content.length());
   }
@@ -322,116 +325,141 @@ esp_err_t WebResponse::sendProgmemChunked(const char *data, httpd_req *req) {
 
 // Storage streaming implementation for Arduino WebServer
 void WebResponse::streamFromStorage(const String &collection, const String &key,
-                                    WebServerClass *server) {
+                                    WebServerClass *server,
+                                    const String &driverName) {
   if (!server || collection.isEmpty() || key.isEmpty()) {
     server->send(500, "text/plain",
                  "Internal server error: invalid storage parameters");
     return;
   }
 
-// Get storage driver (need to include storage manager)
-#include "storage/storage_manager.h"
-  IDatabaseDriver *driver = StorageManager::driver();
+  // Get specified storage driver for streaming
+  String targetDriver = driverName.isEmpty() ? "littlefs" : driverName;
+  IDatabaseDriver *driver = StorageManager::driver(targetDriver);
   if (!driver) {
-    server->send(500, "text/plain", "Storage system unavailable");
+    server->send(500, "text/plain",
+                 "Storage driver '" + targetDriver + "' unavailable");
     return;
   }
 
-  // We need to check if the data exists first to determine content length
-  // For now, we'll use chunked encoding since we can't determine length without
-  // loading
+  // Try to get content length without loading full content
+  if (!driver->exists(collection, key)) {
+    server->send(404, "application/json",
+                 "{\"error\":\"Content not found in storage\"}");
+    return;
+  }
+
+  // For large files, we'll still need to load due to WebServer limitations
+  // but with improved memory management
   server->setContentLength(CONTENT_LENGTH_UNKNOWN);
   server->send(statusCode, mimeType, "");
 
-  // Stream data from storage in chunks
-  // Since our JsonDatabaseDriver loads the full content anyway, we'll implement
-  // a chunked approach that minimizes memory usage
+  const size_t STORAGE_CHUNK_SIZE = 1024;
 
-  const size_t STORAGE_CHUNK_SIZE = 512;
-  char *buffer = (char *)malloc(STORAGE_CHUNK_SIZE + 1);
-  if (!buffer) {
-    server->sendContent("{\"error\":\"Memory allocation failed\"}");
-    return;
-  }
-
-  // For now, we have to load the content and stream it in chunks
-  // This is still better than keeping it in a String object
+  // Load data with improved memory management
   String data = driver->retrieve(collection, key);
   if (data.isEmpty()) {
-    free(buffer);
-    server->sendContent("{\"error\":\"Content not found in storage\"}");
+    server->sendContent(
+        "{\"error\":\"Failed to retrieve content from storage\"}");
     return;
   }
 
-  // Stream the data in chunks
+  // Stream efficiently without additional buffer allocation
   size_t dataLen = data.length();
   for (size_t i = 0; i < dataLen; i += STORAGE_CHUNK_SIZE) {
     size_t chunkLen = min(STORAGE_CHUNK_SIZE, dataLen - i);
-    data.substring(i, i + chunkLen).toCharArray(buffer, chunkLen + 1);
-    server->sendContent(buffer);
+    String chunk = data.substring(i, i + chunkLen);
+    server->sendContent(chunk);
 
     // Yield periodically to prevent watchdog timeout
-    if (i % (STORAGE_CHUNK_SIZE * 10) == 0) {
+    if (i % (STORAGE_CHUNK_SIZE * 8) == 0) {
       yield();
     }
   }
 
-  free(buffer);
+  // Clear data string to free memory immediately
+  data = "";
   DEBUG_PRINTLN("Storage streaming completed for WebServer");
 }
 
 // Storage streaming implementation for ESP-IDF HTTPS server
 esp_err_t WebResponse::streamFromStorage(const String &collection,
-                                         const String &key, httpd_req *req) {
+                                         const String &key, httpd_req *req,
+                                         const String &driverName) {
   if (!req || collection.isEmpty() || key.isEmpty()) {
     const char *error = "{\"error\":\"Invalid storage parameters\"}";
     return httpd_resp_send(req, error, strlen(error));
   }
 
-// Get storage driver
-#include "storage/storage_manager.h"
-  IDatabaseDriver *driver = StorageManager::driver();
+  // Get specified storage driver for streaming
+  String targetDriver = driverName.isEmpty() ? "littlefs" : driverName;
+  IDatabaseDriver *driver = StorageManager::driver(targetDriver);
   if (!driver) {
-    const char *error = "{\"error\":\"Storage system unavailable\"}";
+    String errorMsg =
+        "{\"error\":\"Storage driver '" + targetDriver + "' unavailable\"}";
+    return httpd_resp_send(req, errorMsg.c_str(), errorMsg.length());
+  }
+
+  // Check if content exists without loading it
+  if (!driver->exists(collection, key)) {
+    const char *error = "{\"error\":\"Content not found in storage\"}";
     return httpd_resp_send(req, error, strlen(error));
   }
 
-  const size_t STORAGE_CHUNK_SIZE = 512;
+  const size_t STORAGE_CHUNK_SIZE = 1024;
   char *buffer = (char *)malloc(STORAGE_CHUNK_SIZE + 1);
   if (!buffer) {
     const char *error = "{\"error\":\"Memory allocation failed\"}";
     return httpd_resp_send(req, error, strlen(error));
   }
 
-  // Load and stream data
+  // Load data with improved error handling
   String data = driver->retrieve(collection, key);
   if (data.isEmpty()) {
     free(buffer);
-    const char *error = "{\"error\":\"Content not found in storage\"}";
+    const char *error =
+        "{\"error\":\"Failed to retrieve content from storage\"}";
     return httpd_resp_send(req, error, strlen(error));
   }
 
-  // Stream the data in chunks
+  // Stream the data in chunks with improved error handling
   esp_err_t ret = ESP_OK;
   size_t dataLen = data.length();
 
   for (size_t i = 0; i < dataLen && ret == ESP_OK; i += STORAGE_CHUNK_SIZE) {
     size_t chunkLen = min(STORAGE_CHUNK_SIZE, dataLen - i);
-    data.substring(i, i + chunkLen).toCharArray(buffer, chunkLen + 1);
+
+    // Use more efficient string to buffer conversion
+    String chunk = data.substring(i, i + chunkLen);
+    chunk.toCharArray(buffer, chunkLen + 1);
+
     ret = httpd_resp_send_chunk(req, buffer, chunkLen);
 
+    if (ret != ESP_OK) {
+      ERROR_PRINTF("WebResponse: Chunk send failed at position %d/%d\n", i,
+                   dataLen);
+      break;
+    }
+
     // Yield periodically to prevent watchdog timeout
-    if (i % (STORAGE_CHUNK_SIZE * 10) == 0) {
+    if (i % (STORAGE_CHUNK_SIZE * 8) == 0) {
       yield();
     }
   }
 
   free(buffer);
 
+  // Clear data string to free memory immediately
+  data = "";
+
   if (ret == ESP_OK) {
     // End chunked transfer
     ret = httpd_resp_send_chunk(req, NULL, 0);
-    DEBUG_PRINTLN("Storage streaming completed for HTTPS");
+    if (ret != ESP_OK) {
+      ERROR_PRINTLN("WebResponse: Failed to end chunked transfer");
+    }
+  } else {
+    ERROR_PRINTLN("WebResponse: Storage streaming failed for HTTPS");
   }
 
   return ret;

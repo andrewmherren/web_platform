@@ -33,6 +33,7 @@ private:
   bool isJsonContent;
   String storageCollection;
   String storageKey;
+  String storageDriverName;
   bool isStorageStreamContent;
 
 public:
@@ -44,7 +45,8 @@ public:
   void setProgmemContent(const char *progmemData, const String &mimeType);
   void setJsonContent(const JsonDocument &doc);
   void setStorageStreamContent(const String &collection, const String &key,
-                               const String &mimeType);
+                               const String &mimeType,
+                               const String &driverName = "");
   void setHeader(const String &name, const String &value);
   void redirect(const String &url, int code = 302);
 
@@ -80,9 +82,9 @@ private:
 
   // Storage-based streaming helpers
   void streamFromStorage(const String &collection, const String &key,
-                         WebServerClass *server);
+                         WebServerClass *server, const String &driverName = "");
   esp_err_t streamFromStorage(const String &collection, const String &key,
-                              httpd_req *req);
+                              httpd_req *req, const String &driverName = "");
 
   // Allow WebPlatform to call private methods
   friend class WebPlatform;

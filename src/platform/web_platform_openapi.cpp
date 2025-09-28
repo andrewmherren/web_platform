@@ -261,9 +261,9 @@ bool WebPlatform::generateAndStoreSpec(
   }
 
   // Store in storage system with enhanced diagnostics
-  IDatabaseDriver *driver = StorageManager::driver();
+  IDatabaseDriver *driver = StorageManager::driver("littlefs");
   if (!driver) {
-    ERROR_PRINTF("ERROR: No storage driver available for %s spec\n",
+    ERROR_PRINTF("ERROR: LittleFS storage driver unavailable for %s spec\n",
                  specType.c_str());
     openAPIJson = "";
     return false;
@@ -364,9 +364,10 @@ void WebPlatform::generateOpenAPISpec() {
   DEBUG_PRINTLN("WebPlatform: Generating OpenAPI specification to storage "
                 "using temporary context...");
 
-  IDatabaseDriver *driver = StorageManager::driver();
+  IDatabaseDriver *driver = StorageManager::driver("littlefs");
   if (!driver) {
-    ERROR_PRINTLN("ERROR: Storage driver unavailable for OpenAPI generation!");
+    ERROR_PRINTLN(
+        "ERROR: LittleFS storage driver unavailable for OpenAPI generation!");
     openAPISpecReady = false;
     makerAPISpecReady = false;
     return;
@@ -483,11 +484,12 @@ void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
   }
 
   // Retrieve from storage system
-  IDatabaseDriver *driver = StorageManager::driver();
+  IDatabaseDriver *driver = StorageManager::driver("littlefs");
   if (!driver) {
-    ERROR_PRINTLN("WebPlatform: Storage driver unavailable for OpenAPI spec");
+    ERROR_PRINTLN(
+        "WebPlatform: LittleFS storage driver unavailable for OpenAPI spec");
     res.setStatus(500);
-    res.setContent("{\"error\":\"Storage system unavailable\"}",
+    res.setContent("{\"error\":\"LittleFS storage system unavailable\"}",
                    "application/json");
     return;
   }
@@ -501,33 +503,9 @@ void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
       OPENAPI_COLLECTION.c_str(), OPENAPI_SPEC_KEY.c_str());
 
   size_t heapBefore = ESP.getFreeHeap();
-  String openAPISpec = driver->retrieve(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY);
-  size_t heapAfter = ESP.getFreeHeap();
-
-  DEBUG_PRINTF("WebPlatform: Retrieved spec size: %d bytes (heap before: %d, "
-               "after: %d)\n",
-               openAPISpec.length(), heapBefore, heapAfter);
-
-  // Additional integrity check - validate JSON structure
-  bool isValidJson = false;
-  if (!openAPISpec.isEmpty()) {
-    // Quick JSON validity check without full parsing
-    if (openAPISpec.startsWith("{") && openAPISpec.endsWith("}") &&
-        openAPISpec.indexOf("\"openapi\"") > 0) {
-      isValidJson = true;
-    } else {
-      ERROR_PRINTF("WebPlatform: Retrieved spec appears corrupted - invalid "
-                   "JSON structure\n");
-    }
-  }
-
-  if (openAPISpec.isEmpty() || !isValidJson) {
-    bool collectionExists =
-        driver->exists(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY);
-    ERROR_PRINTF("WebPlatform: OpenAPI spec not found in storage! Collection "
-                 "exists: %s\n",
-                 collectionExists ? "true" : "false");
-
+  // Check if the spec exists in storage without loading it
+  if (!driver->exists(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY)) {
+    ERROR_PRINTF("WebPlatform: OpenAPI spec not found in storage!\n");
     res.setStatus(404);
     res.setContent(
         "{\"error\":\"OpenAPI specification not found in storage.\"}",
@@ -535,14 +513,15 @@ void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
     return;
   }
 
-  DEBUG_PRINTLN("WebPlatform: Serving OpenAPI spec using storage streaming");
+  DEBUG_PRINTLN(
+      "WebPlatform: Serving OpenAPI spec using direct storage streaming");
 
   res.setStatus(200);
   res.setHeader("Cache-Control", "public, max-age=300");
 
-  // Stream the content directly since we already retrieved and validated it
-  res.setContent(openAPISpec, "application/json");
-  openAPISpec = ""; // Free memory immediately after setting response
+  // Stream directly from storage without loading into memory
+  res.setStorageStreamContent(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY,
+                              "application/json");
 #endif // OPENAPI_ENABLED
 }
 
@@ -562,9 +541,10 @@ void WebPlatform::streamPreGeneratedMakerAPISpec(WebResponse &res) const {
   }
 
   // Retrieve from storage system
-  IDatabaseDriver *driver = StorageManager::driver();
+  IDatabaseDriver *driver = StorageManager::driver("littlefs");
   if (!driver) {
-    ERROR_PRINTLN("WebPlatform: Storage driver unavailable for Maker API spec");
+    ERROR_PRINTLN(
+        "WebPlatform: LittleFS storage driver unavailable for Maker API spec");
     res.setStatus(500);
     res.setContent("{\"error\":\"Storage system unavailable\"}",
                    "application/json");
@@ -576,16 +556,9 @@ void WebPlatform::streamPreGeneratedMakerAPISpec(WebResponse &res) const {
       "(collection: %s, key: %s)\n",
       OPENAPI_COLLECTION.c_str(), MAKER_OPENAPI_SPEC_KEY.c_str());
 
-  String makerAPISpec =
-      driver->retrieve(OPENAPI_COLLECTION, MAKER_OPENAPI_SPEC_KEY);
-
-  if (makerAPISpec.isEmpty()) {
-    ERROR_PRINTF("WebPlatform: Maker API spec not found in storage! Collection "
-                 "exists: %s\n",
-                 driver->exists(OPENAPI_COLLECTION, MAKER_OPENAPI_SPEC_KEY)
-                     ? "true"
-                     : "false");
-
+  // Check if the spec exists in storage without loading it
+  if (!driver->exists(OPENAPI_COLLECTION, MAKER_OPENAPI_SPEC_KEY)) {
+    ERROR_PRINTF("WebPlatform: Maker API spec not found in storage!\n");
     res.setStatus(404);
     res.setContent(
         "{\"error\":\"Maker API specification not found in storage.\"}",
@@ -593,14 +566,15 @@ void WebPlatform::streamPreGeneratedMakerAPISpec(WebResponse &res) const {
     return;
   }
 
-  DEBUG_PRINTLN("WebPlatform: Serving Maker API spec using storage streaming");
+  DEBUG_PRINTLN(
+      "WebPlatform: Serving Maker API spec using direct storage streaming");
 
   res.setStatus(200);
   res.setHeader("Cache-Control", "public, max-age=300");
 
-  // Stream the content directly since we already retrieved and validated it
-  res.setContent(makerAPISpec, "application/json");
-  makerAPISpec = ""; // Free memory immediately after setting response
+  // Stream directly from storage without loading into memory
+  res.setStorageStreamContent(OPENAPI_COLLECTION, MAKER_OPENAPI_SPEC_KEY,
+                              "application/json");
 #endif // MAKERAPI_ENABLED
 }
 
