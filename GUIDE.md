@@ -275,11 +275,27 @@ res.setContent(html, "text/html");
 
 ## Storage System
 
-WebPlatform includes a flexible storage system inspired by Laravel's database architecture:
+WebPlatform includes a flexible storage system inspired by Laravel's database architecture with multiple storage drivers optimized for different use cases:
+
+### Storage Drivers
+
+**JSON Driver** (Default - Uses ESP32 Preferences):
+- Optimized for small, frequently accessed data
+- Loads collections into memory for fast access
+- Perfect for authentication data, configuration, sessions
+- Atomic write operations
+- Typical usage: 2-4KB RAM for auth collections
+
+**LittleFS Driver** (File-based storage):
+- Optimized for larger data and scalable storage
+- Individual files per key with efficient caching
+- Perfect for documents, logs, large datasets
+- Memory-conservative with LRU caching
+- Direct filesystem access capabilities
 
 ### Basic Usage
 ```cpp
-// Store user data
+// Use default driver (JSON) - good for small, frequent data
 StorageManager::query("users")
   ->store("user1", userObject.toJson());
 
@@ -288,11 +304,48 @@ String userData = StorageManager::query("users")
   ->where("username", "admin")
   ->get();
 
-// Use different storage drivers
-StorageManager::driver("cloud")
-  ->query("audit_logs")
-  ->store("log1", logData);
+// Use specific driver - LittleFS for larger data
+StorageManager::driver("littlefs")
+  ->store("documents", "large_spec", openApiSpec);
+
+// Mixed storage strategy
+StorageManager::driver("json")->store("config", "current_user", "user123");     // Fast access
+StorageManager::driver("littlefs")->store("profiles", "user123", profileData);  // Large data
 ```
+
+### Multi-Driver Architecture
+
+The storage system supports multiple drivers simultaneously for optimal performance:
+
+```cpp
+void setupOptimalStorage() {
+  // JSON driver automatically configured for auth data
+  // LittleFS driver automatically configured for large data
+  
+  // Authentication uses JSON driver (fast, small records)
+  AuthStorage::initialize("json");
+  
+  // Application can use LittleFS for documents
+  StorageManager::driver("littlefs")->store("logs", timestamp, logData);
+}
+```
+
+### Storage Driver Selection Guide
+
+**Use JSON Driver for:**
+- User accounts, sessions, API tokens
+- Configuration settings
+- Small data (< 1KB per item)
+- Frequently accessed data
+- Data requiring fastest possible access
+
+**Use LittleFS Driver for:**
+- OpenAPI specifications
+- Log files
+- User-generated content
+- Large configuration objects
+- Data that changes infrequently
+- When you need >1MB total storage
 
 ### Data Models
 Built-in models with automatic JSON serialization:
@@ -576,66 +629,78 @@ void loop() {
 }
 ```
 
-### Authenticated Application
+### Storage System Example
 ```cpp
 #include <web_platform.h>
 
 void setup() {
     Serial.begin(115200);
     
-    // Set up authentication-aware navigation
-    std::vector<NavigationItem> navItems = {
-        NavigationItem("Dashboard", "/"),
-        NavigationItem("Public Info", "/info"),
-        Authenticated(NavigationItem("Account", "/account")),
-        Authenticated(NavigationItem("Logout", "/logout")),
-        Unauthenticated(NavigationItem("Login", "/login"))
-    };
-    IWebModule::setNavigationMenu(navItems);
-    
-    // Initialize WebPlatform
-    webPlatform.begin("SecureDevice");
+    // WebPlatform automatically configures both JSON and LittleFS drivers
+    webPlatform.begin("StorageDevice");
     
     if (webPlatform.isConnected()) {
-        // Public route
-        webPlatform.registerWebRoute("/info", [](WebRequest& req, WebResponse& res) {
-            String html = R"(
-                <!DOCTYPE html>
-                <html><head><title>Public Info</title></head>
-                <body>
-                <div class="container">
-                    {{NAV_MENU}}
-                    <h1>Public Information</h1>
-                    <p>This page is accessible to everyone.</p>
-                </div>
-                </body></html>
-            )";
-            res.setContent(html, "text/html");
-        }, {AuthType::NONE});
+        // Demonstrate optimal storage strategy
+        setupOptimalStorage();
         
-        // Protected dashboard
-        webPlatform.registerWebRoute("/", [](WebRequest& req, WebResponse& res) {
-            const AuthContext& auth = req.getAuthContext();
-            String html = R"(
-                <!DOCTYPE html>
-                <html><head><title>Dashboard</title></head>
-                <body>
-                <div class="container">
-                    {{NAV_MENU}}
-                    <h1>Welcome, )" + auth.username + R"(!</h1>
-                    <p>This is your secure dashboard.</p>
-                </div>
-                </body></html>
-            )";
+        // Web interface for viewing storage stats
+        webPlatform.registerWebRoute("/storage", [](WebRequest& req, WebResponse& res) {
+            String html = generateStorageStatsPage();
             res.setContent(html, "text/html");
         }, {AuthType::SESSION});
         
-        // API endpoint
+        // API endpoint using mixed storage
         webPlatform.registerApiRoute("/data", [](WebRequest& req, WebResponse& res) {
-            String json = "{\"status\":\"ok\",\"data\":123}";
-            res.setContent(json, "application/json");
+            // Get current user from fast JSON storage
+            String userId = StorageManager::driver("json")->retrieve("sessions", "current");
+            
+            // Get large profile from LittleFS storage
+            String profileData = StorageManager::driver("littlefs")->retrieve("profiles", userId);
+            
+            res.setContent(profileData, "application/json");
         }, {AuthType::TOKEN});
     }
+}
+
+void setupOptimalStorage() {
+    // Small config data -> JSON driver (fast access)
+    StorageManager::driver("json")->store("config", "device_name", "MyDevice");
+    StorageManager::driver("json")->store("sessions", "current", "user123");
+    
+    // Large documents -> LittleFS driver (scalable storage)
+    String largeSpec = generateOpenAPISpec();  // Could be 20KB+
+    StorageManager::driver("littlefs")->store("docs", "api_spec", largeSpec);
+}
+
+String generateStorageStatsPage() {
+    // Get stats from both drivers
+    LittleFSDatabaseDriver* fs = static_cast<LittleFSDatabaseDriver*>(
+        StorageManager::driver("littlefs")
+    );
+    
+    String stats = fs ? fs->getFilesystemStats() : "{}";
+    
+    return R"(
+        <!DOCTYPE html>
+        <html><head><title>Storage Stats</title></head>
+        <body>
+        <div class="container">
+            {{NAV_MENU}}
+            <h1>Storage Statistics</h1>
+            <div class="status-grid">
+                <div class="status-card">
+                    <h3>JSON Driver</h3>
+                    <p>Fast access for auth data</p>
+                </div>
+                <div class="status-card">
+                    <h3>LittleFS Driver</h3>
+                    <p>Large data storage</p>
+                    <pre>)" + stats + R"(</pre>
+                </div>
+            </div>
+        </div>
+        </body></html>
+    )";
 }
 
 void loop() {
@@ -721,12 +786,19 @@ res.setContent(jsonResponse, "application/json");
 res.setContent(dynamicHtml, "text/html");
 ```
 
+### Storage Strategy
+1. **Choose the Right Driver**: JSON for small/frequent data, LittleFS for large/occasional data
+2. **Authentication Data**: Always use JSON driver for fast session validation
+3. **Large Documents**: Use LittleFS for API specs, logs, user-generated content
+4. **Mixed Approach**: Don't be afraid to use both drivers in the same application
+5. **Memory Considerations**: JSON driver uses RAM cache, LittleFS uses minimal memory
+
 ### Development
 1. **Clear Error Messages**: Provide useful error messages and status codes
 2. **Consistent Route Structure**: Use consistent URL patterns
 3. **Document API Endpoints**: Use OpenAPIDocumentation with `API_DOC_BLOCK()` for memory efficiency
 4. **Progressive Enhancement**: Ensure basic functionality works without JavaScript
-5. **Test on Both Platforms**: Verify on ESP32 device
+5. **Test Storage Performance**: Verify performance with realistic data sizes
 
 ### Build Configuration
 1. **OpenAPI Documentation**: Disabled by default for memory optimization
@@ -739,6 +811,7 @@ res.setContent(dynamicHtml, "text/html");
    ```
 2. **Memory Optimization**: Use `API_DOC_BLOCK()` macro to ensure documentation has zero impact when disabled
 3. **Development Lifecycle**: Enable OpenAPI during API exploration, disable for production deployment
+4. **Storage Drivers**: Both JSON and LittleFS drivers are included automatically
 
 ### API Documentation
 1. **Use Documentation Classes**: Create dedicated classes for API documentation using the pattern `ModuleNameDocs`

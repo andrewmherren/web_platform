@@ -17,7 +17,7 @@ WebPlatform is a complete web development framework that transforms ESP32 device
 - **Unified HTTP/HTTPS Server**: Single server instance with automatic HTTPS detection
 - **WiFi Management**: Captive portal for configuration and automatic connection handling
 - **Advanced Authentication**: Session-based and token-based authentication with CSRF protection
-- **Storage System**: Flexible database drivers with Laravel-inspired query builder
+- **Dual Storage System**: JSON driver for fast access + LittleFS driver for large data
 - **Route Management**: Advanced route handling with override and disable capabilities
 - **Asset Management**: Static asset serving with built-in CSS/JS framework
 
@@ -170,7 +170,7 @@ For more information on WebPlatform features, see the [User Guide](GUIDE.md).
 - **Route Management**: Register, override, and disable routes with OpenAPI documentation support
 - **OpenAPI 3.0 Integration**: Automatic API documentation generation for registered routes
 - **Template System**: HTML templates with automatic bookmark replacement
-- **Storage System**: Flexible database drivers with query builder
+- **Dual Storage Drivers**: JSON (fast, small data) and LittleFS (scalable, large data) with unified query interface
 - **HTTPS Support**: Automatic HTTPS when certificates available
 - **Asset Streaming**: Memory-efficient serving of embedded assets using PROGMEM streaming
 

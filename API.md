@@ -381,20 +381,45 @@ bool AuthStorage::deleteApiToken(const String& tokenId);
 ### Storage Manager
 
 ```cpp
-// Get query builder for a collection
+// Get query builder for a collection (uses default driver)
 static QueryBuilder StorageManager::query(const String& collection);
 
 // Get specific storage driver
-static IDatabaseDriver* StorageManager::driver(const String& driverName);
+static IDatabaseDriver* StorageManager::driver(const String& driverName = "");
 
-// Store data directly
+// Configure a new storage driver
+static void StorageManager::configureDriver(const String& name, std::unique_ptr<IDatabaseDriver> driver);
+
+// Set default driver
+static bool StorageManager::setDefaultDriver(const String& name);
+
+// Get list of available driver names
+static std::vector<String> StorageManager::getDriverNames();
+
+// Remove a driver (cannot remove "json" driver)
+static bool StorageManager::removeDriver(const String& name);
+
+// Direct storage operations (use default driver)
 static bool StorageManager::store(const String& collection, const String& key, const String& data);
-
-// Retrieve data directly
 static String StorageManager::get(const String& collection, const String& key);
-
-// Delete data directly
 static bool StorageManager::remove(const String& collection, const String& key);
+```
+
+### Database Driver Interface
+
+```cpp
+class IDatabaseDriver {
+public:
+    // Core storage operations
+    virtual bool store(const String& collection, const String& key, const String& data) = 0;
+    virtual String retrieve(const String& collection, const String& key) = 0;
+    virtual bool remove(const String& collection, const String& key) = 0;
+    virtual std::vector<String> listKeys(const String& collection) = 0;
+    virtual bool exists(const String& collection, const String& key) = 0;
+    
+    // Driver identification
+    virtual String getDriverName() const = 0;
+};
 ```
 
 ### Query Builder
@@ -402,11 +427,17 @@ static bool StorageManager::remove(const String& collection, const String& key);
 ```cpp
 class QueryBuilder {
 public:
+    // Constructor with specific driver
+    QueryBuilder(IDatabaseDriver* driver, const String& collection);
+    
     // Filter by field value
     QueryBuilder& where(const String& field, const String& value);
     
-    // Get data
+    // Get single result
     String get();
+    
+    // Get all matching results
+    std::vector<String> getAll();
     
     // Store data with key
     bool store(const String& key, const String& data);
@@ -414,12 +445,88 @@ public:
     // Delete data by key
     bool remove(const String& key);
     
+    // Delete all matching results
+    bool removeAll();
+    
     // Check if key exists
     bool exists(const String& key);
     
     // Get all keys in collection
     std::vector<String> keys();
 };
+```
+
+### JSON Database Driver (Default)
+
+```cpp
+class JsonDatabaseDriver : public IDatabaseDriver {
+public:
+    JsonDatabaseDriver();
+    
+    // Cache management
+    void clearCache();
+    void clearCollection(const String& collection);
+    size_t getCacheSize() const;
+    void evictCollection(const String& collection);
+    
+    // IDatabaseDriver implementation
+    bool store(const String& collection, const String& key, const String& data) override;
+    String retrieve(const String& collection, const String& key) override;
+    bool remove(const String& collection, const String& key) override;
+    std::vector<String> listKeys(const String& collection) override;
+    bool exists(const String& collection, const String& key) override;
+    String getDriverName() const override;
+};
+```
+
+### LittleFS Database Driver
+
+```cpp
+class LittleFSDatabaseDriver : public IDatabaseDriver {
+public:
+    // Constructor with custom base path
+    LittleFSDatabaseDriver(const String& baseStoragePath = "/storage");
+    
+    // LittleFS-specific features
+    String getFilesystemStats();  // JSON with filesystem usage info
+    size_t getKeySize(const String& collection, const String& key);
+    size_t getCollectionSize(const String& collection);
+    bool removeCollection(const String& collection);
+    std::vector<String> listCollections();
+    bool formatFilesystem();  // WARNING: Destroys all data
+    
+    // Cache management
+    void clearCache();
+    
+    // IDatabaseDriver implementation
+    bool store(const String& collection, const String& key, const String& data) override;
+    String retrieve(const String& collection, const String& key) override;
+    bool remove(const String& collection, const String& key) override;
+    std::vector<String> listKeys(const String& collection) override;
+    bool exists(const String& collection, const String& key) override;
+    String getDriverName() const override;
+};
+```
+
+### Setting Up Multiple Drivers
+
+```cpp
+void setupStorageDrivers() {
+    // JSON driver is configured automatically
+    
+    // Configure LittleFS driver
+    auto littleFSDriver = std::unique_ptr<IDatabaseDriver>(
+        new LittleFSDatabaseDriver("/app_data")
+    );
+    StorageManager::configureDriver("littlefs", std::move(littleFSDriver));
+    
+    // Use JSON as default for auth data (fast access)
+    StorageManager::setDefaultDriver("json");
+    
+    // Direct driver usage
+    StorageManager::driver("json")->store("sessions", "current", sessionData);
+    StorageManager::driver("littlefs")->store("documents", "spec", largeDocument);
+}
 ```
 
 ## Navigation System
@@ -453,6 +560,34 @@ NavigationItem Authenticated(const NavigationItem& item);
 
 // Make navigation item only visible to unauthenticated users
 NavigationItem Unauthenticated(const NavigationItem& item);
+```
+
+### Storage Usage Examples
+
+```cpp
+// Example: Optimal storage strategy
+void demonstrateStorageStrategy() {
+    // Small, frequently accessed data -> JSON driver
+    StorageManager::driver("json")->store("config", "app_name", "MyDevice");
+    StorageManager::driver("json")->store("config", "current_user", "user123");
+    
+    // Large data that changes less frequently -> LittleFS driver
+    String largeDocument = generateOpenAPISpec();  // Could be 20KB+
+    StorageManager::driver("littlefs")->store("api_docs", "openapi_spec", largeDocument);
+    
+    // Query builder works with any driver
+    String username = StorageManager::query("users")->where("id", "user123")->get();
+    
+    // LittleFS specific operations
+    LittleFSDatabaseDriver* fs = static_cast<LittleFSDatabaseDriver*>(
+        StorageManager::driver("littlefs")
+    );
+    if (fs) {
+        String stats = fs->getFilesystemStats();
+        size_t docSize = fs->getKeySize("api_docs", "openapi_spec");
+        Serial.printf("Document size: %u bytes\n", docSize);
+    }
+}
 ```
 
 ## Error Handling
