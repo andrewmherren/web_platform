@@ -260,19 +260,84 @@ bool WebPlatform::generateAndStoreSpec(
     return false;
   }
 
-  // Store in storage system
+  // Store in storage system with enhanced diagnostics
   IDatabaseDriver *driver = StorageManager::driver();
-  if (driver && driver->store(OPENAPI_COLLECTION, storageKey, openAPIJson)) {
-    DEBUG_PRINTF(
-        "WebPlatform: %s spec generated and stored (%d bytes, %d routes)\n",
-        specType.c_str(), openAPIJson.length(), processedCount);
+  if (!driver) {
+    ERROR_PRINTF("ERROR: No storage driver available for %s spec\n",
+                 specType.c_str());
+    openAPIJson = "";
+    return false;
+  }
+
+  DEBUG_PRINTF("WebPlatform: Attempting to store %s spec: collection='%s', "
+               "key='%s', size=%d bytes\n",
+               specType.c_str(), OPENAPI_COLLECTION.c_str(), storageKey.c_str(),
+               openAPIJson.length());
+
+  // Check available heap before storage
+  size_t heapBefore = ESP.getFreeHeap();
+  DEBUG_PRINTF("WebPlatform: Free heap before storage: %d bytes\n", heapBefore);
+
+  bool storeResult = driver->store(OPENAPI_COLLECTION, storageKey, openAPIJson);
+  size_t heapAfter = ESP.getFreeHeap();
+
+  DEBUG_PRINTF("WebPlatform: Storage operation result: %s, heap after: %d "
+               "bytes (change: %d)\n",
+               storeResult ? "SUCCESS" : "FAILED", heapAfter,
+               (int)heapAfter - (int)heapBefore);
+
+  if (storeResult) {
+    // Immediately verify the storage worked by trying to retrieve
+    // But only do verification if we have sufficient heap
+    if (ESP.getFreeHeap() > openAPIJson.length() + 8192) {
+      String verifyRetrieve = driver->retrieve(OPENAPI_COLLECTION, storageKey);
+      bool verifyExists = driver->exists(OPENAPI_COLLECTION, storageKey);
+
+      DEBUG_PRINTF("WebPlatform: Storage verification - exists: %s, retrieved "
+                   "size: %d bytes\n",
+                   verifyExists ? "true" : "false", verifyRetrieve.length());
+
+      if (verifyRetrieve.isEmpty() ||
+          verifyRetrieve.length() != openAPIJson.length()) {
+        ERROR_PRINTF("ERROR: %s spec storage verification failed! Stored %d "
+                     "bytes but retrieved %d bytes\n",
+                     specType.c_str(), openAPIJson.length(),
+                     verifyRetrieve.length());
+
+        // Clean up and return failure
+        openAPIJson = "";
+        verifyRetrieve = "";
+        return false;
+      }
+
+      // Clean up verification string immediately
+      verifyRetrieve = "";
+    } else {
+      WARN_PRINTF(
+          "WARNING: Skipping storage verification due to low heap (%d bytes)\n",
+          ESP.getFreeHeap());
+
+      // Just check existence without retrieving content
+      if (!driver->exists(OPENAPI_COLLECTION, storageKey)) {
+        ERROR_PRINTF("ERROR: %s spec storage failed - document doesn't exist "
+                     "after store\n",
+                     specType.c_str());
+        openAPIJson = "";
+        return false;
+      }
+    }
+
+    DEBUG_PRINTF("WebPlatform: %s spec successfully stored and verified (%d "
+                 "bytes, %d routes)\n",
+                 specType.c_str(), openAPIJson.length(), processedCount);
 
     // Critical cleanup - free temporary string immediately
     openAPIJson = "";
     return true;
   } else {
-    ERROR_PRINTF("ERROR: Failed to store %s spec in storage system\n",
-                 specType.c_str());
+    ERROR_PRINTF("ERROR: Failed to store %s spec in storage system (heap "
+                 "before: %d, after: %d)\n",
+                 specType.c_str(), heapBefore, heapAfter);
 
     // Critical cleanup - free temporary string immediately
     openAPIJson = "";
@@ -431,33 +496,43 @@ void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
                "(collection: %s, key: %s)\n",
                OPENAPI_COLLECTION.c_str(), OPENAPI_SPEC_KEY.c_str());
 
-  String openAPISpec = driver->retrieve(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY);
+  DEBUG_PRINTF(
+      "WebPlatform: Retrieving OpenAPI spec - collection='%s', key='%s'\n",
+      OPENAPI_COLLECTION.c_str(), OPENAPI_SPEC_KEY.c_str());
 
-  if (openAPISpec.isEmpty()) {
+  size_t heapBefore = ESP.getFreeHeap();
+  String openAPISpec = driver->retrieve(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY);
+  size_t heapAfter = ESP.getFreeHeap();
+
+  DEBUG_PRINTF("WebPlatform: Retrieved spec size: %d bytes (heap before: %d, "
+               "after: %d)\n",
+               openAPISpec.length(), heapBefore, heapAfter);
+
+  // Additional integrity check - validate JSON structure
+  bool isValidJson = false;
+  if (!openAPISpec.isEmpty()) {
+    // Quick JSON validity check without full parsing
+    if (openAPISpec.startsWith("{") && openAPISpec.endsWith("}") &&
+        openAPISpec.indexOf("\"openapi\"") > 0) {
+      isValidJson = true;
+    } else {
+      ERROR_PRINTF("WebPlatform: Retrieved spec appears corrupted - invalid "
+                   "JSON structure\n");
+    }
+  }
+
+  if (openAPISpec.isEmpty() || !isValidJson) {
+    bool collectionExists =
+        driver->exists(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY);
     ERROR_PRINTF("WebPlatform: OpenAPI spec not found in storage! Collection "
                  "exists: %s\n",
-                 driver->exists(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY)
-                     ? "true"
-                     : "false");
+                 collectionExists ? "true" : "false");
 
-    // Try to regenerate the spec on-demand if it's missing
-    DEBUG_PRINTLN("WebPlatform: Attempting to regenerate OpenAPI spec...");
-    const_cast<WebPlatform *>(this)->generateOpenAPISpec();
-
-    // Try again after regeneration
-    openAPISpec = driver->retrieve(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY);
-    if (openAPISpec.isEmpty()) {
-      ERROR_PRINTLN("WebPlatform: Failed to regenerate OpenAPI spec");
-      res.setStatus(404);
-      res.setContent("{\"error\":\"OpenAPI specification not found in storage "
-                     "and regeneration failed\"}",
-                     "application/json");
-      return;
-    }
-
-    DEBUG_PRINTF(
-        "WebPlatform: Successfully regenerated OpenAPI spec (%d bytes)\n",
-        openAPISpec.length());
+    res.setStatus(404);
+    res.setContent(
+        "{\"error\":\"OpenAPI specification not found in storage.\"}",
+        "application/json");
+    return;
   }
 
   DEBUG_PRINTLN("WebPlatform: Serving OpenAPI spec using storage streaming");
@@ -465,10 +540,9 @@ void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
   res.setStatus(200);
   res.setHeader("Cache-Control", "public, max-age=300");
 
-  // Use the new storage streaming feature instead of loading entire spec into
-  // memory
-  res.setStorageStreamContent(OPENAPI_COLLECTION, OPENAPI_SPEC_KEY,
-                              "application/json");
+  // Stream the content directly since we already retrieved and validated it
+  res.setContent(openAPISpec, "application/json");
+  openAPISpec = ""; // Free memory immediately after setting response
 #endif // OPENAPI_ENABLED
 }
 
@@ -512,26 +586,11 @@ void WebPlatform::streamPreGeneratedMakerAPISpec(WebResponse &res) const {
                      ? "true"
                      : "false");
 
-    // Try to regenerate the spec on-demand if it's missing
-    DEBUG_PRINTLN("WebPlatform: Attempting to regenerate OpenAPI spec "
-                  "(includes Maker API)...");
-    const_cast<WebPlatform *>(this)->generateOpenAPISpec();
-
-    // Try again after regeneration
-    makerAPISpec = driver->retrieve(OPENAPI_COLLECTION, MAKER_OPENAPI_SPEC_KEY);
-    if (makerAPISpec.isEmpty()) {
-      ERROR_PRINTLN("WebPlatform: Failed to regenerate Maker API spec");
-      res.setStatus(404);
-      res.setContent(
-          "{\"error\":\"Maker API specification not found in storage "
-          "and regeneration failed\"}",
-          "application/json");
-      return;
-    }
-
-    DEBUG_PRINTF(
-        "WebPlatform: Successfully regenerated Maker API spec (%d bytes)\n",
-        makerAPISpec.length());
+    res.setStatus(404);
+    res.setContent(
+        "{\"error\":\"Maker API specification not found in storage.\"}",
+        "application/json");
+    return;
   }
 
   DEBUG_PRINTLN("WebPlatform: Serving Maker API spec using storage streaming");
@@ -539,9 +598,9 @@ void WebPlatform::streamPreGeneratedMakerAPISpec(WebResponse &res) const {
   res.setStatus(200);
   res.setHeader("Cache-Control", "public, max-age=300");
 
-  // Use storage streaming for memory efficiency
-  res.setStorageStreamContent(OPENAPI_COLLECTION, MAKER_OPENAPI_SPEC_KEY,
-                              "application/json");
+  // Stream the content directly since we already retrieved and validated it
+  res.setContent(makerAPISpec, "application/json");
+  makerAPISpec = ""; // Free memory immediately after setting response
 #endif // MAKERAPI_ENABLED
 }
 
@@ -799,33 +858,114 @@ void WebPlatform::addRequestBodyToOperationFromDocs(
     JsonObject &operation,
     const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
 #if OPENAPI_ENABLED
-  JsonObject requestBody = operation.createNestedObject("requestBody");
-  requestBody["description"] = "Request payload";
   const OpenAPIDocumentation &docs = routeDoc.docs;
 
-  JsonObject content = requestBody.createNestedObject("content");
-  String contentType = "application/json"; // Default content type
-  JsonObject mediaType = content.createNestedObject(contentType);
-
-  // Add request schema if provided
-  if (!docs.getRequestSchema().isEmpty()) {
-    DynamicJsonDocument schemaDoc(2048);
-    if (deserializeJson(schemaDoc, docs.getRequestSchema()) ==
-        DeserializationError::Ok) {
-      mediaType["schema"] = schemaDoc.as<JsonObject>();
+  // Early exit if no request documentation
+  if (docs.getRequestSchema().isEmpty() && docs.getRequestExample().isEmpty()) {
+    if (routeDoc.method == WebModule::WM_POST ||
+        routeDoc.method == WebModule::WM_PUT) {
+      JsonObject requestBody = operation.createNestedObject("requestBody");
+      requestBody["description"] = "Request payload";
+      requestBody["required"] = true;
+      JsonObject content = requestBody.createNestedObject("content");
+      JsonObject mediaType = content.createNestedObject("application/json");
+      JsonObject schema = mediaType.createNestedObject("schema");
+      schema["type"] = "object";
     }
+    return;
   }
 
-  // Add request example if provided
-  if (!docs.getRequestExample().isEmpty()) {
-    DynamicJsonDocument exampleDoc(2048);
+  // Handle request schema - use minimal buffer and immediate cleanup
+  if (!docs.getRequestSchema().isEmpty()) {
+    DynamicJsonDocument schemaDoc(2048); // Keep original smaller size
+    DeserializationError error =
+        deserializeJson(schemaDoc, docs.getRequestSchema());
+
+    if (error == DeserializationError::Ok) {
+      JsonObject schemaObj = schemaDoc.as<JsonObject>();
+
+      // Check if this is a complete request body (has both content AND
+      // required)
+      bool isCompleteRequestBody =
+          schemaObj.containsKey("content") && schemaObj.containsKey("required");
+
+      JsonObject requestBody = operation.createNestedObject("requestBody");
+
+      if (isCompleteRequestBody) {
+        // Direct assignment of key properties - avoid copying entire object
+        if (schemaObj.containsKey("description")) {
+          requestBody["description"] = schemaObj["description"];
+        } else {
+          requestBody["description"] = "Request payload";
+        }
+
+        if (schemaObj.containsKey("required")) {
+          requestBody["required"] = schemaObj["required"];
+        }
+
+        if (schemaObj.containsKey("content")) {
+          requestBody["content"] = schemaObj["content"];
+        }
+      } else {
+        // Simple schema object - wrap it
+        requestBody["description"] = "Request payload";
+        requestBody["required"] = true;
+        JsonObject content = requestBody.createNestedObject("content");
+        JsonObject mediaType = content.createNestedObject("application/json");
+        mediaType["schema"] = schemaObj;
+      }
+    } else {
+      // Parse failed - create minimal structure
+      JsonObject requestBody = operation.createNestedObject("requestBody");
+      requestBody["description"] = "Request payload";
+      requestBody["required"] = true;
+      JsonObject content = requestBody.createNestedObject("content");
+      JsonObject mediaType = content.createNestedObject("application/json");
+      JsonObject schema = mediaType.createNestedObject("schema");
+      schema["type"] = "object";
+    }
+
+    // Critical: immediately clear the document to free heap
+    schemaDoc.clear();
+
+    // Handle example separately if schema was processed
+    if (!docs.getRequestExample().isEmpty()) {
+      // Find the media type object to add example
+      JsonObject requestBody = operation["requestBody"];
+      if (requestBody.containsKey("content")) {
+        JsonObject content = requestBody["content"];
+        for (JsonPair contentType : content) {
+          JsonObject mediaType = contentType.value().as<JsonObject>();
+          if (mediaType) {
+            DynamicJsonDocument exampleDoc(1024); // Smaller buffer for examples
+            if (deserializeJson(exampleDoc, docs.getRequestExample()) ==
+                DeserializationError::Ok) {
+              mediaType["example"] = exampleDoc.as<JsonVariant>();
+            }
+            exampleDoc.clear(); // Immediate cleanup
+            break;              // Only add to first media type
+          }
+        }
+      }
+    }
+
+  } else if (!docs.getRequestExample().isEmpty()) {
+    // Only example provided - minimal structure
+    JsonObject requestBody = operation.createNestedObject("requestBody");
+    requestBody["description"] = "Request payload";
+    requestBody["required"] = true;
+    JsonObject content = requestBody.createNestedObject("content");
+    JsonObject mediaType = content.createNestedObject("application/json");
+    JsonObject schema = mediaType.createNestedObject("schema");
+    schema["type"] = "object";
+
+    // Add example with immediate cleanup
+    DynamicJsonDocument exampleDoc(1024);
     if (deserializeJson(exampleDoc, docs.getRequestExample()) ==
         DeserializationError::Ok) {
       mediaType["example"] = exampleDoc.as<JsonVariant>();
     }
+    exampleDoc.clear(); // Immediate cleanup
   }
-
-  // Make request body required for POST/PUT operations by default
-  requestBody["required"] = true;
 #endif
 }
