@@ -196,7 +196,7 @@ For more information on WebPlatform features, see the [User Guide](GUIDE.md).
 
 The following modules are designed to work with WebPlatform:
 
-- **[Maker API](../maker_api/)** - Interactive API documentation and testing interface specifically for maker-friendly public APIs
+- **[Maker API](https://www.github.com/andrewmherren/maker_api)** - Interactive API documentation and testing interface specifically for maker-friendly public APIs
 - More modules coming soon...
 
 ## Dual OpenAPI 3.0 Support
@@ -271,3 +271,67 @@ webPlatform.registerApiRoute("/admin/config",
             "getAdminConfig", 
             {"admin"}));
 ```
+
+## Requirements
+
+- ESP32 development board
+- PlatformIO development environment
+- Arduino framework for ESP32
+- ArduinoJson library (automatically installed)
+
+## Hardware Compatibility
+
+- ESP32 (specific variant compatibility should be verified for your use case)
+- All testing preformed on ESP32-S3
+
+## Performance Considerations
+
+Performance varies based on:
+- ESP32 variant and clock speed
+- Available RAM and flash memory
+- Network conditions
+- Application complexity
+- Enabled features (HTTPS, OpenAPI documentation)
+
+## Troubleshooting
+
+### Common Issues
+
+**WiFi Connection Issues**
+- Ensure correct credentials in captive portal
+- Check WiFi signal strength
+- Verify network supports ESP32 (2.4GHz only)
+
+**Memory Issues**
+- Reduce concurrent connections
+- Disable unused features (OpenAPI, HTTPS)
+- Use LittleFS driver for large data instead of JSON driver
+
+**HTTPS Certificate Issues**
+- Verify certificate files are in `src/` directory
+- Check certificate format (PEM)
+- Ensure `board_build.embed_txtfiles` is correctly configured
+
+### Debug Mode
+
+Enable debug output in your `platformio.ini`:
+
+```ini
+build_flags = 
+  -DCORE_DEBUG_LEVEL=3
+  -DWEB_PLATFORM_DEBUG=1
+```
+
+## Related Projects
+
+- **[Maker API Module](https://github.com/andrewmherren/maker_api)**: Interactive API documentation interface
+- **ESP32 Arduino Core**: Underlying Arduino framework for ESP32
+- **PlatformIO**: Cross-platform development ecosystem
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**Made with ❤️ for the ESP32 community**
+
+*WebPlatform - Transforming ESP32 devices into sophisticated web-enabled applications*
