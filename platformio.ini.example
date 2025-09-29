@@ -1,0 +1,64 @@
+; WebPlatform Library - Example PlatformIO Configuration
+; Copy this file to your project root as platformio.ini and customize as needed
+
+[env:esp32-s3-devkitc-1]
+platform = espressif32
+board = esp32-s3-devkitc-1
+framework = arduino
+monitor_speed = 115200
+
+; Board configuration
+board_build.mcu = esp32s3
+board_build.f_cpu = 240000000L
+board_build.flash_mode = qio
+
+; HTTPS Configuration (OPTIONAL)
+; UNCOMMENT these lines to enable HTTPS - certificate files must exist in src/
+; Comment out to run HTTP-only mode
+; board_build.embed_txtfiles =
+;   src/server_cert.pem
+;   src/server_key.pem
+
+; WebPlatform Build Flags
+build_flags =
+  ; Essential flags
+  -DARDUINO_USB_MODE=1
+  -DESP_PLATFORM
+  
+  ; WebPlatform feature flags (customize as needed)
+  -DWEB_PLATFORM_DEBUG=1        ; Enable debug logging (disable in production)
+  -DWEB_PLATFORM_OPENAPI=0      ; OpenAPI documentation (enable during development)
+  -DWEB_PLATFORM_MAKERAPI=0     ; Maker API documentation (enable for public APIs)
+
+; Library Dependencies
+lib_deps = 
+  ; WebPlatform library from GitHub
+  https://github.com/andrewmherren/web_platform.git
+  
+  ; Required dependencies
+  bblanchon/ArduinoJson@^6.20.0
+  
+  ; Add your project-specific dependencies here
+
+; Alternative ESP32 boards
+[env:esp32dev]
+platform = espressif32
+board = esp32dev
+framework = arduino
+monitor_speed = 115200
+build_flags = ${env:esp32-s3-devkitc-1.build_flags}
+lib_deps = ${env:esp32-s3-devkitc-1.lib_deps}
+
+; Production build profile (optimized for memory)
+[env:production]
+platform = espressif32
+board = esp32-s3-devkitc-1
+framework = arduino
+build_flags =
+  -DARDUINO_USB_MODE=1
+  -DESP_PLATFORM
+  -DWEB_PLATFORM_DEBUG=0        ; Disable debug logging
+  -DWEB_PLATFORM_OPENAPI=0      ; Disable OpenAPI docs
+  -DWEB_PLATFORM_MAKERAPI=0     ; Disable Maker API docs
+  -DCORE_DEBUG_LEVEL=0          ; Minimal ESP32 debug output
+lib_deps = ${env:esp32-s3-devkitc-1.lib_deps}

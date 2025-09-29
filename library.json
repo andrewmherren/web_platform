@@ -1,7 +1,7 @@
 {
   "name": "web_platform",
   "version": "0.1.0",
-  "description": "Complete web development framework for ESP32 with WiFi, HTTPS, and authentication",
+  "description": "Comprehensive ESP32 web development framework with WiFi management, authentication, and modular architecture. See QUICK_START.md to get started in minutes.",
   "build": {
     "includeDir": "include"
   },
@@ -29,7 +29,6 @@
   "authors": [
     {
       "name": "Andrew Herren",
-      "email": "andrew.herren@gmail.com",
       "url": "https://github.com/andrwemherren"
     }
   ],

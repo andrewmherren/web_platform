@@ -335,7 +335,7 @@ void WebResponse::streamFromStorage(const String &collection, const String &key,
 
   // Get specified storage driver for streaming
   String targetDriver = driverName.isEmpty() ? "littlefs" : driverName;
-  IDatabaseDriver *driver = StorageManager::driver(targetDriver);
+  IDatabaseDriver *driver = &StorageManager::driver(targetDriver);
   if (!driver) {
     server->send(500, "text/plain",
                  "Storage driver '" + targetDriver + "' unavailable");
@@ -393,7 +393,7 @@ esp_err_t WebResponse::streamFromStorage(const String &collection,
 
   // Get specified storage driver for streaming
   String targetDriver = driverName.isEmpty() ? "littlefs" : driverName;
-  IDatabaseDriver *driver = StorageManager::driver(targetDriver);
+  IDatabaseDriver *driver = &StorageManager::driver(targetDriver);
   if (!driver) {
     String errorMsg =
         "{\"error\":\"Storage driver '" + targetDriver + "' unavailable\"}";

@@ -390,6 +390,8 @@ void WebPlatform::getSystemStatusApiHandler(WebRequest &req, WebResponse &res) {
     platform["hostname"] = getHostname();
     platform["moduleCount"] = registeredModules.size();
     platform["routeCount"] = getRouteCount();
+    platform["platformVersion"] = getPlatformVersion();
+    platform["systemVersion"] = getSystemVersion();
   });
 }
 
@@ -433,6 +435,7 @@ void WebPlatform::getOpenAPISpecHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::getMakerAPISpecHandler(WebRequest &req, WebResponse &res) {
-  // Serve pre-generated Maker OpenAPI spec (generated once during initialization)
+  // Serve pre-generated Maker OpenAPI spec (generated once during
+  // initialization)
   streamPreGeneratedMakerAPISpec(res);
 }

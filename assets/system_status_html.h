@@ -45,6 +45,14 @@ const char SYSTEM_STATUS_HTML[] PROGMEM = R"HTML(
                     <label>Platform Mode:</label>
                     <div class="status-value" id="platformMode">Loading...</div>
                 </div>
+                <div class="form-group">
+                    <label>System Version:</label>
+                    <div class="status-value" id="systemVersion">Loading...</div>
+                </div>
+                <div class="form-group">
+                    <label>Platform Version:</label>
+                    <div class="status-value" id="platformVersion">Loading...</div>
+                </div>
             </div>
             
             <div class="status-card">

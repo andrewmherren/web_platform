@@ -1,9 +1,9 @@
 #ifndef ENVIRONMENTAL_SENSOR_DOCS_H
 #define ENVIRONMENTAL_SENSOR_DOCS_H
 
-#include "interface/openapi_documentation.h"
-#include "interface/openapi_factory.h"
+#include <Arduino.h>
 #include <vector>
+#include <web_platform.h>
 
 class EnvironmentalSensorDocs {
 public:

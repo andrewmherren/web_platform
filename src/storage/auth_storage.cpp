@@ -24,7 +24,7 @@ void AuthStorage::ensureInitialized() {
 
 void AuthStorage::createDefaultAdminUser() {
   // Check if any users exist
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   std::vector<String> userKeys = driver->listKeys(USERS_COLLECTION);
 
   if (userKeys.empty()) {
@@ -61,7 +61,7 @@ void AuthStorage::initialize(const String &driver) {
 
   // Initialize storage manager (ensures JSON driver exists)
   if (driverName.length() > 0) {
-    IDatabaseDriver *targetDriver = StorageManager::driver(driverName);
+    IDatabaseDriver *targetDriver = &StorageManager::driver(driverName);
     if (!targetDriver) {
       DEBUG_PRINTF(
           "AuthStorage: Warning - driver '%s' not found, using default\n",
@@ -103,7 +103,7 @@ String AuthStorage::createUser(const String &username, const String &password) {
   String hash = AuthUtils::hashPassword(password, salt);
   AuthUser user(username, hash, salt);
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
 
   if (driver->store(USERS_COLLECTION, user.id, user.toJson())) {
     DEBUG_PRINTF("AuthStorage: Created user '%s' (ID: %s)\n", username.c_str(),
@@ -121,7 +121,7 @@ AuthUser AuthStorage::findUserById(const String &userId) {
     return AuthUser();
   }
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   String userData = driver->retrieve(USERS_COLLECTION, userId);
 
   if (userData.length() > 0) {
@@ -141,7 +141,7 @@ AuthUser AuthStorage::findUserByUsername(const String &username) {
   // Use QueryBuilder to find by username
   QueryBuilder query = StorageManager::query(USERS_COLLECTION);
   if (driverName.length() > 0) {
-    query = QueryBuilder(StorageManager::driver(driverName), USERS_COLLECTION);
+    query = QueryBuilder(&StorageManager::driver(driverName), USERS_COLLECTION);
   }
 
   String userData = query.where("username", username).get();
@@ -170,7 +170,7 @@ bool AuthStorage::updateUserPassword(const String &userId,
   user.salt = AuthUtils::generateSalt();
   user.passwordHash = AuthUtils::hashPassword(newPassword, user.salt);
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   bool success = driver->store(USERS_COLLECTION, userId, user.toJson());
 
   if (success) {
@@ -188,7 +188,7 @@ bool AuthStorage::deleteUser(const String &userId) {
     return false;
   }
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   bool success = driver->remove(USERS_COLLECTION, userId);
 
   if (success) {
@@ -198,14 +198,14 @@ bool AuthStorage::deleteUser(const String &userId) {
     // Use QueryBuilder to remove by userId
     QueryBuilder sessionsQuery = StorageManager::query(SESSIONS_COLLECTION);
     if (driverName.length() > 0) {
-      sessionsQuery =
-          QueryBuilder(StorageManager::driver(driverName), SESSIONS_COLLECTION);
+      sessionsQuery = QueryBuilder(&StorageManager::driver(driverName),
+                                   SESSIONS_COLLECTION);
     }
     sessionsQuery.where("userId", userId).remove();
 
     QueryBuilder tokensQuery = StorageManager::query(API_TOKENS_COLLECTION);
     if (driverName.length() > 0) {
-      tokensQuery = QueryBuilder(StorageManager::driver(driverName),
+      tokensQuery = QueryBuilder(&StorageManager::driver(driverName),
                                  API_TOKENS_COLLECTION);
     }
     tokensQuery.where("userId", userId).remove();
@@ -238,7 +238,7 @@ std::vector<AuthUser> AuthStorage::getAllUsers() {
   // Use QueryBuilder to get all users
   QueryBuilder query = StorageManager::query(USERS_COLLECTION);
   if (driverName.length() > 0) {
-    query = QueryBuilder(StorageManager::driver(driverName), USERS_COLLECTION);
+    query = QueryBuilder(&StorageManager::driver(driverName), USERS_COLLECTION);
   }
 
   std::vector<String> userDataList = query.getAll();
@@ -271,7 +271,7 @@ String AuthStorage::createSession(const String &userId) {
   String sessionId = "sess_" + AuthUtils::generateSecureToken();
   AuthSession session(sessionId, userId, user.username);
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
 
   if (driver->store(SESSIONS_COLLECTION, sessionId, session.toJson())) {
     return sessionId;
@@ -287,7 +287,7 @@ AuthSession AuthStorage::findSession(const String &sessionId) {
     return AuthSession();
   }
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   String sessionData = driver->retrieve(SESSIONS_COLLECTION, sessionId);
 
   if (sessionData.length() > 0) {
@@ -319,7 +319,7 @@ String AuthStorage::validateSession(const String &sessionId,
   session.expiresAt = now + (AuthConstants::SESSION_DURATION_MS / 1000);
 
   // Store the updated session
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   driver->store(SESSIONS_COLLECTION, sessionId, session.toJson());
 
   return session.userId;
@@ -332,14 +332,14 @@ bool AuthStorage::deleteSession(const String &sessionId) {
     return false;
   }
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   return driver->remove(SESSIONS_COLLECTION, sessionId);
 }
 
 int AuthStorage::cleanExpiredSessions() {
   ensureInitialized();
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   std::vector<String> sessionKeys = driver->listKeys(SESSIONS_COLLECTION);
   int cleaned = 0;
 
@@ -380,7 +380,7 @@ String AuthStorage::createApiToken(const String &userId, const String &name,
   String token = "tok_" + AuthUtils::generateSecureToken(32);
   AuthApiToken apiToken(token, userId, user.username, name, expireInDays);
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
 
   if (driver->store(API_TOKENS_COLLECTION, apiToken.id, apiToken.toJson())) {
     return token;
@@ -398,8 +398,8 @@ AuthApiToken AuthStorage::findApiToken(const String &token) {
   // Using QueryBuilder to find by token value
   QueryBuilder query = StorageManager::query(API_TOKENS_COLLECTION);
   if (driverName.length() > 0) {
-    query =
-        QueryBuilder(StorageManager::driver(driverName), API_TOKENS_COLLECTION);
+    query = QueryBuilder(&StorageManager::driver(driverName),
+                         API_TOKENS_COLLECTION);
   }
 
   String tokenData = query.where("token", token).get();
@@ -438,7 +438,7 @@ bool AuthStorage::deleteApiToken(const String &token) {
     return false;
   }
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   return driver->remove(API_TOKENS_COLLECTION, apiToken.id);
 }
 
@@ -454,8 +454,8 @@ std::vector<AuthApiToken> AuthStorage::getUserApiTokens(const String &userId) {
   // Use QueryBuilder to find by userId
   QueryBuilder query = StorageManager::query(API_TOKENS_COLLECTION);
   if (driverName.length() > 0) {
-    query =
-        QueryBuilder(StorageManager::driver(driverName), API_TOKENS_COLLECTION);
+    query = QueryBuilder(&StorageManager::driver(driverName),
+                         API_TOKENS_COLLECTION);
   }
 
   std::vector<String> tokenDataList = query.where("userId", userId).getAll();
@@ -473,7 +473,7 @@ std::vector<AuthApiToken> AuthStorage::getUserApiTokens(const String &userId) {
 int AuthStorage::cleanExpiredApiTokens() {
   ensureInitialized();
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   std::vector<String> tokenKeys = driver->listKeys(API_TOKENS_COLLECTION);
   int cleaned = 0;
 
@@ -507,7 +507,7 @@ String AuthStorage::createPageToken(const String &clientIp) {
   String token = AuthUtils::generatePageToken();
   AuthPageToken pageToken(token, clientIp);
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
 
   if (driver->store(PAGE_TOKENS_COLLECTION, pageToken.id, pageToken.toJson())) {
     return token;
@@ -527,7 +527,7 @@ bool AuthStorage::validatePageToken(const String &token,
   // Use QueryBuilder to find by token value
   QueryBuilder query = StorageManager::query(PAGE_TOKENS_COLLECTION);
   if (driverName.length() > 0) {
-    query = QueryBuilder(StorageManager::driver(driverName),
+    query = QueryBuilder(&StorageManager::driver(driverName),
                          PAGE_TOKENS_COLLECTION);
   }
 
@@ -543,7 +543,7 @@ bool AuthStorage::validatePageToken(const String &token,
   if (!pageToken.isValid()) {
     DEBUG_PRINTF("PageToken validation failed: token '%s...' expired\n",
                  token.substring(0, 6).c_str());
-    IDatabaseDriver *driver = StorageManager::driver(driverName);
+    IDatabaseDriver *driver = &StorageManager::driver(driverName);
     driver->remove(PAGE_TOKENS_COLLECTION, pageToken.id);
     return false;
   }
@@ -560,7 +560,7 @@ bool AuthStorage::validatePageToken(const String &token,
 int AuthStorage::cleanExpiredPageTokens() {
   ensureInitialized();
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
   std::vector<String> tokenKeys = driver->listKeys(PAGE_TOKENS_COLLECTION);
   int cleaned = 0;
 
@@ -610,7 +610,7 @@ String AuthStorage::getStorageStats() {
 
   DynamicJsonDocument doc(512);
 
-  IDatabaseDriver *driver = StorageManager::driver(driverName);
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
 
   doc["driver"] = getDriverName();
   doc["users"] = driver->listKeys(USERS_COLLECTION).size();

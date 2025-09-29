@@ -66,6 +66,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('hostname').textContent = status.platform.hostname;
         document.getElementById('moduleCount').textContent = status.platform.moduleCount;
         document.getElementById('routeCount').textContent = status.platform.routeCount;
+        document.getElementById('systemVersion').textContent = status.platform.systemVersion;
+        document.getElementById('platformVersion').textContent = status.platform.platformVersion;
     }
     
     function updateNetworkStatus(network) {

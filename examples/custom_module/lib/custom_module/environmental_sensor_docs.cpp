@@ -35,51 +35,50 @@ OpenAPIDocumentation EnvironmentalSensorDocs::createUpdateSensorConfig() {
                                 "Updates sensor settings including location, "
                                 "thresholds, and enable/disable state",
                                 "updateSensorConfig", SENSOR_TAGS)
-      .withParameters(R"([
-        {
-          "name": "location",
-          "in": "formData",
-          "required": true,
-          "type": "string",
-          "description": "Sensor location name"
-        },
-        {
-          "name": "enabled",
-          "in": "formData",
-          "required": false,
-          "type": "string",
-          "enum": ["on"],
-          "description": 'Enable sensor (checkbox - present when checked)'
-        },
-        {
-          "name": "temp-threshold",
-          "in": "formData",
-          "required": true,
-          "type": "number",
-          "minimum": 0,
-          "description": "Temperature alert threshold in Celsius"
-        },
-        {
-          "name": "humidity-threshold",
-          "in": "formData",
-          "required": true,
-          "type": "number",
-          "minimum": 0,
-          "description": "Humidity alert threshold percentage"
-        },
-        {
-          "name": "alerts-enabled",
-          "in": "formData",
-          "required": false,
-          "type": "string",
-          "enum": ["on"],
-          "description": 'Enable threshold alerts (checkbox - present when checked)'
+      .withRequestBody(R"({
+        "required": true,
+        "content": {
+          "application/x-www-form-urlencoded": {
+            "schema": {
+              "type": "object",
+              "description": "Sensor configuration form data",
+              "required": ["location", "temp-threshold", "humidity-threshold"],
+              "properties": {
+                "location": {
+                  "type": "string",
+                  "description": "Sensor location name"
+                },
+                "enabled": {
+                  "type": "string",
+                  "enum": ["on"],
+                  "description": 'Enable sensor (checkbox - present when checked)'
+                },
+                "temp-threshold": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Temperature alert threshold in Celsius"
+                },
+                "humidity-threshold": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Humidity alert threshold percentage"
+                },
+                "alerts-enabled": {
+                  "type": "string",
+                  "enum": ["on"],
+                  "description": 'Enable threshold alerts (checkbox - present when checked)'
+                }
+              }
+            }
+          }
         }
-      ])")
+      })")
       .withRequestExample(
           R"(location=Office&enabled=on&temp-threshold=30.0&humidity-threshold=60.0&alerts-enabled=on)")
-      .withResponseExample(OpenAPIFactory::createSuccessResponse(
-          "Configuration updated successfully"))
+      .withResponseExample(R"({
+        "success": true,
+        "message": "Configuration updated successfully"
+      })")
       .withResponseSchema(OpenAPIFactory::createSuccessResponse());
 }
 
@@ -159,18 +158,29 @@ OpenAPIDocumentation EnvironmentalSensorDocs::createControlSensor() {
                                 "Send control commands to the sensor (refresh, "
                                 "enable, disable, reset-alerts)",
                                 "controlSensor", SENSOR_TAGS)
-      .withParameters(R"([
-    {
-      "name": "command",
-      "in": "formData",
-      "required": true,
-      "type": "string",
-      "enum": ["refresh", "enable", "disable", "reset-alerts"],
-      "description": "Control command to execute"
-    }
-  ])")
+      .withRequestBody(R"({
+        "required": true,
+        "content": {
+          "application/x-www-form-urlencoded": {
+            "schema": {
+              "type": "object",
+              "description": "Sensor control command",
+              "required": ["command"],
+              "properties": {
+                "command": {
+                  "type": "string",
+                  "enum": ["refresh", "enable", "disable", "reset-alerts"],
+                  "description": "Control command to execute"
+                }
+              }
+            }
+          }
+        }
+      })")
       .withRequestExample(R"(command=refresh)")
-      .withResponseExample(
-          OpenAPIFactory::createSuccessResponse("Sensor readings refreshed"))
+      .withResponseExample(R"({
+        "success": true,
+        "message": "Sensor readings refreshed"
+      })")
       .withResponseSchema(OpenAPIFactory::createSuccessResponse());
 }

@@ -385,7 +385,7 @@ bool AuthStorage::deleteApiToken(const String& tokenId);
 static QueryBuilder StorageManager::query(const String& collection);
 
 // Get specific storage driver
-static IDatabaseDriver* StorageManager::driver(const String& driverName = "");
+static IDatabaseDriver& StorageManager::driver(const String& driverName = "");
 
 // Configure a new storage driver
 static void StorageManager::configureDriver(const String& name, std::unique_ptr<IDatabaseDriver> driver);
@@ -524,8 +524,8 @@ void setupStorageDrivers() {
     StorageManager::setDefaultDriver("json");
     
     // Direct driver usage
-    StorageManager::driver("json")->store("sessions", "current", sessionData);
-    StorageManager::driver("littlefs")->store("documents", "spec", largeDocument);
+    StorageManager::driver("json").store("sessions", "current", sessionData);
+    StorageManager::driver("littlefs").store("documents", "spec", largeDocument);
 }
 ```
 
@@ -568,15 +568,15 @@ NavigationItem Unauthenticated(const NavigationItem& item);
 // Example: Optimal storage strategy
 void demonstrateStorageStrategy() {
     // Small, frequently accessed data -> JSON driver
-    StorageManager::driver("json")->store("config", "app_name", "MyDevice");
-    StorageManager::driver("json")->store("config", "current_user", "user123");
+    StorageManager::driver("json").store("config", "app_name", "MyDevice");
+    StorageManager::driver("json").store("config", "current_user", "user123");
     
     // Large data that changes less frequently -> LittleFS driver
     String largeDocument = generateOpenAPISpec();  // Could be 20KB+
-    StorageManager::driver("littlefs")->store("api_docs", "openapi_spec", largeDocument);
+    StorageManager::driver("littlefs").store("api_docs", "openapi_spec", largeDocument);
     
     // Query builder works with any driver
-    String username = StorageManager::query("users")->where("id", "user123")->get();
+    String username = StorageManager::query("users").where("id", "user123").get();
     
     // LittleFS specific operations
     LittleFSDatabaseDriver* fs = static_cast<LittleFSDatabaseDriver*>(

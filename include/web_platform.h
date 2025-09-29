@@ -8,6 +8,7 @@
 #include "interface/web_request.h"
 #include "interface/web_response.h"
 #include "platform/ntp_client.h"
+#include "storage/storage_manager.h"
 #include "utilities/debug_macros.h"
 #include "utilities/json_response_builder.h"
 #include <ArduinoJson.h>
@@ -76,6 +77,13 @@ class WebPlatform : public IWebModule, public IPlatformService {
 public:
   WebPlatform();
   ~WebPlatform();
+
+  // System Version
+  String getPlatformVersion() const { return "0.1.0"; }
+  String getSystemVersion() const {
+    return systemVersion.isEmpty() ? "0.0.0" : systemVersion;
+  }
+  void setSystemVersion(const String &version) { systemVersion = version; }
 
   // Primary initialization - auto-detects mode and capabilities
   void begin(const char *deviceName = "Device", bool forceHttpsOnly = false);
@@ -173,12 +181,16 @@ public:
       const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
 
   // OpenAPI generation helper methods
-  void createOpenAPIDocumentStructure(
-      DynamicJsonDocument &doc, const String &title, const String &description) const;
+  void createOpenAPIDocumentStructure(DynamicJsonDocument &doc,
+                                      const String &title,
+                                      const String &description) const;
   bool generateAndStoreSpec(
       size_t targetSize, const String &title, const String &description,
-      std::function<bool(const OpenAPIGenerationContext::RouteDocumentation&)> routeFilter,
-      std::function<void(JsonArray&, const OpenAPIGenerationContext::RouteDocumentation&)> tagModifier,
+      std::function<bool(const OpenAPIGenerationContext::RouteDocumentation &)>
+          routeFilter,
+      std::function<void(JsonArray &,
+                         const OpenAPIGenerationContext::RouteDocumentation &)>
+          tagModifier,
       const String &storageKey, const String &specType);
 
   // New OpenAPI generation helper methods
@@ -283,6 +295,8 @@ private:                            // Core server components
 
   // Device configuration
   const char *deviceName;
+  String
+      systemVersion; // Application version (can be set by parent application)
   char apSSIDBuffer[64];       // Buffer for AP SSID generation
   const char *apPassword = ""; // Open AP (no password)
 

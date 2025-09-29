@@ -24,20 +24,6 @@ void setup() {
   Serial.begin(115200);
   DEBUG_PRINTLN("Starting Authenticated WebPlatform Application...");
 
-  // Initialize NTP client for accurate timestamps
-  // Configure time zone with automatic DST adjustment
-  NTPClient::setTimeZone(TimeZone::AMERICA_NEW_YORK, DSTRules::US_CANADA);
-
-  // Other examples with automatic DST:
-  // Pacific Time with DST:
-  // NTPClient::setTimeZone(TimeZone::AMERICA_LOS_ANGELES, DSTRules::US_CANADA);
-  // GMT/BST with EU DST rules:
-  // NTPClient::setTimeZone(TimeZone::EUROPE_LONDON,DSTRules::EU);
-  // Australian Eastern Time with DST:
-  // NTPClient::setTimeZone(TimeZone::AUSTRALIA_SYDNEY, DSTRules::AUSTRALIA);
-  // Japan (no DST needed)
-  // NTPClient::setTimeZone(TimeZone::ASIA_TOKYO);
-
   // Set up navigation menu with authentication-aware
   // items
   std::vector<NavigationItem> navItems = {
@@ -402,10 +388,11 @@ else:
                                },
                                {AuthType::SESSION});
 
-    // API Endpoints - accessible via both session and token auth
-    // Status API (can be called from web interface or via API token)
-    webPlatform.registerApiRoute("/status",
-        [](WebRequest &req, WebResponse &res) {
+  // API Endpoints - accessible via both session and token auth
+  // Status API (can be called from web interface or via API token)
+  webPlatform.registerApiRoute(
+      "/status",
+      [](WebRequest &req, WebResponse &res) {
         JsonResponseBuilder::createResponse(res, [&](JsonObject &json) {
           json["success"] = true;
           json["device"] = webPlatform.getDeviceName();
@@ -415,63 +402,68 @@ else:
           json["ip_address"] = WiFi.localIP().toString();
           json["https_enabled"] = webPlatform.isHttpsEnabled();
           json["ntp_synchronized"] = NTPClient::isSynchronized();
-          json["current_time"] = NTPClient::isSynchronized() ? 
-                                NTPClient::getFormattedTime() : "Not synchronized";
+          json["current_time"] = NTPClient::isSynchronized()
+                                     ? NTPClient::getFormattedTime()
+                                     : "Not synchronized";
           json["time_since_sync"] = NTPClient::getTimeSinceLastSync() / 1000;
         });
-        },
-        {AuthType::SESSION, AuthType::PAGE_TOKEN, AuthType::TOKEN}, WebModule::WM_GET,
-        API_DOC("Get device status", 
-                "Returns comprehensive device status including system info, WiFi details, and NTP sync status."));
+      },
+      {AuthType::SESSION, AuthType::PAGE_TOKEN, AuthType::TOKEN},
+      WebModule::WM_GET,
+      API_DOC("Get device status",
+              "Returns comprehensive device status including system info, WiFi "
+              "details, and NTP sync status."));
 
-    // Control API with CSRF protection for web forms
-    webPlatform.registerApiRoute("/control",
-        [](WebRequest &req, WebResponse &res) {
-            if (req.getMethod() != WebModule::WM_POST) {
-            res.setStatus(405);
-            res.setContent("{\"error\":\"Method not allowed\"}",
-                            "application/json");
-            return;
-            }
+  // Control API with CSRF protection for web forms
+  webPlatform.registerApiRoute(
+      "/control",
+      [](WebRequest &req, WebResponse &res) {
+        if (req.getMethod() != WebModule::WM_POST) {
+          res.setStatus(405);
+          res.setContent("{\"error\":\"Method not allowed\"}",
+                         "application/json");
+          return;
+        }
 
-            String result;
-            // try getting the command as a route parameter
-            String command = req.getParam("command");
-            if (command.isEmpty()) {
-            // if it wasn't in the route params try getting the command from the
-            // body json
-            command = req.getJsonParam("command");
-            }
+        String result;
+        // try getting the command as a route parameter
+        String command = req.getParam("command");
+        if (command.isEmpty()) {
+          // if it wasn't in the route params try getting the command from the
+          // body json
+          command = req.getJsonParam("command");
+        }
 
-            if (command == "status") {
-            result = R"({"success":true,"message":"Device is operational"})";
-            } else if (command == "restart") {
-            result =
-                R"({"success":true,"message":"Device will restart in 3 seconds"})";
-            res.setContent(result, "application/json");
-            // Send response first, then restart after delay
-            delay(3000);
-            ESP.restart();
-            return;
-            } else if (command == "reset-wifi") {
-            webPlatform.resetWiFiCredentials();
-            result =
-                R"({"success":true,"message":"WiFi credentials cleared. Device will restart."})";
-            res.setContent(result, "application/json");
-            // Send response first, then restart after delay
-            delay(1000);
-            ESP.restart();
-            return;
-            } else {
-            res.setStatus(400);
-            result = R"({"success":false,"error":"Unknown command"})";
-            }
+        if (command == "status") {
+          result = R"({"success":true,"message":"Device is operational"})";
+        } else if (command == "restart") {
+          result =
+              R"({"success":true,"message":"Device will restart in 3 seconds"})";
+          res.setContent(result, "application/json");
+          // Send response first, then restart after delay
+          delay(3000);
+          ESP.restart();
+          return;
+        } else if (command == "reset-wifi") {
+          webPlatform.resetWiFiCredentials();
+          result =
+              R"({"success":true,"message":"WiFi credentials cleared. Device will restart."})";
+          res.setContent(result, "application/json");
+          // Send response first, then restart after delay
+          delay(1000);
+          ESP.restart();
+          return;
+        } else {
+          res.setStatus(400);
+          result = R"({"success":false,"error":"Unknown command"})";
+        }
 
-            res.setContent(result, "application/json");
-        },
-        {AuthType::SESSION, AuthType::TOKEN, AuthType::PAGE_TOKEN}, WebModule::WM_POST,
-        API_DOC("Execute device commands", 
-                "Execute system commands like status check, restart, or WiFi reset."));
+        res.setContent(result, "application/json");
+      },
+      {AuthType::SESSION, AuthType::TOKEN, AuthType::PAGE_TOKEN},
+      WebModule::WM_POST,
+      API_DOC("Execute device commands", "Execute system commands like status "
+                                         "check, restart, or WiFi reset."));
 
   // Register secure modules
   // webPlatform.registerModule("/secure", &secureModule);
@@ -482,6 +474,7 @@ else:
 
   // Initialize WebPlatform
   DEBUG_PRINTLN("Initializing Secure WebPlatform...");
+  webPlatform.setSystemVersion("1.0.0");
   webPlatform.begin("SecureDevice");
 
   if (webPlatform.isConnected()) {
@@ -496,7 +489,8 @@ else:
 #if WEB_PLATFORM_OPENAPI
     DEBUG_PRINTLN("OpenAPI Documentation: Enabled");
 #else
-    DEBUG_PRINTLN("OpenAPI Documentation: Disabled (enable with -DWEB_PLATFORM_OPENAPI=1)");
+    DEBUG_PRINTLN("OpenAPI Documentation: Disabled (enable with "
+                  "-DWEB_PLATFORM_OPENAPI=1)");
 #endif
   } else {
     DEBUG_PRINTLN("=== Running in WiFi Configuration Mode ===");

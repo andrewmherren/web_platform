@@ -55,19 +55,23 @@ bool StorageManager::setDefaultDriver(const String &name) {
   return false;
 }
 
-IDatabaseDriver *StorageManager::driver(const String &name) {
+IDatabaseDriver &StorageManager::driver(const String &name) {
   ensureInitialized();
 
   String targetName = name.length() > 0 ? name : defaultDriverName;
 
   auto it = drivers.find(targetName);
   if (it != drivers.end()) {
-    return it->second.get();
+    return *(it->second.get()); // Dereference the pointer to get reference
   }
 
-  WARN_PRINTF("StorageManager: Warning - driver '%s' not found\n",
-              targetName.c_str());
-  return nullptr;
+  WARN_PRINTF(
+      "StorageManager: Warning - driver '%s' not found, using default\n",
+      targetName.c_str());
+
+  // Fall back to default driver instead of returning nullptr
+  auto defaultIt = drivers.find(defaultDriverName);
+  return *(defaultIt->second.get());
 }
 
 std::vector<String> StorageManager::getDriverNames() {

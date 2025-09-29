@@ -25,8 +25,7 @@ void setup() {
 
   // Set up the navigation menu using PROGMEM-friendly const char* strings
   std::vector<NavigationItem> navItems = {
-      NavigationItem("Home", "/"), 
-      NavigationItem("About", "/about"),
+      NavigationItem("Home", "/"), NavigationItem("About", "/about"),
       NavigationItem("Settings", "/settings")};
   IWebModule::setNavigationMenu(navItems);
 
@@ -42,9 +41,10 @@ void setup() {
   // Register routes before calling webPlatform.begin()
 
   // Register custom home page using current patterns
-  webPlatform.registerWebRoute("/", 
-    [](WebRequest &req, WebResponse &res) {
-      String html = R"(
+  webPlatform.registerWebRoute(
+      "/",
+      [](WebRequest &req, WebResponse &res) {
+        String html = R"(
 <!DOCTYPE html>
 <html><head>
     <title>My Device - Home</title>
@@ -64,11 +64,13 @@ void setup() {
             </div>
             <div class="status-card info">
                 <h3>Uptime</h3>
-                <p class="large-text">)" + String(millis() / 1000) + R"( seconds</p>
+                <p class="large-text">)" +
+                      String(millis() / 1000) + R"( seconds</p>
             </div>
             <div class="status-card info">
                 <h3>Free Memory</h3>
-                <p class="large-text">)" + String(ESP.getFreeHeap()) + R"( bytes</p>
+                <p class="large-text">)" +
+                      String(ESP.getFreeHeap()) + R"( bytes</p>
             </div>
         </div>
         
@@ -80,14 +82,15 @@ void setup() {
     </div>
 </body></html>
       )";
-      res.setContent(html, "text/html");
-    }, 
-    {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+        res.setContent(html, "text/html");
+      },
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   // Register about page
-  webPlatform.registerWebRoute("/about", 
-    [](WebRequest &req, WebResponse &res) {
-      String html = R"(
+  webPlatform.registerWebRoute(
+      "/about",
+      [](WebRequest &req, WebResponse &res) {
+        String html = R"(
 <!DOCTYPE html>
 <html><head>
     <title>About My Device</title>
@@ -102,21 +105,30 @@ void setup() {
         <div class="card">
             <h2>Device Information</h2>
             <table class="info-table">
-                <tr><td>Device Name:</td><td>)" + String(webPlatform.getDeviceName()) + R"(</td></tr>
+                <tr><td>Device Name:</td><td>)" +
+                      String(webPlatform.getDeviceName()) + R"(</td></tr>
                 <tr><td>Firmware Version:</td><td>1.0.0</td></tr>
-                <tr><td>WiFi SSID:</td><td>)" + WiFi.SSID() + R"(</td></tr>
-                <tr><td>IP Address:</td><td>)" + WiFi.localIP().toString() + R"(</td></tr>
-                <tr><td>Hostname:</td><td>)" + webPlatform.getHostname() + R"(</td></tr>
-                <tr><td>HTTPS Enabled:</td><td>)" + String(webPlatform.isHttpsEnabled() ? "Yes" : "No") + R"(</td></tr>
+                <tr><td>WiFi SSID:</td><td>)" +
+                      WiFi.SSID() + R"(</td></tr>
+                <tr><td>IP Address:</td><td>)" +
+                      WiFi.localIP().toString() + R"(</td></tr>
+                <tr><td>Hostname:</td><td>)" +
+                      webPlatform.getHostname() + R"(</td></tr>
+                <tr><td>HTTPS Enabled:</td><td>)" +
+                      String(webPlatform.isHttpsEnabled() ? "Yes" : "No") +
+                      R"(</td></tr>
             </table>
         </div>
         
         <div class="card">
             <h2>System Stats</h2>
             <table class="info-table">
-                <tr><td>Uptime:</td><td>)" + String(millis() / 1000) + R"( seconds</td></tr>
-                <tr><td>Free Heap:</td><td>)" + String(ESP.getFreeHeap()) + R"( bytes</td></tr>
-                <tr><td>CPU Frequency:</td><td>)" + String(ESP.getCpuFreqMHz()) + R"( MHz</td></tr>
+                <tr><td>Uptime:</td><td>)" +
+                      String(millis() / 1000) + R"( seconds</td></tr>
+                <tr><td>Free Heap:</td><td>)" +
+                      String(ESP.getFreeHeap()) + R"( bytes</td></tr>
+                <tr><td>CPU Frequency:</td><td>)" +
+                      String(ESP.getCpuFreqMHz()) + R"( MHz</td></tr>
             </table>
         </div>
         
@@ -124,14 +136,15 @@ void setup() {
     </div>
 </body></html>
       )";
-      res.setContent(html, "text/html");
-    }, 
-    {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+        res.setContent(html, "text/html");
+      },
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   // Register settings page
-  webPlatform.registerWebRoute("/settings", 
-    [](WebRequest &req, WebResponse &res) {
-      String html = R"(
+  webPlatform.registerWebRoute(
+      "/settings",
+      [](WebRequest &req, WebResponse &res) {
+        String html = R"(
 <!DOCTYPE html>
 <html><head>
     <title>Device Settings</title>
@@ -146,8 +159,10 @@ void setup() {
         
         <div class="card">
             <h2>WiFi Configuration</h2>
-            <p>Current Network: <strong>)" + WiFi.SSID() + R"(</strong></p>
-            <p>Signal Strength: <strong>)" + String(WiFi.RSSI()) + R"( dBm</strong></p>
+            <p>Current Network: <strong>)" +
+                      WiFi.SSID() + R"(</strong></p>
+            <p>Signal Strength: <strong>)" +
+                      String(WiFi.RSSI()) + R"( dBm</strong></p>
             <button class="btn btn-secondary" onclick="window.location='/wifi'">WiFi Settings</button>
         </div>
         
@@ -187,45 +202,48 @@ void setup() {
     </script>
 </body></html>
       )";
-      res.setContent(html, "text/html");
-    }, 
-    {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+        res.setContent(html, "text/html");
+      },
+      {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   // Add API endpoints with proper documentation and error handling
-  webPlatform.registerApiRoute("/restart", 
-    [](WebRequest &req, WebResponse &res) {
-      res.setContent(
-          "{\"success\":true,\"message\":\"Restarting device...\"}",
-          "application/json");
-      
-      DEBUG_PRINTLN("Device restart requested via API");
-      
-      // Restart after a short delay to send response first
-      delay(1000);
-      ESP.restart();
-    },
-    {AuthType::LOCAL_ONLY}, WebModule::WM_POST,
-    API_DOC("Restart device", 
-           "Restarts the device immediately. All current connections will be terminated."));
+  webPlatform.registerApiRoute(
+      "/restart",
+      [](WebRequest &req, WebResponse &res) {
+        res.setContent(
+            "{\"success\":true,\"message\":\"Restarting device...\"}",
+            "application/json");
 
-  webPlatform.registerApiRoute("/factory-reset", 
-    [](WebRequest &req, WebResponse &res) {
-      DEBUG_PRINTLN("Factory reset requested via API");
-      
-      // Clear WiFi credentials
-      webPlatform.resetWiFiCredentials();
-      
-      res.setContent(
-          "{\"success\":true,\"message\":\"Factory reset complete. Restarting...\"}",
-          "application/json");
-      
-      // Restart after a short delay to send response first
-      delay(1000);
-      ESP.restart();
-    },
-    {AuthType::LOCAL_ONLY}, WebModule::WM_POST,
-    API_DOC("Factory reset device", 
-           "Clears all WiFi credentials and restarts the device in configuration mode."));
+        DEBUG_PRINTLN("Device restart requested via API");
+
+        // Restart after a short delay to send response first
+        delay(1000);
+        ESP.restart();
+      },
+      {AuthType::LOCAL_ONLY}, WebModule::WM_POST,
+      API_DOC("Restart device", "Restarts the device immediately. All current "
+                                "connections will be terminated."));
+
+  webPlatform.registerApiRoute(
+      "/factory-reset",
+      [](WebRequest &req, WebResponse &res) {
+        DEBUG_PRINTLN("Factory reset requested via API");
+
+        // Clear WiFi credentials
+        webPlatform.resetWiFiCredentials();
+
+        res.setContent("{\"success\":true,\"message\":\"Factory reset "
+                       "complete. Restarting...\"}",
+                       "application/json");
+
+        // Restart after a short delay to send response first
+        delay(1000);
+        ESP.restart();
+      },
+      {AuthType::LOCAL_ONLY}, WebModule::WM_POST,
+      API_DOC("Factory reset device",
+              "Clears all WiFi credentials and restarts the device in "
+              "configuration mode."));
 
   // Register modules if you have any
   // webPlatform.registerModule("/sensors", &sensorModule);
@@ -236,8 +254,22 @@ void setup() {
 
   // Initialize WebPlatform with device name
   DEBUG_PRINTLN("Initializing WebPlatform...");
+  webPlatform.setSystemVersion("1.0.0");
   webPlatform.begin("MyDevice");
-  
+
+  // Demonstrate storage system usage
+  if (webPlatform.isConnected()) {
+    // Store some basic configuration using the default JSON driver (fast
+    // access)
+    StorageManager::query("config").store("device_name", "MyDevice");
+    StorageManager::query("config").store("version", "1.0.0");
+
+    // Example of using LittleFS driver for larger data
+    String deviceInfo = "{\"model\":\"ESP32\",\"firmware\":\"1.0.0\","
+                        "\"features\":[\"wifi\",\"https\",\"webui\"]}";
+    StorageManager::driver("littlefs").store("device", "info", deviceInfo);
+  }
+
   // Log initialization results
   if (webPlatform.isConnected()) {
     DEBUG_PRINTLN("=== Basic WebPlatform Application Ready ===");
@@ -250,7 +282,8 @@ void setup() {
 #if WEB_PLATFORM_OPENAPI
     DEBUG_PRINTLN("OpenAPI Documentation: Enabled");
 #else
-    DEBUG_PRINTLN("OpenAPI Documentation: Disabled (enable with -DWEB_PLATFORM_OPENAPI=1)");
+    DEBUG_PRINTLN("OpenAPI Documentation: Disabled (enable with "
+                  "-DWEB_PLATFORM_OPENAPI=1)");
 #endif
   } else {
     DEBUG_PRINTLN("=== Running in WiFi Configuration Mode ===");
@@ -271,8 +304,11 @@ void loop() {
 
   // Optional: Add some indication of operation with different blink rates
   static unsigned long lastBlink = 0;
-  unsigned long blinkInterval = webPlatform.isConnected() ? 2000 : 500; // Slow when connected, fast when configuring
-  
+  unsigned long blinkInterval =
+      webPlatform.isConnected()
+          ? 2000
+          : 500; // Slow when connected, fast when configuring
+
   if (millis() - lastBlink > blinkInterval) {
     lastBlink = millis();
     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));

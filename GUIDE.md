@@ -297,20 +297,20 @@ WebPlatform includes a flexible storage system inspired by Laravel's database ar
 ```cpp
 // Use default driver (JSON) - good for small, frequent data
 StorageManager::query("users")
-  ->store("user1", userObject.toJson());
+  .store("user1", userObject.toJson());
 
 // Query with conditions
 String userData = StorageManager::query("users")
-  ->where("username", "admin")
-  ->get();
+  .where("username", "admin")
+  .get();
 
 // Use specific driver - LittleFS for larger data
 StorageManager::driver("littlefs")
-  ->store("documents", "large_spec", openApiSpec);
+  .store("documents", "large_spec", openApiSpec);
 
 // Mixed storage strategy
-StorageManager::driver("json")->store("config", "current_user", "user123");     // Fast access
-StorageManager::driver("littlefs")->store("profiles", "user123", profileData);  // Large data
+StorageManager::driver("json").store("config", "current_user", "user123");     // Fast access
+StorageManager::driver("littlefs").store("profiles", "user123", profileData);  // Large data
 ```
 
 ### Multi-Driver Architecture
@@ -326,7 +326,7 @@ void setupOptimalStorage() {
   AuthStorage::initialize("json");
   
   // Application can use LittleFS for documents
-  StorageManager::driver("littlefs")->store("logs", timestamp, logData);
+  StorageManager::driver("littlefs").store("logs", timestamp, logData);
 }
 ```
 
@@ -652,10 +652,10 @@ void setup() {
         // API endpoint using mixed storage
         webPlatform.registerApiRoute("/data", [](WebRequest& req, WebResponse& res) {
             // Get current user from fast JSON storage
-            String userId = StorageManager::driver("json")->retrieve("sessions", "current");
+            String userId = StorageManager::driver("json").retrieve("sessions", "current");
             
             // Get large profile from LittleFS storage
-            String profileData = StorageManager::driver("littlefs")->retrieve("profiles", userId);
+            String profileData = StorageManager::driver("littlefs").retrieve("profiles", userId);
             
             res.setContent(profileData, "application/json");
         }, {AuthType::TOKEN});
@@ -664,18 +664,18 @@ void setup() {
 
 void setupOptimalStorage() {
     // Small config data -> JSON driver (fast access)
-    StorageManager::driver("json")->store("config", "device_name", "MyDevice");
-    StorageManager::driver("json")->store("sessions", "current", "user123");
+    StorageManager::driver("json").store("config", "device_name", "MyDevice");
+    StorageManager::driver("json").store("sessions", "current", "user123");
     
     // Large documents -> LittleFS driver (scalable storage)
     String largeSpec = generateOpenAPISpec();  // Could be 20KB+
-    StorageManager::driver("littlefs")->store("docs", "api_spec", largeSpec);
+    StorageManager::driver("littlefs").store("docs", "api_spec", largeSpec);
 }
 
 String generateStorageStatsPage() {
     // Get stats from both drivers
     LittleFSDatabaseDriver* fs = static_cast<LittleFSDatabaseDriver*>(
-        StorageManager::driver("littlefs")
+        &StorageManager::driver("littlefs")
     );
     
     String stats = fs ? fs->getFilesystemStats() : "{}";

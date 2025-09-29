@@ -40,7 +40,7 @@ void WebPlatform::createOpenAPIDocumentStructure(
   JsonObject info = doc.createNestedObject("info");
   info["title"] = title;
   info["description"] = description;
-  info["version"] = "1.0.0";
+  info["version"] = getSystemVersion();
 
   JsonArray servers = doc.createNestedArray("servers");
   JsonObject server = servers.createNestedObject();
@@ -261,7 +261,7 @@ bool WebPlatform::generateAndStoreSpec(
   }
 
   // Store in storage system with enhanced diagnostics
-  IDatabaseDriver *driver = StorageManager::driver("littlefs");
+  IDatabaseDriver *driver = &StorageManager::driver("littlefs");
   if (!driver) {
     ERROR_PRINTF("ERROR: LittleFS storage driver unavailable for %s spec\n",
                  specType.c_str());
@@ -364,7 +364,7 @@ void WebPlatform::generateOpenAPISpec() {
   DEBUG_PRINTLN("WebPlatform: Generating OpenAPI specification to storage "
                 "using temporary context...");
 
-  IDatabaseDriver *driver = StorageManager::driver("littlefs");
+  IDatabaseDriver *driver = &StorageManager::driver("littlefs");
   if (!driver) {
     ERROR_PRINTLN(
         "ERROR: LittleFS storage driver unavailable for OpenAPI generation!");
@@ -484,7 +484,7 @@ void WebPlatform::streamPreGeneratedOpenAPISpec(WebResponse &res) const {
   }
 
   // Retrieve from storage system
-  IDatabaseDriver *driver = StorageManager::driver("littlefs");
+  IDatabaseDriver *driver = &StorageManager::driver("littlefs");
   if (!driver) {
     ERROR_PRINTLN(
         "WebPlatform: LittleFS storage driver unavailable for OpenAPI spec");
@@ -541,7 +541,7 @@ void WebPlatform::streamPreGeneratedMakerAPISpec(WebResponse &res) const {
   }
 
   // Retrieve from storage system
-  IDatabaseDriver *driver = StorageManager::driver("littlefs");
+  IDatabaseDriver *driver = &StorageManager::driver("littlefs");
   if (!driver) {
     ERROR_PRINTLN(
         "WebPlatform: LittleFS storage driver unavailable for Maker API spec");

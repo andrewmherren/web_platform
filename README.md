@@ -2,6 +2,14 @@
 
 A comprehensive web development platform for ESP32 that provides a unified framework for building web-enabled embedded applications.
 
+## 🚀 Quick Start
+
+**New to WebPlatform?** Get your ESP32 web application running in minutes:
+
+👉 **[Quick Start Guide](QUICK_START.md)** - 5-minute setup with code examples  
+⚙️ **[Configuration Template](platformio.ini.example)** - Copy-paste PlatformIO config  
+📋 **[Working Examples](examples/README.md)** - Complete code samples
+
 ## Documentation
 
 - [User Guide](GUIDE.md) - Detailed usage instructions and examples

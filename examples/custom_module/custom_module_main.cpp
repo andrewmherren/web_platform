@@ -32,6 +32,7 @@ void setup() {
   // register modules
   webPlatform.registerModule("/sensors", &sensorModule);
   // Initialize WebPlatform
+  webPlatform.setSystemVersion("1.0.0");
   webPlatform.begin("SensorDevice");
 
   if (webPlatform.isConnected()) {
