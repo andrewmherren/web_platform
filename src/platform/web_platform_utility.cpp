@@ -53,7 +53,7 @@ String WebPlatform::prepareHtml(String html, WebRequest req,
         }
       }
 
-      navHtml = IWebModule::generateNavigationHtml(isAuthenticated);
+      navHtml = webPlatform.generateNavigationHtml(isAuthenticated);
 
       csrfTokenValue = csrfToken.isEmpty()
                            ? AuthStorage::createPageToken(req.getClientIp())

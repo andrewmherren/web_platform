@@ -4,10 +4,13 @@
 #include "interface/auth_types.h"
 #include "interface/openapi_generation_context.h"
 #include "interface/openapi_types.h"
+#include "interface/platform_service.h"
 #include "interface/web_module_interface.h"
 #include "interface/web_request.h"
 #include "interface/web_response.h"
+#include "navigation_types.h"
 #include "platform/ntp_client.h"
+#include "redirect_types.h"
 #include "storage/storage_manager.h"
 #include "utilities/debug_macros.h"
 #include "utilities/json_response_builder.h"
@@ -161,6 +164,21 @@ public:
   String getDeviceName() const override { return deviceName; }
   bool isHttpsEnabled() const override { return httpsEnabled; }
 
+  // Navigation menu management (moved from IWebModule)
+  void setNavigationMenu(const std::vector<NavigationItem> &items);
+  std::vector<NavigationItem> getNavigationMenu() const;
+  String generateNavigationHtml(bool isAuthenticated = false) const;
+
+  // Custom error page management (moved from IWebModule)
+  void setErrorPage(int statusCode, const String &html);
+  String getErrorPage(int statusCode) const;
+  String generateDefaultErrorPage(int statusCode,
+                                  const String &message = "") const;
+
+  // URL redirect management (moved from IWebModule)
+  void addRedirect(const String &fromPath, const String &toPath);
+  String getRedirectTarget(const String &requestPath) const;
+
   String prepareHtml(String html, WebRequest req, const String &csrfToken = "");
 
   // Pre-generated OpenAPI serving
@@ -311,6 +329,11 @@ private:                            // Core server components
   // Callbacks and state tracking
   WiFiSetupCompleteCallback setupCompleteCallback;
   bool callbackCalled;
+
+  // UI management storage
+  std::vector<NavigationItem> navigationMenu;
+  std::map<int, String> errorPages;        // Custom error pages by status code
+  std::vector<RedirectRule> redirectRules; // URL redirect rules
 
   // Module registry structures
   struct PendingModule {

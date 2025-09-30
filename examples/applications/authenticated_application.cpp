@@ -465,7 +465,7 @@ void setup() {
       NavigationItem("Status", "/status"),
       Authenticated(NavigationItem("Logout", "/logout")),
       Unauthenticated(NavigationItem("Login", "/login"))};
-  IWebModule::setNavigationMenu(navItems);
+  webPlatform.setNavigationMenu(navItems);
 
   // Register secure modules
   // webPlatform.registerModule("/secure", &secureModule);

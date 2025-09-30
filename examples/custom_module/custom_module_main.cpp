@@ -27,7 +27,7 @@ void setup() {
       NavigationItem("Environmental", "/sensors/"),
       Authenticated(NavigationItem("Account", "/account")),
       NavigationItem("System Info", "/status")};
-  IWebModule::setNavigationMenu(navItems);
+  webPlatform.setNavigationMenu(navItems);
 
   // register modules
   webPlatform.registerModule("/sensors", &sensorModule);

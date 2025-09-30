@@ -235,10 +235,10 @@ void setup() {
   std::vector<NavigationItem> navItems = {
       NavigationItem("Home", "/"), NavigationItem("About", "/about"),
       NavigationItem("Settings", "/settings")};
-  IWebModule::setNavigationMenu(navItems);
+  webPlatform.setNavigationMenu(navItems);
 
   // Set up custom error pages (optional)
-  IWebModule::setErrorPage(404, R"(
+  webPlatform.setErrorPage(404, R"(
         <html><head><title>Page Not Found</title></head><body>
             <h1>404 - Page Not Found</h1>
             <p>The requested page could not be found.</p>
@@ -250,8 +250,8 @@ void setup() {
   // webPlatform.registerModule("/sensors", &sensorModule);
 
   // Add URL redirects (optional)
-  IWebModule::addRedirect("/config", "/settings");
-  IWebModule::addRedirect("/home", "/");
+  webPlatform::addRedirect("/config", "/settings");
+  webPlatform::addRedirect("/home", "/");
 
   // Initialize WebPlatform with device name
   DEBUG_PRINTLN("Initializing WebPlatform...");

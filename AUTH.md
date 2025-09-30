@@ -38,7 +38,7 @@ void setup() {
         Authenticated(NavigationItem("Logout", "/logout")),
         Unauthenticated(NavigationItem("Login", "/login"))
     };
-    IWebModule::setNavigationMenu(navItems);
+    webPlatform.setNavigationMenu(navItems);
     
     webPlatform.begin("SecureDevice");
     

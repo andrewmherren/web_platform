@@ -197,7 +197,7 @@ void WebPlatform::configureHttpsServer() {
         }
 
         // No wildcard match found, show actual 404 page
-        String errorPage = IWebModule::getErrorPage(404);
+        String errorPage = webPlatform.getErrorPage(404);
         if (errorPage.length() > 0) {
           // Process error page through template system for bookmark replacement
           String processedErrorPage =

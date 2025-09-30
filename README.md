@@ -56,7 +56,7 @@ void setup() {
         Authenticated(NavigationItem("Logout", "/logout")),
         Unauthenticated(NavigationItem("Login", "/login"))
     };
-    IWebModule::setNavigationMenu(navItems);
+    webPlatform.setNavigationMenu(navItems);
 
     // Initialize WebPlatform (auto-detects HTTPS capability)
     webPlatform.begin("MyDevice");

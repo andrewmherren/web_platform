@@ -1,45 +1,17 @@
-#include "interface/web_module_interface.h"
+#include "web_platform.h"
 #include "storage/auth_storage.h"
-
-// PROGMEM storage pool for navigation strings to avoid heap fragmentation
-// Maximum 16 navigation items with up to 64 chars each for name/url/target
-static char navStringPool[16 * 3 * 64] = {0};
-static int navStringPoolIndex = 0;
-
-// Helper function to copy String to PROGMEM pool and return pointer
-static const char *copyToStringPool(const String &str) {
-  if (navStringPoolIndex + str.length() + 1 >= sizeof(navStringPool)) {
-    WARN_PRINTLN(
-        "WARNING: Navigation string pool exhausted, using heap allocation");
-    // Fallback to heap allocation (not ideal but prevents crash)
-    char *heapCopy = (char *)malloc(str.length() + 1);
-    if (heapCopy) {
-      strcpy(heapCopy, str.c_str());
-    }
-    return heapCopy;
-  }
-
-  char *poolPtr = navStringPool + navStringPoolIndex;
-  strcpy(poolPtr, str.c_str());
-  navStringPoolIndex += str.length() + 1;
-  return poolPtr;
-}
-
-// Initialize static variables
-std::vector<NavigationItem> IWebModule::navigationMenu;
-std::map<int, String> IWebModule::errorPages;
-std::vector<RedirectRule> IWebModule::redirectRules;
+#include "utilities/debug_macros.h"
 
 // Navigation Menu System
-void IWebModule::setNavigationMenu(const std::vector<NavigationItem> &items) {
+void WebPlatform::setNavigationMenu(const std::vector<NavigationItem> &items) {
   navigationMenu = items;
 }
 
-std::vector<NavigationItem> IWebModule::getNavigationMenu() {
+std::vector<NavigationItem> WebPlatform::getNavigationMenu() const {
   return navigationMenu;
 }
 
-String IWebModule::generateNavigationHtml(bool isAuthenticated) {
+String WebPlatform::generateNavigationHtml(bool isAuthenticated) const {
   DEBUG_PRINTLN("generateNavigationHtml called, isAuthenticated: " +
                 String(isAuthenticated ? "true" : "false"));
   DEBUG_PRINTLN("Navigation menu size: " + String(navigationMenu.size()));
@@ -97,11 +69,11 @@ String IWebModule::generateNavigationHtml(bool isAuthenticated) {
 }
 
 // Error Page Customization
-void IWebModule::setErrorPage(int statusCode, const String &html) {
+void WebPlatform::setErrorPage(int statusCode, const String &html) {
   errorPages[statusCode] = html;
 }
 
-String IWebModule::getErrorPage(int statusCode) {
+String WebPlatform::getErrorPage(int statusCode) const {
   auto it = errorPages.find(statusCode);
   if (it != errorPages.end()) {
     return it->second;
@@ -111,8 +83,7 @@ String IWebModule::getErrorPage(int statusCode) {
   return generateDefaultErrorPage(statusCode);
 }
 
-String IWebModule::generateDefaultErrorPage(int statusCode,
-                                            const String &message) {
+String WebPlatform::generateDefaultErrorPage(int statusCode, const String &message) const {
   // Optimized error page generation with PROGMEM templates
 
   // Pre-allocate result string with estimated size
@@ -237,12 +208,12 @@ String IWebModule::generateDefaultErrorPage(int statusCode,
 }
 
 // Route Redirection System (simplified for embedded use)
-void IWebModule::addRedirect(const String &fromPath, const String &toPath) {
+void WebPlatform::addRedirect(const String &fromPath, const String &toPath) {
   // Simple exact path matching only - no dynamic manipulation needed
   redirectRules.push_back(RedirectRule(fromPath, toPath));
 }
 
-String IWebModule::getRedirectTarget(const String &requestPath) {
+String WebPlatform::getRedirectTarget(const String &requestPath) const {
   // Simple exact path matching only
   for (const auto &rule : redirectRules) {
     if (String(rule.fromPath) == requestPath) {
@@ -253,27 +224,3 @@ String IWebModule::getRedirectTarget(const String &requestPath) {
   // No redirect found
   return "";
 }
-
-// Implementation of backward compatibility constructors for NavigationItem
-NavigationItem::NavigationItem(const String &n, const String &u)
-    : name(copyToStringPool(n)), url(copyToStringPool(u)), target(""),
-      visibility(NavAuthVisibility::ALWAYS) {}
-
-NavigationItem::NavigationItem(const String &n, const String &u,
-                               const String &t)
-    : name(copyToStringPool(n)), url(copyToStringPool(u)),
-      target(copyToStringPool(t)), visibility(NavAuthVisibility::ALWAYS) {}
-
-NavigationItem::NavigationItem(const String &n, const String &u,
-                               NavAuthVisibility vis)
-    : name(copyToStringPool(n)), url(copyToStringPool(u)), target(""),
-      visibility(vis) {}
-
-NavigationItem::NavigationItem(const String &n, const String &u,
-                               const String &t, NavAuthVisibility vis)
-    : name(copyToStringPool(n)), url(copyToStringPool(u)),
-      target(copyToStringPool(t)), visibility(vis) {}
-
-// Implementation of backward compatibility constructor for RedirectRule
-RedirectRule::RedirectRule(const String &from, const String &to)
-    : fromPath(copyToStringPool(from)), toPath(copyToStringPool(to)) {}

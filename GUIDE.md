@@ -394,7 +394,7 @@ std::vector<NavigationItem> navItems = {
     Authenticated(NavigationItem("Logout", "/logout")),
     Unauthenticated(NavigationItem("Login", "/login"))
 };
-IWebModule::setNavigationMenu(navItems);
+webPlatform.setNavigationMenu(navItems);
 ```
 
 **Authentication-aware Navigation Items**:
@@ -585,7 +585,7 @@ void setup() {
         NavigationItem("Settings", "/settings"),
         NavigationItem("About", "/about")
     };
-    IWebModule::setNavigationMenu(navItems);
+    webPlatform.setNavigationMenu(navItems);
     
     // Initialize WebPlatform
     webPlatform.begin("MyDevice");

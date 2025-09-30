@@ -210,7 +210,7 @@ std::vector<NavigationItem> navItems = {
     NavigationItem("Settings", "/config"),
     NavigationItem("Help", "/help", "_blank")  // Opens in new tab
 };
-IWebModule::setNavigationMenu(navItems);
+webPlatform.setNavigationMenu(navItems);
 ```
 
 ## Security Considerations

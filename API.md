@@ -596,10 +596,10 @@ void demonstrateStorageStrategy() {
 
 ```cpp
 // Set custom error page for specific status code
-IWebModule::setErrorPage(404, "<html><body><h1>Not Found</h1></body></html>");
+webPlatform.setErrorPage(404, "<html><body><h1>Not Found</h1></body></html>");
 
 // Generate default error page with custom message
-String errorPage = IWebModule::generateDefaultErrorPage(500, "Database connection failed");
+String errorPage = webPlatform.generateDefaultErrorPage(500, "Database connection failed");
 ```
 
 ### Responding with Errors
@@ -609,7 +609,7 @@ String errorPage = IWebModule::generateDefaultErrorPage(500, "Database connectio
 void errorHandler(WebRequest& req, WebResponse& res) {
     // Return 404 Not Found
     res.setStatus(404);
-    res.setContent(IWebModule::getErrorPage(404), "text/html");
+    res.setContent(webPlatform.getErrorPage(404), "text/html");
     
     // Alternative: JSON error
     res.setStatus(400);

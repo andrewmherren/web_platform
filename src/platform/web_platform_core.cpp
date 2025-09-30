@@ -192,7 +192,7 @@ void WebPlatform::handleNotFound() {
   }
 
   // Check for any redirect rules
-  String redirectTarget = IWebModule::getRedirectTarget(server->uri());
+  String redirectTarget = webPlatform.getRedirectTarget(server->uri());
   if (redirectTarget.length() > 0) {
     DEBUG_PRINTF("WebPlatform: Redirecting %s to %s\n", server->uri().c_str(),
                  redirectTarget.c_str());
@@ -231,7 +231,7 @@ void WebPlatform::handleNotFound() {
   }
 
   // Use IWebModule error page system if no wildcard routes matched
-  String errorPage = IWebModule::getErrorPage(404);
+  String errorPage = webPlatform.getErrorPage(404);
   if (errorPage.length() > 0) {
     // Process error page through template system for bookmark replacement
     WebRequest errorRequest(server);
@@ -596,7 +596,7 @@ void WebPlatform::handleInitializationError(const String &error) {
   pendingModules.clear();
 
   // Setup basic error page
-  IWebModule::setErrorPage(
+  webPlatform.setErrorPage(
       500, F("<h1>System Initialization Error</h1>"
              "<p>The system encountered an error during startup.</p>"
              "<p>Please check the serial console for details.</p>"
