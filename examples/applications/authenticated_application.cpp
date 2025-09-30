@@ -20,23 +20,8 @@
 // #include <secure_device_module.h>
 // SecureDeviceModule secureModule;
 
-void setup() {
-  Serial.begin(115200);
-  DEBUG_PRINTLN("Starting Authenticated WebPlatform Application...");
-
-  // Set up navigation menu with authentication-aware
-  // items
-  std::vector<NavigationItem> navItems = {
-      NavigationItem("Dashboard", "/"),
-      NavigationItem("Device Control", "/control"),
-      NavigationItem("Examples", "/examples"),
-      Authenticated(NavigationItem("Account", "/account")),
-      NavigationItem("Status", "/status"),
-      Authenticated(NavigationItem("Logout", "/logout")),
-      Unauthenticated(NavigationItem("Login", "/login"))};
-  IWebModule::setNavigationMenu(navItems);
-
-  // Register all routes prior to calling webPlatform.begin()
+void setupApplicationRoutes() {
+  Serial.println("Setting up custom application routes...");
 
   // Protected dashboard (requires login)
   webPlatform.registerWebRoute(
@@ -464,6 +449,23 @@ else:
       WebModule::WM_POST,
       API_DOC("Execute device commands", "Execute system commands like status "
                                          "check, restart, or WiFi reset."));
+}
+
+void setup() {
+  Serial.begin(115200);
+  DEBUG_PRINTLN("Starting Authenticated WebPlatform Application...");
+
+  // Set up navigation menu with authentication-aware
+  // items
+  std::vector<NavigationItem> navItems = {
+      NavigationItem("Dashboard", "/"),
+      NavigationItem("Device Control", "/control"),
+      NavigationItem("Examples", "/examples"),
+      Authenticated(NavigationItem("Account", "/account")),
+      NavigationItem("Status", "/status"),
+      Authenticated(NavigationItem("Logout", "/logout")),
+      Unauthenticated(NavigationItem("Login", "/login"))};
+  IWebModule::setNavigationMenu(navItems);
 
   // Register secure modules
   // webPlatform.registerModule("/secure", &secureModule);
@@ -474,8 +476,13 @@ else:
 
   // Initialize WebPlatform
   DEBUG_PRINTLN("Initializing Secure WebPlatform...");
-  webPlatform.setSystemVersion("1.0.0");
-  webPlatform.begin("SecureDevice");
+  webPlatform.begin("SecureDevice", "1.0.0");
+
+  // register application routes after webPlatform.begin() this allows
+  // the webPlatform to register its internal routes first so that
+  // if you reregister the same route (ex /assets/style.css /asset/favicon.ico)
+  // your registrations will override the defaults
+  setupApplicationRoutes();
 
   if (webPlatform.isConnected()) {
     DEBUG_PRINTLN("=== Authenticated WebPlatform Application Ready ===");

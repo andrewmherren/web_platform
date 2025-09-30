@@ -19,27 +19,8 @@
 // #include <sensor_module.h>
 // SensorModule sensorModule;
 
-void setup() {
-  Serial.begin(115200);
-  DEBUG_PRINTLN("Starting Basic WebPlatform Application...");
-
-  // Set up the navigation menu using PROGMEM-friendly const char* strings
-  std::vector<NavigationItem> navItems = {
-      NavigationItem("Home", "/"), NavigationItem("About", "/about"),
-      NavigationItem("Settings", "/settings")};
-  IWebModule::setNavigationMenu(navItems);
-
-  // Set up custom error pages (optional)
-  IWebModule::setErrorPage(404, R"(
-        <html><head><title>Page Not Found</title></head><body>
-            <h1>404 - Page Not Found</h1>
-            <p>The requested page could not be found.</p>
-            <a href="/">Return Home</a>
-        </body></html>
-    )");
-
-  // Register routes before calling webPlatform.begin()
-
+void setupApplicationRoutes() {
+  Serial.println("Setting up custom application routes...");
   // Register custom home page using current patterns
   webPlatform.registerWebRoute(
       "/",
@@ -244,6 +225,26 @@ void setup() {
       API_DOC("Factory reset device",
               "Clears all WiFi credentials and restarts the device in "
               "configuration mode."));
+}
+
+void setup() {
+  Serial.begin(115200);
+  DEBUG_PRINTLN("Starting Basic WebPlatform Application...");
+
+  // Set up the navigation menu using PROGMEM-friendly const char* strings
+  std::vector<NavigationItem> navItems = {
+      NavigationItem("Home", "/"), NavigationItem("About", "/about"),
+      NavigationItem("Settings", "/settings")};
+  IWebModule::setNavigationMenu(navItems);
+
+  // Set up custom error pages (optional)
+  IWebModule::setErrorPage(404, R"(
+        <html><head><title>Page Not Found</title></head><body>
+            <h1>404 - Page Not Found</h1>
+            <p>The requested page could not be found.</p>
+            <a href="/">Return Home</a>
+        </body></html>
+    )");
 
   // Register modules if you have any
   // webPlatform.registerModule("/sensors", &sensorModule);
@@ -254,15 +255,19 @@ void setup() {
 
   // Initialize WebPlatform with device name
   DEBUG_PRINTLN("Initializing WebPlatform...");
-  webPlatform.setSystemVersion("1.0.0");
-  webPlatform.begin("MyDevice");
+  webPlatform.begin("MyDevice", "1.0.0");
+
+  // register application routes after webPlatform.begin() this allows
+  // the webPlatform to register its internal routes first so that
+  // if you reregister the same route (ex /assets/style.css /asset/favicon.ico)
+  // your registrations will override the defaults
+  setupApplicationRoutes();
 
   // Demonstrate storage system usage
   if (webPlatform.isConnected()) {
     // Store some basic configuration using the default JSON driver (fast
     // access)
-    StorageManager::query("config").store("device_name", "MyDevice");
-    StorageManager::query("config").store("version", "1.0.0");
+    StorageManager::query("config").store("my_config", "test123");
 
     // Example of using LittleFS driver for larger data
     String deviceInfo = "{\"model\":\"ESP32\",\"firmware\":\"1.0.0\","

@@ -45,13 +45,18 @@ enum WiFiConnectionState {
 struct PlatformConfig {
   uint16_t maxUriHandlers = 60; // ESP32 HTTPS server route limit
   uint16_t stackSize = 8192;    // Server task stack size
-  bool forceHttpsOnly = false;  // Force HTTPS-only mode
+  bool forceHttpsOnly = true;   // Force HTTPS-only mode (default true)
+  String systemVersion = "";    // Application version
 
   // Constructor for easy initialization
   PlatformConfig() = default;
 
   // Convenience constructor for common case
   PlatformConfig(bool httpsOnly) : forceHttpsOnly(httpsOnly) {}
+
+  // Convenience constructor with system version
+  PlatformConfig(bool httpsOnly, const String &version)
+      : forceHttpsOnly(httpsOnly), systemVersion(version) {}
 };
 
 // Callback function types
@@ -86,7 +91,10 @@ public:
   void setSystemVersion(const String &version) { systemVersion = version; }
 
   // Primary initialization - auto-detects mode and capabilities
-  void begin(const char *deviceName = "Device", bool forceHttpsOnly = false);
+  void begin(const char *deviceName = "Device");
+  void begin(const char *deviceName, const char *systemVersion);
+  void begin(const char *deviceName, const char *systemVersion,
+             bool forceHttpsOnly);
   void begin(const char *deviceName, const PlatformConfig &config);
 
   // Module pre-registration (must be called before begin())
@@ -337,6 +345,7 @@ private:                            // Core server components
   static const int WIFI_CONFIG_FLAG_ADDR = 128;
 
   // Platform initialization methods
+  void beginInternal(const char *deviceName, bool forceHttpsOnly);
   void initializeEEPROM();
   void determinePlatformMode();
   bool detectHttpsCapability();

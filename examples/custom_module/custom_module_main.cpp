@@ -32,8 +32,7 @@ void setup() {
   // register modules
   webPlatform.registerModule("/sensors", &sensorModule);
   // Initialize WebPlatform
-  webPlatform.setSystemVersion("1.0.0");
-  webPlatform.begin("SensorDevice");
+  webPlatform.begin("SensorDevice", "1.0.0");
 
   if (webPlatform.isConnected()) {
     DEBUG_PRINTLN("WiFi connected! Registering environmental sensor module...");

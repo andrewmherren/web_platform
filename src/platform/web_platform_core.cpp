@@ -48,10 +48,28 @@ WebPlatform::~WebPlatform() {
 
 void WebPlatform::begin(const char *deviceName, const PlatformConfig &config) {
   this->platformConfig = config;
-  begin(deviceName, config.forceHttpsOnly);
+  if (!config.systemVersion.isEmpty()) {
+    setSystemVersion(config.systemVersion);
+  }
+  beginInternal(deviceName, config.forceHttpsOnly);
 }
 
-void WebPlatform::begin(const char *deviceName, bool forceHttpsOnly) {
+void WebPlatform::begin(const char *deviceName) {
+  beginInternal(deviceName, true); // Default to HTTPS enabled
+}
+
+void WebPlatform::begin(const char *deviceName, const char *systemVersion) {
+  setSystemVersion(String(systemVersion));
+  beginInternal(deviceName, true); // Default to HTTPS enabled
+}
+
+void WebPlatform::begin(const char *deviceName, const char *systemVersion,
+                        bool forceHttpsOnly) {
+  setSystemVersion(String(systemVersion));
+  beginInternal(deviceName, forceHttpsOnly);
+}
+
+void WebPlatform::beginInternal(const char *deviceName, bool forceHttpsOnly) {
   DEBUG_PRINTLN("WebPlatform: Starting initialization...");
 
   // Set up the global service reference
