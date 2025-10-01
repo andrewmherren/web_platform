@@ -7,54 +7,54 @@ void WebPlatform::registerConnectedModeRoutes() {
   registerWebRoute("/assets/favicon.svg",
                    std::bind(&WebPlatform::webPlatformFaviconHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   registerWebRoute("/assets/favicon.ico",
                    std::bind(&WebPlatform::webPlatformFaviconHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   registerWebRoute("/assets/style.css",
                    std::bind(&WebPlatform::styleCSSAssetHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   registerWebRoute("/assets/web-platform-style.css",
                    std::bind(&WebPlatform::webPlatformCSSAssetHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   registerWebRoute("/assets/web-platform-utils.js",
                    std::bind(&WebPlatform::webPlatformJSAssetHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   registerWebRoute("/assets/wifi.js",
                    std::bind(&WebPlatform::wifiJSAssetHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   registerWebRoute("/assets/system-status.js",
                    std::bind(&WebPlatform::systemStatusJSAssetHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   registerWebRoute("/assets/home-page.js",
                    std::bind(&WebPlatform::homePageJSAssetHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   // Home page
   registerWebRoute("/",
                    std::bind(&WebPlatform::rootPageHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   // System status
   registerWebRoute("/status",
                    std::bind(&WebPlatform::statusPageHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   // WiFi management page
   registerWebRoute("/wifi",

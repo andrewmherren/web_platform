@@ -197,6 +197,7 @@ For more information on WebPlatform features, see the [User Guide](GUIDE.md).
 The following modules are designed to work with WebPlatform:
 
 - **[Maker API](https://www.github.com/andrewmherren/maker_api)** - Interactive API documentation and testing interface specifically for maker-friendly public APIs
+- **[USB PD Controller](https://github.com/andrewmherren/usb_pd_controller)** - USB-C Power Delivery voltage and current control with web interface
 - More modules coming soon...
 
 ## Dual OpenAPI 3.0 Support
@@ -322,11 +323,14 @@ build_flags =
   -DWEB_PLATFORM_DEBUG=1
 ```
 
-## Related Projects
+## WebPlatform Modules
 
-- **[Maker API Module](https://github.com/andrewmherren/maker_api)**: Interactive API documentation interface
-- **ESP32 Arduino Core**: Underlying Arduino framework for ESP32
-- **PlatformIO**: Cross-platform development ecosystem
+The WebPlatform ecosystem includes specialized modules for common embedded applications:
+
+- **[Maker API Module](https://github.com/andrewmherren/maker_api)**: Interactive API documentation interface with OpenAPI 3.0 support, Swagger UI, and maker-friendly filtering
+- **[USB PD Controller](https://github.com/andrewmherren/usb_pd_controller)**: USB-C Power Delivery control module supporting 5V-20V output with real-time monitoring and configuration
+
+*More modules in development - contributions welcome!*
 
 ## License
 

@@ -46,7 +46,7 @@ void WebPlatform::registerConfigPortalRoutes() {
   registerWebRoute("/portal",
                    std::bind(&WebPlatform::configPortalPageHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::NONE}, WebModule::WM_GET);
+                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
 
   registerApiRoute("/wifi",
                    std::bind(&WebPlatform::wifiConfigHandler, this,

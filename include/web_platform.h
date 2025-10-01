@@ -8,10 +8,10 @@
 #include "interface/web_module_interface.h"
 #include "interface/web_request.h"
 #include "interface/web_response.h"
-#include "navigation_types.h"
 #include "platform/ntp_client.h"
-#include "redirect_types.h"
 #include "storage/storage_manager.h"
+#include "types/navigation_types.h"
+#include "types/redirect_types.h"
 #include "utilities/debug_macros.h"
 #include "utilities/json_response_builder.h"
 #include <ArduinoJson.h>

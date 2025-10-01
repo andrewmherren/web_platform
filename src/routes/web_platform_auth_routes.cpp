@@ -1,13 +1,12 @@
 #include "../../assets/account_page_html.h"
 #include "../../assets/login_page_html.h"
 #include "auth/auth_constants.h"
+#include "docs/auth_api_docs.h"
 #include "interface/auth_types.h"
 #include "interface/openapi_types.h"
 #include "storage/auth_storage.h"
 #include "web_platform.h"
 #include <functional>
-#include "docs/auth_api_docs.h"
-
 
 // In general, auth api routes should use Token and Session auth types because
 // only those two identify the actual user preforming interactions and we dont
@@ -19,32 +18,31 @@ void WebPlatform::registerAuthRoutes() {
   registerWebRoute("/assets/account-page.js",
                    std::bind(&WebPlatform::accountPageJSAssetHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   registerWebRoute("/login",
                    std::bind(&WebPlatform::loginPageHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   // POST handler for login form submission
   registerApiRoute("/login",
                    std::bind(&WebPlatform::loginApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_POST);
+                   {AuthType::NONE}, WebModule::WM_POST);
 
   // Logout endpoint
   registerWebRoute("/logout",
                    std::bind(&WebPlatform::logoutPageHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY});
+                   {AuthType::NONE});
 
   // User account page - requires session authentication
-  registerWebRoute(
-      "/account",
-      std::bind(&WebPlatform::accountPageHandler, this, std::placeholders::_1,
-                std::placeholders::_2),
-      {AuthType::SESSION});
-      
+  registerWebRoute("/account",
+                   std::bind(&WebPlatform::accountPageHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {AuthType::SESSION});
+
   // RESTful API endpoints for user management
 
   // List all users (admin only)
@@ -59,28 +57,28 @@ void WebPlatform::registerAuthRoutes() {
                    std::bind(&WebPlatform::createUserApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_POST,
-                    API_DOC_BLOCK(AuthApiDocs::createCreateUser()));
+                   API_DOC_BLOCK(AuthApiDocs::createCreateUser()));
 
   // Get specific user by ID
   registerApiRoute("/users/{id}",
                    std::bind(&WebPlatform::getUserByIdApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_GET,
-                    API_DOC_BLOCK(AuthApiDocs::createGetUserById()));
+                   API_DOC_BLOCK(AuthApiDocs::createGetUserById()));
 
   // Update specific user by ID
   registerApiRoute("/users/{id}",
                    std::bind(&WebPlatform::updateUserByIdApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_PUT,
-                    API_DOC_BLOCK(AuthApiDocs::createUpdateUserById()));
+                   API_DOC_BLOCK(AuthApiDocs::createUpdateUserById()));
 
   // Delete specific user by ID (admin only)
   registerApiRoute("/users/{id}",
                    std::bind(&WebPlatform::deleteUserByIdApiHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
                    {{AuthType::TOKEN, AuthType::SESSION}}, WebModule::WM_DELETE,
-                    API_DOC_BLOCK(AuthApiDocs::createDeleteUserById()));
+                   API_DOC_BLOCK(AuthApiDocs::createDeleteUserById()));
 
   // Current user convenience endpoints
 

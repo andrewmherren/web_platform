@@ -33,6 +33,7 @@ void setup() {
 
 void loop() {
   webPlatform.handle();
+  delay(10); // Allow ESP32 system tasks to run
 }
 ```
 

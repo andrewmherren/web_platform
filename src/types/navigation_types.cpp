@@ -1,4 +1,4 @@
-#include "navigation_types.h"
+#include "types/navigation_types.h"
 
 // PROGMEM storage pool for navigation strings to avoid heap fragmentation
 // Maximum 16 navigation items with up to 64 chars each for name/url/target
