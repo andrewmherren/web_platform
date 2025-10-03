@@ -82,8 +82,9 @@ bool LittleFSDatabaseDriver::isValidName(const String &name) {
   }
 
   // Check for invalid characters
-  const char *invalid = "<>:\"|?*";
-  for (size_t i = 0; i < strlen(invalid); i++) {
+  const char invalid[] = "<>:\"|?*";
+  // NOSONAR: String literal is compile-time null-terminated
+  for (size_t i = 0; i < sizeof(invalid) - 1; i++) {
     if (name.indexOf(invalid[i]) >= 0) {
       return false;
     }

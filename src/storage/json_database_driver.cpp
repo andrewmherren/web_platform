@@ -40,7 +40,8 @@ void JsonDatabaseDriver::loadCollection(const String &collection) {
 
   // Calculate dynamic buffer size based on data length
   size_t jsonSize = jsonData.length() + 512; // Add 512 byte buffer for parsing
-  if (jsonSize < 1024) jsonSize = 1024; // Minimum size
+  if (jsonSize < 1024)
+    jsonSize = 1024; // Minimum size
 
   // Parse JSON and populate cache
   DynamicJsonDocument doc(jsonSize);
@@ -50,9 +51,10 @@ void JsonDatabaseDriver::loadCollection(const String &collection) {
     JsonArray array = doc.as<JsonArray>();
     for (JsonObject item : array) {
       if (!item.isNull()) {
-        const char* keyStr = item["key"];
-        const char* dataStr = item["data"];
-        if (keyStr && dataStr && strlen(keyStr) > 0) {
+        const char *keyStr = item["key"];
+        const char *dataStr = item["data"];
+        if (keyStr && dataStr &&
+            keyStr[0] != '\0') { // NOSONAR: Safer than strlen for null-check
           cache[collection][String(keyStr)] = String(dataStr ? dataStr : "");
         }
       }
@@ -73,12 +75,12 @@ void JsonDatabaseDriver::saveCollection(const String &collection) {
 
   // Build JSON array from cache
   DynamicJsonDocument doc(jsonSize);
-  
+
   // Check if document allocation succeeded
   if (doc.capacity() == 0) {
     return; // Failed to allocate memory
   }
-  
+
   JsonArray array = doc.to<JsonArray>();
   if (array.isNull()) {
     return; // Failed to create array
@@ -95,7 +97,7 @@ void JsonDatabaseDriver::saveCollection(const String &collection) {
   String jsonData;
   size_t reserveSize = jsonSize > 256 ? jsonSize - 256 : 256;
   jsonData.reserve(reserveSize);
-  
+
   size_t serializedSize = serializeJson(doc, jsonData);
   if (serializedSize == 0) {
     return; // Serialization failed
@@ -213,39 +215,40 @@ void JsonDatabaseDriver::evictOldCollections() {
   }
 }
 
-size_t JsonDatabaseDriver::calculateJsonSize(const std::map<String, String>& collectionData) {
+size_t JsonDatabaseDriver::calculateJsonSize(
+    const std::map<String, String> &collectionData) {
   size_t estimatedSize = 200; // Base JSON structure overhead
   size_t maxSingleItem = 0;
-  
+
   for (const auto &pair : collectionData) {
     // More conservative estimate for nested JSON and escaping
     size_t keySize = pair.first.length();
     size_t dataSize = pair.second.length();
-    
+
     // Track largest single item for validation
     size_t itemSize = keySize + dataSize;
     if (itemSize > maxSingleItem) {
       maxSingleItem = itemSize;
     }
-    
+
     // Account for potential JSON escaping (quotes, backslashes, etc.)
     // and nested structures in data field
     estimatedSize += keySize * 2 + dataSize * 2 + 100;
-    
+
     // If a single item is very large, we need much more buffer
-    if (dataSize > 5000) { // Large document like OpenAPI spec
+    if (dataSize > 5000) {       // Large document like OpenAPI spec
       estimatedSize += dataSize; // Additional buffer for large documents
     }
   }
-  
+
   // Add 50% buffer for JSON formatting, escaping, and safety margin
   estimatedSize = (estimatedSize * 3) / 2;
-  
+
   // Ensure minimum size
   if (estimatedSize < 2048) {
     estimatedSize = 2048;
   }
-  
+
   // For very large single items, ensure we have enough space
   if (maxSingleItem > 10000) {
     size_t largeItemBuffer = maxSingleItem * 3; // 300% for very large items
@@ -253,18 +256,16 @@ size_t JsonDatabaseDriver::calculateJsonSize(const std::map<String, String>& col
       estimatedSize = largeItemBuffer;
     }
   }
-  
+
   // Cap maximum size to prevent excessive allocation
   if (estimatedSize > 65536) { // 64KB limit (increased from 32KB)
     estimatedSize = 65536;
   }
-  
+
   return estimatedSize;
 }
 
-size_t JsonDatabaseDriver::getCacheSize() const {
-  return cache.size();
-}
+size_t JsonDatabaseDriver::getCacheSize() const { return cache.size(); }
 
 void JsonDatabaseDriver::evictCollection(const String &collection) {
   auto it = cache.find(collection);

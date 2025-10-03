@@ -388,7 +388,7 @@ esp_err_t WebResponse::streamFromStorage(const String &collection,
                                          const String &driverName) {
   if (!req || collection.isEmpty() || key.isEmpty()) {
     const char *error = "{\"error\":\"Invalid storage parameters\"}";
-    return httpd_resp_send(req, error, strlen(error));
+    return httpd_resp_send(req, error, HTTPD_RESP_USE_STRLEN);
   }
 
   // Get specified storage driver for streaming
@@ -403,14 +403,14 @@ esp_err_t WebResponse::streamFromStorage(const String &collection,
   // Check if content exists without loading it
   if (!driver->exists(collection, key)) {
     const char *error = "{\"error\":\"Content not found in storage\"}";
-    return httpd_resp_send(req, error, strlen(error));
+    return httpd_resp_send(req, error, HTTPD_RESP_USE_STRLEN);
   }
 
   const size_t STORAGE_CHUNK_SIZE = 1024;
   char *buffer = (char *)malloc(STORAGE_CHUNK_SIZE + 1);
   if (!buffer) {
     const char *error = "{\"error\":\"Memory allocation failed\"}";
-    return httpd_resp_send(req, error, strlen(error));
+    return httpd_resp_send(req, error, HTTPD_RESP_USE_STRLEN);
   }
 
   // Load data with improved error handling
@@ -419,7 +419,7 @@ esp_err_t WebResponse::streamFromStorage(const String &collection,
     free(buffer);
     const char *error =
         "{\"error\":\"Failed to retrieve content from storage\"}";
-    return httpd_resp_send(req, error, strlen(error));
+    return httpd_resp_send(req, error, HTTPD_RESP_USE_STRLEN);
   }
 
   // Stream the data in chunks with improved error handling

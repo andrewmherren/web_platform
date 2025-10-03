@@ -76,7 +76,7 @@ const char *RouteStringPool::store(const String &str) {
 }
 
 const char *RouteStringPool::store(const char *str) {
-  if (!str || strlen(str) == 0) {
+  if (!str || *str == '\0') { // NOSONAR: Safer than strlen for null-check
     return nullptr;
   }
   return storage.store(String(str));

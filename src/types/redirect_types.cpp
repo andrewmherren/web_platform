@@ -12,13 +12,15 @@ static const char *copyToRedirectStringPool(const String &str) {
     // Fallback to heap allocation (not ideal but prevents crash)
     char *heapCopy = (char *)malloc(str.length() + 1);
     if (heapCopy) {
-      strcpy(heapCopy, str.c_str());
+      memcpy(heapCopy, str.c_str(), str.length());
+      heapCopy[str.length()] = '\0';
     }
     return heapCopy;
   }
 
   char *poolPtr = redirectStringPool + redirectStringPoolIndex;
-  strcpy(poolPtr, str.c_str());
+  memcpy(poolPtr, str.c_str(), str.length());
+  poolPtr[str.length()] = '\0';
   redirectStringPoolIndex += str.length() + 1;
   return poolPtr;
 }
