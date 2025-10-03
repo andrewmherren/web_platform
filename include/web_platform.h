@@ -87,7 +87,7 @@ public:
   ~WebPlatform();
 
   // System Version
-  String getPlatformVersion() const { return "0.1.0"; }
+  String getPlatformVersion() const { return "0.1.1"; }
   String getSystemVersion() const {
     return systemVersion.isEmpty() ? "0.0.0" : systemVersion;
   }
