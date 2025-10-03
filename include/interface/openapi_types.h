@@ -133,11 +133,7 @@ template <> struct OpenAPIDoc<false> {
   OpenAPIDoc &operator=(OpenAPIDoc &&) noexcept = default;
 
   template <typename... Args,
-            typename = std::enable_if_t<!(
-                sizeof...(Args) == 1 &&
-                std::is_same_v<
-                    std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>,
-                    OpenAPIDoc<false>>)>>
+            typename std::enable_if<!(sizeof...(Args) == 1), int>::type = 0>
   OpenAPIDoc(Args &&...args) {}
 
   // Builder pattern methods that do nothing but return self for chaining
