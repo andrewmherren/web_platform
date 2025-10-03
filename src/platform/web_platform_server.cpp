@@ -281,6 +281,7 @@ bool WebPlatform::getEmbeddedCertificates(const uint8_t **cert_data,
   }
 
   // Calculate sizes and set pointers
+  // NOSONAR: These are linker-generated symbols for embedded binary data
   *cert_len = server_cert_pem_end - server_cert_pem_start;
   *key_len = server_key_pem_end - server_key_pem_start;
   *cert_data = server_cert_pem_start;

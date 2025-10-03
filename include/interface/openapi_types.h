@@ -2,6 +2,7 @@
 #define OPENAPI_TYPES_H
 
 #include <Arduino.h>
+#include <type_traits>
 #include <vector>
 
 #ifndef WEB_PLATFORM_OPENAPI
@@ -131,7 +132,13 @@ template <> struct OpenAPIDoc<false> {
   OpenAPIDoc(OpenAPIDoc &&) noexcept = default;
   OpenAPIDoc &operator=(OpenAPIDoc &&) noexcept = default;
 
-  template <typename... Args> OpenAPIDoc(Args &&...args) {}
+  template <typename... Args,
+            std::enable_if_t<!(sizeof...(Args) == 1 &&
+                               std::is_same_v<std::decay_t<std::tuple_element_t<
+                                                  0, std::tuple<Args...>>>,
+                                              OpenAPIDoc>),
+                             int> = 0>
+  OpenAPIDoc(Args &&...args) {}
 
   // Builder pattern methods that do nothing but return self for chaining
   OpenAPIDoc &withRequestExample(const String &) { return *this; }
