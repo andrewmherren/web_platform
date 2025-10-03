@@ -5,10 +5,12 @@
 #include <vector>
 
 #ifndef WEB_PLATFORM_OPENAPI
+// NOSONAR: Build flags must use macros for conditional compilation
 #define WEB_PLATFORM_OPENAPI 1 // Default to enabled
 #endif
 
 #ifndef WEB_PLATFORM_MAKERAPI
+// NOSONAR: Build flags must use macros for conditional compilation
 #define WEB_PLATFORM_MAKERAPI 0 // Default to enabled
 #endif
 
@@ -33,6 +35,12 @@ private:
 public:
   // Default constructor
   OpenAPIDoc() = default;
+
+  // Copy/move constructors and assignment operators
+  OpenAPIDoc(const OpenAPIDoc &) = default;
+  OpenAPIDoc &operator=(const OpenAPIDoc &) = default;
+  OpenAPIDoc(OpenAPIDoc &&) noexcept = default;
+  OpenAPIDoc &operator=(OpenAPIDoc &&) noexcept = default;
 
   // Convenience constructor with common fields - tags are now optional
   OpenAPIDoc(const String &sum, const String &desc = "",
@@ -116,6 +124,12 @@ public:
 template <> struct OpenAPIDoc<false> {
   // Accept any constructor arguments and do nothing
   OpenAPIDoc() = default;
+
+  // Copy/move constructors and assignment operators
+  OpenAPIDoc(const OpenAPIDoc &) = default;
+  OpenAPIDoc &operator=(const OpenAPIDoc &) = default;
+  OpenAPIDoc(OpenAPIDoc &&) noexcept = default;
+  OpenAPIDoc &operator=(OpenAPIDoc &&) noexcept = default;
 
   template <typename... Args> OpenAPIDoc(Args &&...args) {}
 

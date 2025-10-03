@@ -37,7 +37,6 @@ public:
   createIdParameter(const String &name = "id",
                     const String &description = "Resource identifier");
 
-public:
   // Utility methods for operation ID generation and tag formatting
   static String generateOperationId(const String &method,
                                     const String &resource);

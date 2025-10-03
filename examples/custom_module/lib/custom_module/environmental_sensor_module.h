@@ -26,22 +26,23 @@
 class EnvironmentalSensorModule : public IWebModule {
 private:
   // Simulated sensor data
-  float temperature;
-  float humidity;
-  bool sensorEnabled;
-  String sensorLocation;
-  unsigned long lastReading;
+  float temperature = 23.5;
+  float humidity = 45.2;
+  bool sensorEnabled = true;
+  String sensorLocation = "Office";
+  unsigned long lastReading = 0;
 
   // Configuration
-  float tempThreshold;
-  float humidityThreshold;
-  bool alertsEnabled;
+  float tempThreshold = 30.0;
+  float humidityThreshold = 60.0;
+  bool alertsEnabled = true;
 
 public:
   // Constructor
   EnvironmentalSensorModule();
 
   // Module lifecycle methods
+  using IWebModule::begin;
   void begin() override;
   void handle() override;
 
@@ -82,4 +83,5 @@ private:
 };
 
 // Global instance of the module (declared here, defined in .cpp)
+// NOSONAR: This module instance must be mutable for state management
 extern EnvironmentalSensorModule sensorModule;

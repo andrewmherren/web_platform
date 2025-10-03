@@ -191,9 +191,8 @@ void setupApplicationRoutes() {
   webPlatform.registerApiRoute(
       "/restart",
       [](WebRequest &req, WebResponse &res) {
-        res.setContent(
-            "{\"success\":true,\"message\":\"Restarting device...\"}",
-            "application/json");
+        res.setContent(R"({"success":true,"message":"Restarting device..."})",
+                       "application/json");
 
         DEBUG_PRINTLN("Device restart requested via API");
 
@@ -213,9 +212,9 @@ void setupApplicationRoutes() {
         // Clear WiFi credentials
         webPlatform.resetWiFiCredentials();
 
-        res.setContent("{\"success\":true,\"message\":\"Factory reset "
-                       "complete. Restarting...\"}",
-                       "application/json");
+        res.setContent(
+            R"({"success":true,"message":"Factory reset complete. Restarting..."})",
+            "application/json");
 
         // Restart after a short delay to send response first
         delay(1000);
@@ -270,8 +269,8 @@ void setup() {
     StorageManager::query("config").store("my_config", "test123");
 
     // Example of using LittleFS driver for larger data
-    String deviceInfo = "{\"model\":\"ESP32\",\"firmware\":\"1.0.0\","
-                        "\"features\":[\"wifi\",\"https\",\"webui\"]}";
+    String deviceInfo =
+        R"({"model":"ESP32","firmware":"1.0.0","features":["wifi","https","webui"]})";
     StorageManager::driver("littlefs").store("device", "info", deviceInfo);
   }
 
@@ -301,11 +300,6 @@ void setup() {
 void loop() {
   // Handle all WebPlatform operations
   webPlatform.handle();
-
-  // Handle your modules (only when connected)
-  if (webPlatform.isConnected()) {
-    // sensorModule.handle();
-  }
 
   // Optional: Add some indication of operation with different blink rates
   static unsigned long lastBlink = 0;

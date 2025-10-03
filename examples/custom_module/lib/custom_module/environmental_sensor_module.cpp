@@ -6,10 +6,7 @@
 #include "environmental_sensor_docs.h"
 
 // Constructor
-EnvironmentalSensorModule::EnvironmentalSensorModule()
-    : temperature(23.5), humidity(45.2), sensorEnabled(true),
-      sensorLocation("Office"), lastReading(0), tempThreshold(30.0),
-      humidityThreshold(60.0), alertsEnabled(true) {
+EnvironmentalSensorModule::EnvironmentalSensorModule() {
   updateSensorReadings();
 }
 
@@ -272,10 +269,12 @@ void EnvironmentalSensorModule::getCurrentDataHandler(WebRequest &req,
                                                       WebResponse &res) {
   // Public endpoint - anyone can access current readings
   // Demonstrate JsonResponseBuilder for memory-safe JSON creation
-  JsonResponseBuilder::createResponse(res, [&](JsonObject &json) {
+  JsonResponseBuilder::createResponse(res, [temperature, humidity, lastReading,
+                                            sensorLocation,
+                                            sensorEnabled](JsonObject &json) {
     json["temperature"] = temperature;
     json["humidity"] = humidity;
-    json["timestamp"] = time(nullptr);
+    json["timestamp"] = std::chrono(nullptr);
     json["seconds_since_reading"] = (millis() - lastReading) / 1000;
     json["location"] = sensorLocation;
     json["status"] = sensorEnabled ? "active" : "disabled";
@@ -408,7 +407,7 @@ void EnvironmentalSensorModule::updateConfigHandler(WebRequest &req,
       newHumidityThreshold <= 0) {
     res.setStatus(400);
     res.setContent(
-        "{\"success\":false,\"error\":\"Invalid configuration parameters\"}",
+        R"({"success":false,"error":"Invalid configuration parameters"})",
         "application/json");
     return;
   }
@@ -428,7 +427,7 @@ void EnvironmentalSensorModule::updateConfigHandler(WebRequest &req,
   Serial.println("  Alerts: " + String(alertsEnabled ? "Enabled" : "Disabled"));
 
   res.setContent(
-      "{\"success\":true,\"message\":\"Configuration updated successfully\"}",
+      R"({"success":true,"message":"Configuration updated successfully"})",
       "application/json");
 }
 
@@ -436,29 +435,32 @@ void EnvironmentalSensorModule::getDataAPIHandler(WebRequest &req,
                                                   WebResponse &res) {
   // API endpoint for external systems (requires API token)
   // Use medium-sized response for complex JSON structure
-  JsonResponseBuilder::createResponse<512>(res, [&](JsonObject &json) {
-    JsonObject sensorInfo = json.createNestedObject("sensor_info");
-    sensorInfo["name"] = getModuleName();
-    sensorInfo["version"] = getModuleVersion();
-    sensorInfo["location"] = sensorLocation;
-    sensorInfo["enabled"] = sensorEnabled;
+  JsonResponseBuilder::createResponse<512>(
+      res, [temperature, humidity, lastReading, sensorLocation, sensorEnabled,
+            tempThreshold, humidityThreshold, alertsEnabled,
+            this](JsonObject &json) {
+        JsonObject sensorInfo = json["sensor_info"].to<JsonObject>();
+        sensorInfo["name"] = getModuleName();
+        sensorInfo["version"] = getModuleVersion();
+        sensorInfo["location"] = sensorLocation;
+        sensorInfo["enabled"] = sensorEnabled;
 
-    JsonObject readings = json.createNestedObject("current_readings");
-    readings["temperature"] = temperature;
-    readings["humidity"] = humidity;
-    readings["timestamp"] = millis() / 1000;
-    readings["last_update"] = (millis() - lastReading) / 1000;
+        JsonObject readings = json["current_readings"].to<JsonObject>();
+        readings["temperature"] = temperature;
+        readings["humidity"] = humidity;
+        readings["timestamp"] = millis() / 1000;
+        readings["last_update"] = (millis() - lastReading) / 1000;
 
-    JsonObject config = json.createNestedObject("configuration");
-    config["temp_threshold"] = tempThreshold;
-    config["humidity_threshold"] = humidityThreshold;
-    config["alerts_enabled"] = alertsEnabled;
+        JsonObject config = json["configuration"].to<JsonObject>();
+        config["temp_threshold"] = tempThreshold;
+        config["humidity_threshold"] = humidityThreshold;
+        config["alerts_enabled"] = alertsEnabled;
 
-    JsonObject status = json.createNestedObject("status");
-    status["temp_alert"] = temperature > tempThreshold;
-    status["humidity_alert"] = humidity > humidityThreshold;
-    status["operational"] = sensorEnabled;
-  });
+        JsonObject status = json["status"].to<JsonObject>();
+        status["temp_alert"] = temperature > tempThreshold;
+        status["humidity_alert"] = humidity > humidityThreshold;
+        status["operational"] = sensorEnabled;
+      });
 }
 
 void EnvironmentalSensorModule::controlAPIHandler(WebRequest &req,
@@ -469,28 +471,29 @@ void EnvironmentalSensorModule::controlAPIHandler(WebRequest &req,
 
   if (command == "refresh") {
     updateSensorReadings();
-    response = "{\"success\":true,\"message\":\"Sensor readings refreshed\"}";
+    response = R"({"success":true,"message":"Sensor readings refreshed"})";
 
   } else if (command == "enable") {
     sensorEnabled = true;
-    response = "{\"success\":true,\"message\":\"Sensor enabled\"}";
+    response = R"({"success":true,"message":"Sensor enabled"})";
 
   } else if (command == "disable") {
     sensorEnabled = false;
-    response = "{\"success\":true,\"message\":\"Sensor disabled\"}";
+    response = R"({"success":true,"message":"Sensor disabled"})";
 
   } else if (command == "reset-alerts") {
     // In real implementation, this would clear alert history
-    response = "{\"success\":true,\"message\":\"Alert history cleared\"}";
+    response = R"({"success":true,"message":"Alert history cleared"})";
 
   } else {
     res.setStatus(400);
     response =
-        "{\"success\":false,\"error\":\"Unknown command: " + command + "\"}";
+        R"({"success":false,"error":"Unknown command: )" + command + R"("})";
   }
 
   res.setContent(response, "application/json");
 }
 
 // Global instance of the module
+// NOSONAR: This module instance must be mutable for state management
 EnvironmentalSensorModule sensorModule;

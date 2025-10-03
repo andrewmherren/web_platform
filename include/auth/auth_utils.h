@@ -33,7 +33,7 @@ String bytesToHex(const uint8_t *bytes, size_t length);
 
 // Network/IP validation utilities
 struct IPAddress {
-  uint8_t bytes[4];
+  uint8_t bytes[4]; // NOSONAR: IPv4 address requires exactly 4 bytes
 
   IPAddress() { bytes[0] = bytes[1] = bytes[2] = bytes[3] = 0; }
   IPAddress(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {

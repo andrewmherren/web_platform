@@ -405,7 +405,7 @@ else:
       [](WebRequest &req, WebResponse &res) {
         if (req.getMethod() != WebModule::WM_POST) {
           res.setStatus(405);
-          res.setContent("{\"error\":\"Method not allowed\"}",
+          res.setContent(R"({"error":"Method not allowed"})",
                          "application/json");
           return;
         }
