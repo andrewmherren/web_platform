@@ -125,15 +125,6 @@ bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
 
   // If authentication failed, handle according to route type
   if (!authSuccess) {
-    // Special case: Check if initial setup is required for SESSION auth
-    if (AuthUtils::hasAuthType(requirements, AuthType::SESSION) &&
-        AuthStorage::requiresInitialSetup() &&
-        !req.getPath().startsWith("/setup")) {
-      // Initial setup needed - redirect to setup instead of login
-      res.redirect("/setup");
-      return false;
-    }
-
     if (req.getPath().startsWith("/api/")) {
       // API routes return 401 JSON
       res.setStatus(401);
@@ -141,8 +132,15 @@ bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
       res.setContent("{\"error\":\"unauthorized\",\"message\":\"Authentication "
                      "required\",\"code\":401}");
     } else if (AuthUtils::hasAuthType(requirements, AuthType::SESSION)) {
-      // UI routes redirect to login
-      res.redirect("/login?redirect=" + req.getPath());
+      // Special case: Check if initial setup is required
+      if (AuthStorage::requiresInitialSetup() &&
+          !req.getPath().startsWith("/setup")) {
+        // Initial setup needed - redirect to setup instead of login
+        res.redirect("/setup");
+      } else {
+        // Normal case - redirect to login
+        res.redirect("/login?redirect=" + req.getPath());
+      }
     } else {
       // Other routes get 403 Forbidden
       res.setStatus(403);

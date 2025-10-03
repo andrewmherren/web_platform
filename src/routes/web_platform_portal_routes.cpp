@@ -57,6 +57,12 @@ void WebPlatform::registerConfigPortalRoutes() {
       API_DOC("Set initial admin password",
               "Sets the initial admin password during first-time setup"));
 
+  // Captive portal catch-all routes for common detection URLs
+  registerWebRoute("/",
+                   std::bind(&WebPlatform::configPortalPageHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {AuthType::SESSION}, WebModule::WM_GET);
+
   // Register at multiple paths to ensure captive portal works
   registerWebRoute("/portal",
                    std::bind(&WebPlatform::configPortalPageHandler, this,
