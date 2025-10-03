@@ -1,5 +1,6 @@
 #include "docs/system_api_docs.h"
 #include "interface/openapi_types.h"
+#include "storage/auth_storage.h"
 #include "web_platform.h"
 #include <ArduinoJson.h>
 
@@ -42,11 +43,25 @@ void WebPlatform::registerConfigPortalRoutes() {
                              std::placeholders::_2),
                    {AuthType::NONE}, WebModule::WM_GET);
 
+  // Initial setup route (if admin password not set)
+  registerWebRoute("/setup",
+                   std::bind(&WebPlatform::initialSetupPageHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {AuthType::PAGE_TOKEN}, WebModule::WM_GET);
+
+  registerApiRoute(
+      "/setup",
+      std::bind(&WebPlatform::initialSetupHandler, this, std::placeholders::_1,
+                std::placeholders::_2),
+      {AuthType::PAGE_TOKEN}, WebModule::WM_POST,
+      API_DOC("Set initial admin password",
+              "Sets the initial admin password during first-time setup"));
+
   // Register at multiple paths to ensure captive portal works
   registerWebRoute("/portal",
                    std::bind(&WebPlatform::configPortalPageHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::SESSION}, WebModule::WM_GET);
 
   registerApiRoute("/wifi",
                    std::bind(&WebPlatform::wifiConfigHandler, this,

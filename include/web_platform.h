@@ -263,6 +263,8 @@ private:                            // Core server components
   void accountPageJSAssetHandler(WebRequest &req, WebResponse &res);
   void configPortalPageHandler(WebRequest &req, WebResponse &res);
   void configPortalSuccessJSAssetHandler(WebRequest &req, WebResponse &res);
+  void initialSetupPageHandler(WebRequest &req, WebResponse &res);
+  void initialSetupHandler(WebRequest &req, WebResponse &res);
   void webPlatformCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformJSAssetHandler(WebRequest &req, WebResponse &res);
   void wifiJSAssetHandler(WebRequest &req, WebResponse &res);

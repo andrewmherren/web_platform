@@ -28,10 +28,14 @@ void AuthStorage::createDefaultAdminUser() {
   std::vector<String> userKeys = driver->listKeys(USERS_COLLECTION);
 
   if (userKeys.empty()) {
-    // No users exist, create default admin
+    // No users exist, create default admin with empty password (requires
+    // initial setup)
     String salt = AuthUtils::generateSalt();
-    String hash =
-        AuthUtils::hashPassword(AuthConstants::DEFAULT_ADMIN_PASSWORD, salt);
+    String hash = "";
+    if (strlen(AuthConstants::DEFAULT_ADMIN_PASSWORD) > 0) {
+      hash =
+          AuthUtils::hashPassword(AuthConstants::DEFAULT_ADMIN_PASSWORD, salt);
+    }
 
     AuthUser admin(AuthConstants::DEFAULT_ADMIN_USERNAME, hash, salt);
 
@@ -40,6 +44,10 @@ void AuthStorage::createDefaultAdminUser() {
     if (stored) {
       DEBUG_PRINTF("AuthStorage: Created default admin user (ID: %s)\n",
                    admin.id.c_str());
+      if (hash.length() == 0) {
+        DEBUG_PRINTLN(
+            "AuthStorage: Admin password empty - initial setup required");
+      }
     } else {
       ERROR_PRINTLN("AuthStorage: ERROR - Failed to create default admin user");
     }
@@ -621,4 +629,60 @@ String AuthStorage::getStorageStats() {
   String stats;
   serializeJson(doc, stats);
   return stats;
+}
+
+bool AuthStorage::requiresInitialSetup() {
+  ensureInitialized();
+
+  // Find the admin user
+  AuthUser admin = findUserByUsername(AuthConstants::DEFAULT_ADMIN_USERNAME);
+
+  if (!admin.isValid()) {
+    // No admin user exists, setup is required
+    return true;
+  }
+
+  // Check if admin user has an empty password hash (initial setup required)
+  return admin.passwordHash.length() == 0;
+}
+
+bool AuthStorage::setInitialAdminPassword(const String &password) {
+  ensureInitialized();
+
+  if (password.length() == 0) {
+    DEBUG_PRINTLN(
+        "AuthStorage: Cannot set empty password during initial setup");
+    return false;
+  }
+
+  // Find the admin user
+  AuthUser admin = findUserByUsername(AuthConstants::DEFAULT_ADMIN_USERNAME);
+
+  if (!admin.isValid()) {
+    DEBUG_PRINTLN("AuthStorage: Admin user not found during initial setup");
+    return false;
+  }
+
+  // Only allow setting password if current hash is empty
+  if (admin.passwordHash.length() > 0) {
+    DEBUG_PRINTLN("AuthStorage: Admin password already set - use "
+                  "updateUserPassword instead");
+    return false;
+  }
+
+  // Set the password
+  admin.salt = AuthUtils::generateSalt();
+  admin.passwordHash = AuthUtils::hashPassword(password, admin.salt);
+
+  IDatabaseDriver *driver = &StorageManager::driver(driverName);
+  bool success = driver->store(USERS_COLLECTION, admin.id, admin.toJson());
+
+  if (success) {
+    DEBUG_PRINTF("AuthStorage: Set initial admin password (ID: %s)\n",
+                 admin.id.c_str());
+  } else {
+    DEBUG_PRINTLN("AuthStorage: ERROR - Failed to set initial admin password");
+  }
+
+  return success;
 }

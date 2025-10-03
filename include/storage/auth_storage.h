@@ -102,6 +102,19 @@ public:
    */
   static std::vector<AuthUser> getAllUsers();
 
+  /**
+   * Check if initial admin setup is required
+   * @return true if admin user has no password set (initial setup needed)
+   */
+  static bool requiresInitialSetup();
+
+  /**
+   * Set initial admin password during first setup
+   * @param password New password for admin user
+   * @return true if password was set successfully
+   */
+  static bool setInitialAdminPassword(const String &password);
+
   // Session management
 
   /**
