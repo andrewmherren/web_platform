@@ -10,22 +10,31 @@ const char INITIAL_SETUP_HTML[] PROGMEM = R"rawliteral(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Initial Setup - {{DEVICE_NAME}}</title>
+  <link rel="stylesheet" href="/assets/style.css">
   <link rel="stylesheet" href="/assets/web-platform-style.css">
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/favicon.ico" sizes="any">
 </head>
 <body class="auth-body">
   <div class="auth-container">
     <div class="auth-card">
       <div class="auth-header">
         <h1 class="auth-title">Initial Setup</h1>
-        <p class="auth-subtitle">Welcome to {{DEVICE_NAME}}! Please set your admin password.</p>
+        <p class="auth-subtitle">Welcome to {{DEVICE_NAME}}! Create your admin account to get started.</p>
       </div>
       
       <form id="setupForm" class="auth-form" method="POST" action="/setup">
         <input type="hidden" name="_csrf" value="{{csrfToken}}">
         
         <div class="form-group">
-          <label for="password" class="form-label">Admin Password</label>
+          <label for="username" class="form-label">Username</label>
+          <input type="text" id="username" name="username" class="form-control" required 
+                 minlength="3" placeholder="Choose a username">
+          <div class="form-help">Username must be at least 3 characters long.</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="password" class="form-label">Password</label>
           <input type="password" id="password" name="password" class="form-control" required 
                  minlength="6" placeholder="Enter a secure password">
           <div class="form-help">Password must be at least 6 characters long.</div>
@@ -38,14 +47,14 @@ const char INITIAL_SETUP_HTML[] PROGMEM = R"rawliteral(
         </div>
         
         <button type="submit" class="btn btn-primary auth-submit">
-          Set Password & Continue
+          Create Account & Continue
         </button>
       </form>
       
       <div class="auth-footer">
         <p class="auth-note">
-          This password will be used to access the device management interface.
-          Choose a strong, unique password for security.
+          This will be your admin account for managing the device.
+          Choose a secure username and password.
         </p>
       </div>
     </div>
@@ -56,8 +65,14 @@ const char INITIAL_SETUP_HTML[] PROGMEM = R"rawliteral(
     document.getElementById('setupForm').addEventListener('submit', function(e) {
       e.preventDefault();
       
+      const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
       const confirmPassword = document.getElementById('confirmPassword').value;
+      
+      if (username.length < 3) {
+        UIUtils.showAlert('Username must be at least 3 characters long', 'error');
+        return;
+      }
       
       if (password !== confirmPassword) {
         UIUtils.showAlert('Passwords do not match', 'error');
@@ -69,29 +84,26 @@ const char INITIAL_SETUP_HTML[] PROGMEM = R"rawliteral(
         return;
       }
       
-      // Submit the form using fetch with proper error handling
+      // Submit the form using AuthUtils.fetch for automatic CSRF handling
       const formData = new FormData(this);
       
-      fetch('/setup', {
+      AuthUtils.fetch('/api/user', {
         method: 'POST',
-        body: formData,
-        headers: {
-          'X-CSRF-Token': document.querySelector('input[name="_csrf"]').value
-        }
+        body: formData
       }).then(response => {
         if (response.ok) {
-          UIUtils.showAlert('Password set successfully! Redirecting...', 'success');
+          UIUtils.showAlert('Account created successfully! Redirecting...', 'success');
           setTimeout(() => {
             window.location.href = '/portal';
           }, 1500);
         } else {
           return response.text().then(text => {
-            throw new Error(text || 'Failed to set password');
+            throw new Error(text || 'Failed to create account');
           });
         }
       }).catch(error => {
         console.error('Setup error:', error);
-        UIUtils.showAlert(error.message || 'Setup failed. Please try again.', 'error');
+        UIUtils.showAlert(error.message || 'Account creation failed. Please try again.', 'error');
       });
     });
   </script>

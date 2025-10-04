@@ -4,6 +4,7 @@
 #include "platform/ntp_client.h"
 #include "platform/route_string_pool.h"
 #include "route_entry.h"
+#include "storage/auth_storage.h"
 #include "web_platform.h"
 
 #include <WebServer.h>
@@ -155,36 +156,42 @@ void WebPlatform::handleNotFound() {
     return;
 
   if (currentMode == CONFIG_PORTAL) {
-    // In captive portal mode, redirect ALL requests to the config page
-    // This ensures PC browsers will navigate to the portal regardless of what
-    // URL was entered
-    String portalUrl = "http://" + WiFi.softAPIP().toString() + "/";
+    // In captive portal mode, redirect ALL requests to the appropriate setup
+    // page This ensures PC browsers will navigate to the portal regardless of
+    // what URL was entered
+    String setupUrl;
+    if (AuthStorage::requiresInitialSetup()) {
+      setupUrl = "http://" + WiFi.softAPIP().toString() + "/setup";
+    } else {
+      setupUrl = "http://" + WiFi.softAPIP().toString() + "/portal";
+    }
 
-    // Check if this is already a request to the portal URL to avoid redirect
-    // loops
+    // Check if this is already a request to avoid redirect loops
     String requestHost = server->hostHeader();
     String requestUri = server->uri();
     String softAPIP = WiFi.softAPIP().toString();
 
-    // Don't redirect if already requesting the portal directly
-    bool isPortalRequest =
+    // Don't redirect if already requesting the target page
+    bool isTargetRequest =
         (requestHost == softAPIP || requestHost.startsWith(softAPIP + ":"));
-    bool isRootRequest = (requestUri == "/" || requestUri.isEmpty());
+    bool isCorrectPath = (requestUri == "/setup" || requestUri == "/portal" ||
+                          requestUri == "/" || requestUri.isEmpty());
 
-    if (!isPortalRequest || !isRootRequest) {
+    if (!isTargetRequest || !isCorrectPath ||
+        (requestUri != "/setup" && requestUri != "/portal")) {
       DEBUG_PRINTF("WebPlatform: Captive portal redirect: %s%s -> %s\n",
-                   requestHost.c_str(), requestUri.c_str(), portalUrl.c_str());
-      server->sendHeader("Location", portalUrl);
+                   requestHost.c_str(), requestUri.c_str(), setupUrl.c_str());
+      server->sendHeader("Location", setupUrl);
       server->sendHeader("Connection", "close");
       server->send(302, "text/html",
                    "<html><head><title>WiFi Setup</title></head><body>"
                    "<h1>WiFi Configuration Required</h1>"
                    "<p>Redirecting to setup page...</p>"
                    "<p><a href='" +
-                       portalUrl +
+                       setupUrl +
                        "'>Click here if not redirected automatically</a></p>"
                        "<script>window.location.href='" +
-                       portalUrl +
+                       setupUrl +
                        "';</script>"
                        "</body></html>");
       return;
@@ -243,12 +250,13 @@ void WebPlatform::handleNotFound() {
 }
 
 void WebPlatform::setupRoutes() {
-  initializeAuth(); // Initialize the auth system
 
   // If in config portal mode, add/override with portal routes
   if (currentMode == CONFIG_PORTAL) {
+    AuthStorage::initialize();
     setupConfigPortalMode();
   } else {
+    initializeAuth(); // Initialize the auth system
     // register connected mode routes
     setupConnectedMode();
   }
