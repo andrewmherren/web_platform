@@ -3,7 +3,8 @@
 
 #include <Arduino.h>
 
-// Web Platform specific styles: network scanning, token management, authentication UI
+// Web Platform specific styles: network scanning, token management,
+// authentication UI
 const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
 /* Web Platform Specific Styles */
 
@@ -175,26 +176,35 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
 }
 
 .password-field .form-control {
-  padding-right: 60px;
+  padding-right: 70px;
 }
 
 .password-toggle {
   position: absolute;
   right: 12px;
-  background: none;
-  border: none;
+  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
   color: #2196F3;
   cursor: pointer;
   font-size: 12px;
-  padding: 4px 6px;
-  text-decoration: underline;
-  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-weight: 600;
   transition: all 0.3s ease;
+  min-width: 50px;
+  text-align: center;
+  backdrop-filter: blur(5px);
 }
 
 .password-toggle:hover {
+  background: rgba(33, 150, 243, 0.2);
+  border-color: rgba(33, 150, 243, 0.5);
   color: #1976D2;
-  text-decoration: none;
+  transform: scale(1.05);
+}
+
+.password-toggle:active {
+  transform: scale(0.95);
 }
 
 /* Loading and empty states */
@@ -478,6 +488,8 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
   color: #4CAF50;
   margin-bottom: 20px;
   animation: pulse 2s infinite;
+  text-align: center;
+  display: block;
 }
 
 .countdown {
@@ -501,7 +513,7 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
   height: 100%;
   background: linear-gradient(90deg, #4CAF50, #45a049);
   width: 0%;
-  transition: width 0.3s ease;
+  transition: width 1s ease;
 }
 
 /* Security notices */
@@ -529,48 +541,268 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
   color: #ff5722;
 }
 
-/* Mobile responsive */
-@media (max-width: 600px) {
-  .wifi-setup {
-    margin: 10px;
+/* Authentication UI Styles */
+.auth-body {
+  padding: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-container {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.auth-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+}
+
+.auth-header {
+  padding: 30px 30px 20px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-title {
+  font-size: 1.8em;
+  margin: 0 0 10px 0;
+  color: #fff;
+  font-weight: 600;
+}
+
+.auth-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.auth-form {
+  padding: 25px 30px;
+}
+
+.form-label {
+  color: #fff;
+  font-weight: 500;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.form-help {
+  font-size: 0.8em;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 5px;
+  line-height: 1.3;
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 14px;
+  margin-top: 25px;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.auth-footer {
+  padding: 20px 30px 30px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-note {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85em;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Mobile responsive - Small screens (iPhone, etc.) */
+@media (max-width: 480px) {
+  .auth-body {
+    padding: 15px;
+    align-items: flex-start;
+    padding-top: 30px;
+  }
+  
+  .auth-container {
+    max-width: none;
+    width: 100%;
+  }
+  
+  .auth-header {
+    padding: 25px 20px 15px;
+  }
+  
+  .auth-title {
+    font-size: 1.6em;
+  }
+  
+  .auth-subtitle {
+    font-size: 0.85em;
+  }
+  
+  .auth-form {
     padding: 20px;
   }
   
-  /* Mobile-specific network list improvements */
-  .network-item {
-    padding: 12px 15px;
-    min-height: 50px;
-    margin: 6px;
+  .auth-footer {
+    padding: 15px 20px 25px;
   }
   
-  .network-name {
-    font-size: 15px;
-    margin-bottom: 2px;
+  .password-field .form-control {
+    padding-right: 80px;
   }
   
-  .network-info {
-    min-width: 70px;
+  .password-toggle {
+    right: 10px;
+    font-size: 13px;
+    padding: 8px 10px;
+    min-width: 60px;
+  }
+}
+
+/* Mobile responsive - Medium screens */
+@media (max-width: 768px) {
+  body {
+    padding: 15px;
   }
   
-  .network-meta {
-    font-size: 11px;
+  .container {
+    padding: 20px;
+    margin: 0;
+  }
+  
+  .wifi-setup {
+    margin: 0;
+    padding: 20px;
+  }
+  
+  .wifi-setup h3 {
+    font-size: 1.2em;
+  }
+  
+  /* Enhanced network list for mobile */
+  .network-scanner {
+    margin-bottom: 20px;
   }
   
   .network-list {
     max-height: 300px;
+    padding: 2px;
+    margin-top: 12px;
   }
   
-  /* Larger touch targets for mobile */
-  .password-toggle {
-    font-size: 14px;
-    padding: 6px 8px;
+  .network-item {
+    padding: 14px 16px;
+    margin: 4px;
+    min-height: 56px; /* Improved touch target */
+    border-radius: 8px;
   }
   
+  .network-item:hover {
+    transform: none; /* Disable hover effects on mobile */
+  }
+  
+  .network-item:active {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(0.98);
+  }
+  
+  .network-name {
+    font-size: 15px;
+    margin-bottom: 3px;
+    margin-right: 12px;
+  }
+  
+  .network-info {
+    min-width: 75px;
+  }
+  
+  .network-meta {
+    font-size: 11px;
+    gap: 6px;
+  }
+  
+  .signal-bars {
+    gap: 1.5px;
+  }
+  
+  .security-icon {
+    font-size: 15px;
+  }
+  
+  /* Better scan button for mobile */
   .scan-button {
-    padding: 15px;
+    padding: 16px;
     font-size: 16px;
+    border-radius: 10px;
+    min-height: 50px; /* Better touch target */
   }
   
+  /* Enhanced form controls for mobile */
+  .form-control {
+    padding: 14px 12px;
+    font-size: 16px; /* Prevent zoom on iOS */
+    border-radius: 8px;
+    min-height: 48px; /* Better touch target */
+  }
+  
+  .password-field .form-control {
+    padding-right: 70px;
+  }
+  
+  .password-toggle {
+    font-size: 13px;
+    padding: 6px 10px;
+    right: 10px;
+    min-width: 55px;
+    min-height: 36px; /* Better touch target */
+  }
+  
+  /* Button improvements for mobile */
+  .btn {
+    padding: 14px 20px;
+    font-size: 16px;
+    min-height: 48px; /* Better touch target */
+    border-radius: 8px;
+  }
+  
+  .button-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .button-group .btn {
+    width: 100%;
+  }
+  
+  /* Loading states improvements */
+  .network-list .loading,
+  .network-list .error {
+    padding: 25px 15px;
+    font-size: 14px;
+  }
+  
+  .loading::before {
+    width: 20px !important;
+    height: 20px !important;
+  }
+}
+
+/* Mobile responsive - Standard mobile screens (600px) */
+@media (max-width: 600px) {
   .countdown {
     font-size: 2em;
   }
@@ -600,6 +832,34 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
   .tokens-table {
     display: block;
     overflow-x: auto;
+    font-size: 14px;
+  }
+  
+  .tokens-table th,
+  .tokens-table td {
+    padding: 8px 10px;
+  }
+}
+
+/* Large mobile screens and small tablets */
+@media (max-width: 900px) and (min-width: 601px) {
+  .container {
+    max-width: 90%;
+    padding: 25px;
+  }
+  
+  .wifi-setup {
+    padding: 22px;
+  }
+  
+  .network-item {
+    padding: 13px 18px;
+    min-height: 55px;
+  }
+  
+  .form-control {
+    padding: 13px;
+    font-size: 15px;
   }
 }
 )rawliteral";

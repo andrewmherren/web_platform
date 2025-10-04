@@ -35,15 +35,25 @@ const char INITIAL_SETUP_HTML[] PROGMEM = R"rawliteral(
         
         <div class="form-group">
           <label for="password" class="form-label">Password</label>
-          <input type="password" id="password" name="password" class="form-control" required 
-                 minlength="6" placeholder="Enter a secure password">
+          <div class="password-field">
+            <input type="password" id="password" name="password" class="form-control" required 
+                   minlength="6" placeholder="Enter a secure password">
+            <button type="button" class="password-toggle" onclick="togglePassword('password')" title="Show password">
+              Show
+            </button>
+          </div>
           <div class="form-help">Password must be at least 6 characters long.</div>
         </div>
         
         <div class="form-group">
           <label for="confirmPassword" class="form-label">Confirm Password</label>
-          <input type="password" id="confirmPassword" name="confirmPassword" class="form-control" 
-                 required minlength="6" placeholder="Confirm your password">
+          <div class="password-field">
+            <input type="password" id="confirmPassword" name="confirmPassword" class="form-control" 
+                   required minlength="6" placeholder="Confirm your password">
+            <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword')" title="Show password">
+              Show
+            </button>
+          </div>
         </div>
         
         <button type="submit" class="btn btn-primary auth-submit">
@@ -62,6 +72,22 @@ const char INITIAL_SETUP_HTML[] PROGMEM = R"rawliteral(
 
   <script src="/assets/web-platform-utils.js"></script>
   <script>
+    // Password toggle functionality
+    function togglePassword(fieldId) {
+      const passwordField = document.getElementById(fieldId);
+      const toggleButton = passwordField.nextElementSibling;
+      
+      if (passwordField.type === 'password') {
+        passwordField.type = 'text';
+        toggleButton.textContent = 'Hide';
+        toggleButton.title = 'Hide password';
+      } else {
+        passwordField.type = 'password';
+        toggleButton.textContent = 'Show';
+        toggleButton.title = 'Show password';
+      }
+    }
+    
     document.getElementById('setupForm').addEventListener('submit', function(e) {
       e.preventDefault();
       
