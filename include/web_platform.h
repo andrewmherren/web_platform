@@ -262,7 +262,6 @@ private:                            // Core server components
   void accountPageHandler(WebRequest &req, WebResponse &res);
   void accountPageJSAssetHandler(WebRequest &req, WebResponse &res);
   void configPortalPageHandler(WebRequest &req, WebResponse &res);
-  void configPortalSuccessJSAssetHandler(WebRequest &req, WebResponse &res);
   void initialSetupPageHandler(WebRequest &req, WebResponse &res);
   void webPlatformCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformJSAssetHandler(WebRequest &req, WebResponse &res);
@@ -440,6 +439,10 @@ public:
   void updateConnectionState();
   unsigned long lastConnectionCheck = 0;
   static const unsigned long CONNECTION_CHECK_INTERVAL = 5000; // 5 seconds
+
+  // Restart scheduling
+  bool restartScheduled = false;
+  unsigned long restartScheduledTime = 0;
 };
 
 // Global instance

@@ -37,13 +37,6 @@ void WebPlatform::registerConfigPortalRoutes() {
                              std::placeholders::_1, std::placeholders::_2),
                    {AuthType::NONE}, WebModule::WM_GET);
 
-  // Register static assets first
-  registerWebRoute("/assets/config-portal-success.js",
-                   std::bind(&WebPlatform::configPortalSuccessJSAssetHandler,
-                             this, std::placeholders::_1,
-                             std::placeholders::_2),
-                   {AuthType::NONE}, WebModule::WM_GET);
-
   // Initial setup route (if admin password not set)
   registerWebRoute("/setup",
                    std::bind(&WebPlatform::initialSetupPageHandler, this,

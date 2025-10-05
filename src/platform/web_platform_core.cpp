@@ -141,8 +141,16 @@ void WebPlatform::handle() {
     handleRegisteredModules();
   }
 
-  // Periodic connection state updates
+  // Periodic connection state updates and scheduled restart check
   unsigned long now = millis();
+
+  // Check if a restart is scheduled
+  if (restartScheduled && now >= restartScheduledTime) {
+    DEBUG_PRINTLN(
+        "WebPlatform: Scheduled restart time reached - restarting now");
+    ESP.restart();
+  }
+
   if (now - lastConnectionCheck > CONNECTION_CHECK_INTERVAL) {
     updateConnectionState();
     lastConnectionCheck = now;

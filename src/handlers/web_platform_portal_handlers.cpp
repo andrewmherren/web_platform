@@ -1,6 +1,4 @@
 #include "../../assets/config_portal_html.h"
-#include "../../assets/config_portal_success_html.h"
-#include "../../assets/config_portal_success_js.h"
 #include "../../assets/initial_setup_html.h"
 #include "storage/auth_storage.h"
 #include "utilities/debug_macros.h"
@@ -19,12 +17,6 @@ void WebPlatform::configPortalPageHandler(WebRequest &req, WebResponse &res) {
   res.setProgmemContent(CONFIG_PORTAL_HTML, "text/html");
 };
 
-void WebPlatform::configPortalSuccessJSAssetHandler(WebRequest &req,
-                                                    WebResponse &res) {
-  res.setProgmemContent(CONFIG_PORTAL_SUCCESS_JS, "application/javascript");
-  res.setHeader("Cache-Control", "public, max-age=3600");
-}
-
 void WebPlatform::initialSetupPageHandler(WebRequest &req, WebResponse &res) {
   // Check if initial setup is actually needed
   if (!AuthStorage::requiresInitialSetup()) {
@@ -35,6 +27,3 @@ void WebPlatform::initialSetupPageHandler(WebRequest &req, WebResponse &res) {
 
   res.setProgmemContent(INITIAL_SETUP_HTML, "text/html");
 }
-
-// initialSetupHandler removed - now using createUserApiHandler with lambda
-// wrapper
