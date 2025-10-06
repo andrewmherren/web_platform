@@ -610,8 +610,8 @@ void protectedHandler(WebRequest& req, WebResponse& res) {
         DEBUG_PRINTLN("API access with token: " + tokenId);
     }
     
-    // Check if user has admin privileges (custom logic)
-    bool isAdmin = (auth.username == "admin");
+    // Check if user has admin privileges
+    bool isAdmin = auth.isAdmin; // Use the built-in isAdmin flag
     
     if (isAdmin) {
         res.setContent(getAdminPage(), "text/html");
@@ -753,14 +753,16 @@ String token = AuthStorage::createApiToken(userId, "Token Name");
 std::vector<AuthApiToken> tokens = AuthStorage::getUserApiTokens(userId);
 ```
 
-## Default Credentials
+## Initial Setup Flow
 
-WebPlatform creates a default admin account on first boot:
+WebPlatform implements a secure initial setup flow on first boot:
 
-- **Username**: `admin`
-- **Password**: `admin`
+1. When first accessing the device, users are redirected to a setup page
+2. Users create their own administrator account with a custom username and password
+3. This account becomes the primary administrator for the device
+4. No default credentials exist - security is ensured from first boot
 
-**Important**: Change these credentials in production deployments through the `/account` page or API endpoints!
+The setup page guides users through creating a secure administrator account with proper validation for username and password requirements.
 
 ## Security Considerations
 
