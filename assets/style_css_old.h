@@ -1,12 +1,11 @@
-#ifndef WEB_UI_STYLES_CSS_H
-#define WEB_UI_STYLES_CSS_H
+#ifndef STYLE_CSS_H
+#define STYLE_CSS_H
 
 #include <Arduino.h>
 
-// Default CSS styles for web interface - based on LOCAL_WEB_UI_STYLEGUIDE.md
-const char WEB_UI_DEFAULT_CSS[] PROGMEM = R"css(
+const char DEFAULT_STYLE_CSS[] PROGMEM = R"css(
 /* Web UI Default Styles */
-/* Based on LOCAL_WEB_UI_STYLEGUIDE.md glass morphism design */
+/* Based on glass morphism design */
 
 /* Reset and base styles */
 * {
@@ -613,4 +612,4 @@ tr:hover {
 }
 )css";
 
-#endif // WEB_UI_STYLES_CSS_H
+#endif // STYLE_CSS_H

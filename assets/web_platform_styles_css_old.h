@@ -3,14 +3,15 @@
 
 #include <Arduino.h>
 
-// Web Platform specific styles - functional mechanics only
-// Visual/themeable styles moved to main stylesheet
+// Web Platform specific styles - minimal version
+// Only includes styles actually used by initial_setup_html and config_portal_html
 const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
-/* Web Platform Specific Styles - Functional Only */
+/* Web Platform Specific Styles - Minimal Version */
 
-/* Auth UI Layout (non-themeable) */
+/* Authentication UI - Used by initial_setup_html */
 .auth-body {
   padding: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -24,20 +25,30 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
 }
 
 .auth-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   overflow: hidden;
 }
 
 .auth-header {
   padding: 30px 30px 20px;
   text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .auth-title {
   font-size: 1.8em;
   margin: 0 0 10px 0;
+  color: #fff;
+  font-weight: 600;
 }
 
 .auth-subtitle {
+  color: rgba(255, 255, 255, 0.8);
   margin: 0;
   font-size: 0.9em;
   line-height: 1.4;
@@ -47,25 +58,43 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
   padding: 25px 30px;
 }
 
+.form-label {
+  color: #fff;
+  font-weight: 500;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.form-help {
+  font-size: 0.8em;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 5px;
+  line-height: 1.3;
+}
+
 .auth-submit {
   width: 100%;
   padding: 14px;
   margin-top: 25px;
   font-size: 1.1em;
+  font-weight: 600;
 }
 
 .auth-footer {
   padding: 20px 30px 30px;
   text-align: center;
+  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .auth-note {
+  color: rgba(255, 255, 255, 0.7);
   font-size: 0.85em;
   margin: 0;
   line-height: 1.4;
 }
 
-/* Password Toggle - Structure Only */
+/* Password Toggle - Used by both pages */
 .password-field {
   position: relative;
   display: flex;
@@ -79,15 +108,24 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
 .password-toggle {
   position: absolute;
   right: 12px;
+  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  color: #2196F3;
+  cursor: pointer;
   font-size: 12px;
   padding: 6px 10px;
+  border-radius: 4px;
   font-weight: 600;
   transition: all 0.3s ease;
   min-width: 50px;
   text-align: center;
+  backdrop-filter: blur(5px);
 }
 
 .password-toggle:hover {
+  background: rgba(33, 150, 243, 0.2);
+  border-color: rgba(33, 150, 243, 0.5);
+  color: #1976D2;
   transform: scale(1.05);
 }
 
@@ -95,7 +133,7 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
   transform: scale(0.95);
 }
 
-/* Network Scanner - Structure Only */
+/* Network Scanner - Used by config_portal_html */
 .network-scanner {
   margin-bottom: 25px;
 }
@@ -103,16 +141,28 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
 .scan-button {
   width: 100%;
   margin-bottom: 15px;
+  font-weight: bold;
   position: relative;
 }
 
+.scan-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .scan-button.scanning {
+  background: rgba(255, 152, 0, 0.8);
+  color: white;
   animation: pulse 1.5s ease-in-out infinite;
 }
 
 .network-list {
   max-height: 400px;
   overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(5px);
   margin-top: 15px;
   padding: 4px;
 }
@@ -123,22 +173,33 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
   align-items: center;
   padding: 15px 20px;
   margin: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.3s ease;
   min-height: 60px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
 }
 
 .network-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
 }
 
 .network-item.selected {
+  background: rgba(76, 175, 80, 0.25);
+  border-color: rgba(76, 175, 80, 0.7);
+  box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
   transform: translateY(-2px);
 }
 
 .network-name {
   font-weight: bold;
   font-size: 16px;
+  color: #fff;
   margin-bottom: 4px;
   word-break: break-word;
   flex: 1;
@@ -158,25 +219,33 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
   align-items: center;
   gap: 8px;
   font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .security-icon {
   font-size: 16px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
 .signal-strength {
   font-size: 12px;
   font-weight: bold;
+  color: #66D56A;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 8px rgba(102, 213, 106, 0.3);
 }
 
-/* WiFi Setup Container - Structure Only */
+/* WiFi Setup Container - Used by config_portal_html */
 .wifi-setup {
+  background: rgba(255, 255, 255, 0.1);
   padding: 25px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   margin: 20px auto;
 }
 
 .wifi-setup h3 {
   margin-bottom: 20px;
+  color: #fff;
   font-size: 1.3em;
   display: flex;
   align-items: center;
@@ -188,11 +257,12 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
   font-size: 1.2em;
 }
 
-/* Loading states - Structure Only */
+/* Loading states */
 .network-list .loading,
 .network-list .error {
   padding: 30px 20px;
   text-align: center;
+  color: rgba(255, 255, 255, 0.7);
   font-style: italic;
 }
 
@@ -202,6 +272,8 @@ const char WEB_PLATFORM_STYLES_CSS[] PROGMEM = R"rawliteral(
   width: 24px;
   height: 24px;
   margin: 0 auto 10px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid #2196F3;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
