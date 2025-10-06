@@ -22,7 +22,7 @@ IPlatformService *getPlatformService() { return g_platformService; }
 WebPlatform::WebPlatform()
     : currentMode(CONFIG_PORTAL), connectionState(WIFI_CONFIG_PORTAL),
       httpsEnabled(false), running(false), serverPort(80), deviceName("Device"),
-      callbackCalled(false) {
+      callbackCalled(false), routesFinalized(false) {
 
   memset(apSSIDBuffer, 0, sizeof(apSSIDBuffer));
   httpsInstance = this;
@@ -127,6 +127,11 @@ void WebPlatform::beginInternal(const char *deviceName, bool forceHttpsOnly) {
 }
 
 void WebPlatform::handle() {
+  // Auto-finalize routes on first call to handle() if not already done
+  if (!routesFinalized) {
+    finalizeRoutes();
+  }
+
   if (server) {
     server->handleClient();
   }
@@ -155,6 +160,27 @@ void WebPlatform::handle() {
     updateConnectionState();
     lastConnectionCheck = now;
   }
+}
+
+void WebPlatform::finalizeRoutes() {
+  if (routesFinalized) {
+    DEBUG_PRINTLN("WebPlatform: Routes already finalized, skipping");
+    return;
+  }
+
+  DEBUG_PRINTLN("WebPlatform: Finalizing route registration...");
+
+  // Now bind all routes to the actual servers (after all application overrides)
+  bindRegisteredRoutes();
+
+  if (httpsEnabled && httpsServerHandle) {
+    registerUnifiedHttpsRoutes();
+  }
+
+  RouteStringPool::seal();
+  routesFinalized = true;
+  DEBUG_PRINTF("WebPlatform: Routes finalized with %d registered routes\n",
+               routeRegistry.size());
 }
 
 void WebPlatform::handleNotFound() {
@@ -305,9 +331,6 @@ void WebPlatform::setupConfigPortalMode() {
     server->send(302, "text/plain", "Redirecting to setup...");
   });
 
-  // Bind user overrides from registry (includes asset overrides like CSS)
-  bindRegisteredRoutes();
-
   // Setup captive portal DNS server to redirect all DNS queries to our AP IP
   // This makes PC browsers navigate to the portal when any domain is entered
   dnsServer.start(53, "*", WiFi.softAPIP());
@@ -321,13 +344,6 @@ void WebPlatform::setupConnectedMode() {
 
   // Register core platform routes FIRST (before overrides are processed)
   registerConnectedModeRoutes();
-
-  // Register all unified routes with servers (this processes overrides)
-  bindRegisteredRoutes();
-
-  if (httpsEnabled && httpsServerHandle) {
-    registerUnifiedHttpsRoutes();
-  }
 
   DEBUG_PRINTF("\n=== WebPlatform OpenAPI Generation ===\n");
 #if OPENAPI_ENABLED || MAKERAPI_ENABLED

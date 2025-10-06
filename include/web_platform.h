@@ -128,6 +128,9 @@ public:
   // Handle all web requests and WiFi operations
   void handle();
 
+  // Finalize route registration (seals string pool and enables optimizations)
+  void finalizeRoutes();
+
   // Module lifecycle management
   void handleRegisteredModules();
 
@@ -443,6 +446,9 @@ public:
   // Restart scheduling
   bool restartScheduled = false;
   unsigned long restartScheduledTime = 0;
+
+  // Route finalization tracking
+  bool routesFinalized = false;
 };
 
 // Global instance
