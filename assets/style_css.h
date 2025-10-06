@@ -1,12 +1,11 @@
-#ifndef WEB_UI_STYLES_CSS_H
-#define WEB_UI_STYLES_CSS_H
+#ifndef STYLE_CSS_H
+#define STYLE_CSS_H
 
 #include <Arduino.h>
 
-// Default CSS styles for web interface - based on LOCAL_WEB_UI_STYLEGUIDE.md
-const char WEB_UI_DEFAULT_CSS[] PROGMEM = R"css(
+const char DEFAULT_STYLE_CSS[] PROGMEM = R"css(
 /* Web UI Default Styles */
-/* Based on LOCAL_WEB_UI_STYLEGUIDE.md glass morphism design */
+/* Based on glass morphism design */
 
 /* Reset and base styles */
 * {
@@ -611,6 +610,125 @@ th {
 tr:hover {
   background: rgba(255, 255, 255, 0.05);
 }
+
+/* Auth UI theming (moved from platform styles) */
+.auth-body {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.auth-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.auth-header {
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-title {
+  color: #fff;
+  font-weight: 600;
+}
+
+.auth-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.auth-footer {
+  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-note {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* WiFi scanner theming */
+.network-list {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(5px);
+}
+
+.network-item {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+.network-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+.network-item.selected {
+  background: rgba(76, 175, 80, 0.25);
+  border-color: rgba(76, 175, 80, 0.7);
+  box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+}
+
+.network-name {
+  color: #fff;
+}
+
+.network-meta {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.security-icon {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.signal-strength {
+  color: #66D56A;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 8px rgba(102, 213, 106, 0.3);
+}
+
+.scan-button.scanning {
+  background: rgba(255, 152, 0, 0.8);
+  color: white;
+}
+
+/* WiFi setup container */
+.wifi-setup {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.wifi-setup h3 {
+  color: #fff;
+}
+
+/* Password toggle theming */
+.password-toggle {
+  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  color: #2196F3;
+  border-radius: 4px;
+  backdrop-filter: blur(5px);
+}
+
+.password-toggle:hover {
+  background: rgba(33, 150, 243, 0.2);
+  border-color: rgba(33, 150, 243, 0.5);
+  color: #1976D2;
+}
+
+.network-list .loading,
+.network-list .error {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.network-list .loading::before {
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid #2196F3;
+}
 )css";
 
-#endif // WEB_UI_STYLES_CSS_H
+#endif // STYLE_CSS_H

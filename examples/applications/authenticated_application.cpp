@@ -486,7 +486,7 @@ void setup() {
 
   if (webPlatform.isConnected()) {
     DEBUG_PRINTLN("=== Authenticated WebPlatform Application Ready ===");
-    DEBUG_PRINTLN("Default login: admin / admin");
+    DEBUG_PRINTLN("Initial setup: Create your admin account when prompted");
     DEBUG_PRINT("Device URL: ");
     DEBUG_PRINTLN(webPlatform.getBaseUrl());
     DEBUG_PRINT("HTTPS Enabled: ");

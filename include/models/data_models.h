@@ -17,10 +17,12 @@ struct AuthUser {
   String username;         // Display name (can be changed)
   String passwordHash;     // PBKDF2 hash
   String salt;             // Random salt for password hashing
+  bool isAdmin;            // Whether user has admin privileges
   unsigned long createdAt; // Creation timestamp
 
-  AuthUser() : createdAt(0) {}
-  AuthUser(const String &username, const String &hash, const String &salt);
+  AuthUser() : isAdmin(false), createdAt(0) {}
+  AuthUser(const String &username, const String &hash, const String &salt,
+           bool admin = false);
 
   // JSON serialization
   String toJson() const;

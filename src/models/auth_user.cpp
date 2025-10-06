@@ -5,9 +5,9 @@
 
 // AuthUser implementation
 AuthUser::AuthUser(const String &username, const String &hash,
-                   const String &salt)
+                   const String &salt, bool admin)
     : id(AuthUtils::generateUserId()), username(username), passwordHash(hash),
-      salt(salt), createdAt(time(nullptr)) {}
+      salt(salt), isAdmin(admin), createdAt(time(nullptr)) {}
 
 String AuthUser::toJson() const {
   DynamicJsonDocument doc(512);
@@ -15,6 +15,7 @@ String AuthUser::toJson() const {
   doc["username"] = username;
   doc["passwordHash"] = passwordHash;
   doc["salt"] = salt;
+  doc["isAdmin"] = isAdmin;
   doc["createdAt"] = createdAt;
 
   String json;
@@ -33,6 +34,7 @@ AuthUser AuthUser::fromJson(const String &json) {
     user.username = doc["username"].as<String>();
     user.passwordHash = doc["passwordHash"].as<String>();
     user.salt = doc["salt"].as<String>();
+    user.isAdmin = doc["isAdmin"].as<bool>(); // Default to false if not present
     user.createdAt = doc["createdAt"].as<unsigned long>();
   }
 

@@ -4,6 +4,7 @@
 #include "platform/ntp_client.h"
 #include "platform/route_string_pool.h"
 #include "route_entry.h"
+#include "storage/auth_storage.h"
 #include "web_platform.h"
 
 #include <WebServer.h>
@@ -21,7 +22,7 @@ IPlatformService *getPlatformService() { return g_platformService; }
 WebPlatform::WebPlatform()
     : currentMode(CONFIG_PORTAL), connectionState(WIFI_CONFIG_PORTAL),
       httpsEnabled(false), running(false), serverPort(80), deviceName("Device"),
-      callbackCalled(false) {
+      callbackCalled(false), routesFinalized(false) {
 
   memset(apSSIDBuffer, 0, sizeof(apSSIDBuffer));
   httpsInstance = this;
@@ -126,6 +127,11 @@ void WebPlatform::beginInternal(const char *deviceName, bool forceHttpsOnly) {
 }
 
 void WebPlatform::handle() {
+  // Auto-finalize routes on first call to handle() if not already done
+  if (!routesFinalized) {
+    finalizeRoutes();
+  }
+
   if (server) {
     server->handleClient();
   }
@@ -140,12 +146,41 @@ void WebPlatform::handle() {
     handleRegisteredModules();
   }
 
-  // Periodic connection state updates
+  // Periodic connection state updates and scheduled restart check
   unsigned long now = millis();
+
+  // Check if a restart is scheduled
+  if (restartScheduled && now >= restartScheduledTime) {
+    DEBUG_PRINTLN(
+        "WebPlatform: Scheduled restart time reached - restarting now");
+    ESP.restart();
+  }
+
   if (now - lastConnectionCheck > CONNECTION_CHECK_INTERVAL) {
     updateConnectionState();
     lastConnectionCheck = now;
   }
+}
+
+void WebPlatform::finalizeRoutes() {
+  if (routesFinalized) {
+    DEBUG_PRINTLN("WebPlatform: Routes already finalized, skipping");
+    return;
+  }
+
+  DEBUG_PRINTLN("WebPlatform: Finalizing route registration...");
+
+  // Now bind all routes to the actual servers (after all application overrides)
+  bindRegisteredRoutes();
+
+  if (httpsEnabled && httpsServerHandle) {
+    registerUnifiedHttpsRoutes();
+  }
+
+  RouteStringPool::seal();
+  routesFinalized = true;
+  DEBUG_PRINTF("WebPlatform: Routes finalized with %d registered routes\n",
+               routeRegistry.size());
 }
 
 void WebPlatform::handleNotFound() {
@@ -155,36 +190,42 @@ void WebPlatform::handleNotFound() {
     return;
 
   if (currentMode == CONFIG_PORTAL) {
-    // In captive portal mode, redirect ALL requests to the config page
-    // This ensures PC browsers will navigate to the portal regardless of what
-    // URL was entered
-    String portalUrl = "http://" + WiFi.softAPIP().toString() + "/";
+    // In captive portal mode, redirect ALL requests to the appropriate setup
+    // page This ensures PC browsers will navigate to the portal regardless of
+    // what URL was entered
+    String setupUrl;
+    if (AuthStorage::requiresInitialSetup()) {
+      setupUrl = "http://" + WiFi.softAPIP().toString() + "/setup";
+    } else {
+      setupUrl = "http://" + WiFi.softAPIP().toString() + "/portal";
+    }
 
-    // Check if this is already a request to the portal URL to avoid redirect
-    // loops
+    // Check if this is already a request to avoid redirect loops
     String requestHost = server->hostHeader();
     String requestUri = server->uri();
     String softAPIP = WiFi.softAPIP().toString();
 
-    // Don't redirect if already requesting the portal directly
-    bool isPortalRequest =
+    // Don't redirect if already requesting the target page
+    bool isTargetRequest =
         (requestHost == softAPIP || requestHost.startsWith(softAPIP + ":"));
-    bool isRootRequest = (requestUri == "/" || requestUri.isEmpty());
+    bool isCorrectPath = (requestUri == "/setup" || requestUri == "/portal" ||
+                          requestUri == "/" || requestUri.isEmpty());
 
-    if (!isPortalRequest || !isRootRequest) {
+    if (!isTargetRequest || !isCorrectPath ||
+        (requestUri != "/setup" && requestUri != "/portal")) {
       DEBUG_PRINTF("WebPlatform: Captive portal redirect: %s%s -> %s\n",
-                   requestHost.c_str(), requestUri.c_str(), portalUrl.c_str());
-      server->sendHeader("Location", portalUrl);
+                   requestHost.c_str(), requestUri.c_str(), setupUrl.c_str());
+      server->sendHeader("Location", setupUrl);
       server->sendHeader("Connection", "close");
       server->send(302, "text/html",
                    "<html><head><title>WiFi Setup</title></head><body>"
                    "<h1>WiFi Configuration Required</h1>"
                    "<p>Redirecting to setup page...</p>"
                    "<p><a href='" +
-                       portalUrl +
+                       setupUrl +
                        "'>Click here if not redirected automatically</a></p>"
                        "<script>window.location.href='" +
-                       portalUrl +
+                       setupUrl +
                        "';</script>"
                        "</body></html>");
       return;
@@ -243,12 +284,13 @@ void WebPlatform::handleNotFound() {
 }
 
 void WebPlatform::setupRoutes() {
-  initializeAuth(); // Initialize the auth system
 
   // If in config portal mode, add/override with portal routes
   if (currentMode == CONFIG_PORTAL) {
+    AuthStorage::initialize();
     setupConfigPortalMode();
   } else {
+    initializeAuth(); // Initialize the auth system
     // register connected mode routes
     setupConnectedMode();
   }
@@ -289,9 +331,6 @@ void WebPlatform::setupConfigPortalMode() {
     server->send(302, "text/plain", "Redirecting to setup...");
   });
 
-  // Bind user overrides from registry (includes asset overrides like CSS)
-  bindRegisteredRoutes();
-
   // Setup captive portal DNS server to redirect all DNS queries to our AP IP
   // This makes PC browsers navigate to the portal when any domain is entered
   dnsServer.start(53, "*", WiFi.softAPIP());
@@ -305,13 +344,6 @@ void WebPlatform::setupConnectedMode() {
 
   // Register core platform routes FIRST (before overrides are processed)
   registerConnectedModeRoutes();
-
-  // Register all unified routes with servers (this processes overrides)
-  bindRegisteredRoutes();
-
-  if (httpsEnabled && httpsServerHandle) {
-    registerUnifiedHttpsRoutes();
-  }
 
   DEBUG_PRINTF("\n=== WebPlatform OpenAPI Generation ===\n");
 #if OPENAPI_ENABLED || MAKERAPI_ENABLED

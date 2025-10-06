@@ -66,7 +66,8 @@ void WebPlatform::registerRoute(const String &path,
                                 const AuthRequirements &auth,
                                 WebModule::Method method,
                                 const OpenAPIDocumentation &docs) {
-  // Convert path to const char* and store it - still needed for functional routing
+  // Convert path to const char* and store it - still needed for functional
+  // routing
   const char *storedPath = RouteStringPool::store(path);
 
   // Check if route already exists
@@ -82,10 +83,13 @@ void WebPlatform::registerRoute(const String &path,
 
       // Only store documentation during OpenAPI generation phase
       if (openAPIGenerationContext.isGenerating()) {
-        // Always collect all routes during generation - let generation context filter
-        DEBUG_PRINTF("WebPlatform: Collecting docs during generation for replacement route: %s %s\n", 
+        // Always collect all routes during generation - let generation context
+        // filter
+        DEBUG_PRINTF("WebPlatform: Collecting docs during generation for "
+                     "replacement route: %s %s\n",
                      wmMethodToString(method).c_str(), path.c_str());
-        openAPIGenerationContext.addRouteDocumentation(path, method, docs, auth);
+        openAPIGenerationContext.addRouteDocumentation(path, method, docs,
+                                                       auth);
       }
 
       return;
@@ -95,7 +99,7 @@ void WebPlatform::registerRoute(const String &path,
   // Add new route - only stores functional routing data
   RouteEntry newRoute(storedPath, method, handler, auth);
   routeRegistry.push_back(newRoute);
-  
+
   // Only store documentation during OpenAPI generation phase
   if (openAPIGenerationContext.isGenerating()) {
     openAPIGenerationContext.addRouteDocumentation(path, method, docs, auth);
@@ -379,8 +383,7 @@ void WebPlatform::bindRegisteredRoutes() {
     HTTPMethod requestMethod = server->method();
 
     // Convert HTTP method back to our WebModule method
-    WebModule::Method wmMethod =
-            httpMethodToWMMethod(requestMethod);
+    WebModule::Method wmMethod = httpMethodToWMMethod(requestMethod);
 
     // Check all routes for wildcard matches
     for (const auto &route : routeRegistry) {
@@ -402,8 +405,6 @@ void WebPlatform::bindRegisteredRoutes() {
     // Fall back to original handleNotFound logic
     this->handleNotFound();
   });
-
-  RouteStringPool::seal();
 }
 
 // Internal method to register unified routes with HTTPS server

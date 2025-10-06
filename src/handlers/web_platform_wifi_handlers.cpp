@@ -80,11 +80,14 @@ void WebPlatform::resetApiHandler(WebRequest &req, WebResponse &res) {
   EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
   EEPROM.commit();
 
-  // Schedule restart
-  delay(1000);
-  ESP.restart();
-
+  // Send response first
   res.setContent(R"({"status": "restarting"})", "application/json");
+
+  // Schedule restart using timer approach
+  restartScheduledTime = millis() + 2000; // Restart in 2 seconds
+  restartScheduled = true;
+  DEBUG_PRINTLN(
+      "WebPlatform: WiFi reset complete - restart scheduled in 2 seconds");
 }
 
 void WebPlatform::wifiConfigHandler(WebRequest &req, WebResponse &res) {
@@ -117,15 +120,12 @@ void WebPlatform::wifiConfigHandler(WebRequest &req, WebResponse &res) {
       json["restart_required"] = true;
     });
 
-    // Schedule restart after response is sent
+    // Schedule restart using timer approach - allow time for response to be
+    // sent
+    restartScheduledTime = millis() + 3000; // Restart in 3 seconds
+    restartScheduled = true;
     DEBUG_PRINTLN(
-        "WebPlatform: WiFi credentials saved - restarting in 3 seconds...");
-    delay(1000);
-    DEBUG_PRINTLN("WebPlatform: Restarting in 2 seconds...");
-    delay(1000);
-    DEBUG_PRINTLN("WebPlatform: Restarting in 1 second...");
-    delay(1000);
-    ESP.restart();
+        "WebPlatform: WiFi credentials saved - restart scheduled in 3 seconds");
   } else {
     DEBUG_PRINTLN("WebPlatform: No SSID provided in API request");
 
