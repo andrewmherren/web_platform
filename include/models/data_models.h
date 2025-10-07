@@ -25,31 +25,6 @@ struct AuthUser {
   AuthUser(const String &username, const String &hash, const String &salt,
            bool admin = false);
 
-  // Rule of Five: Destructor, copy constructor, copy assignment, move
-  // constructor, move assignment
-  ~AuthUser() = default;
-  AuthUser(const AuthUser &other) = default;
-  AuthUser &operator=(const AuthUser &other) = default;
-
-  // Move semantics
-  AuthUser(AuthUser &&other) noexcept
-      : id(std::move(other.id)), username(std::move(other.username)),
-        passwordHash(std::move(other.passwordHash)),
-        salt(std::move(other.salt)), isAdmin(other.isAdmin),
-        createdAt(other.createdAt) {}
-
-  AuthUser &operator=(AuthUser &&other) noexcept {
-    if (this != &other) {
-      id = std::move(other.id);
-      username = std::move(other.username);
-      passwordHash = std::move(other.passwordHash);
-      salt = std::move(other.salt);
-      isAdmin = other.isAdmin;
-      createdAt = other.createdAt;
-    }
-    return *this;
-  }
-
   // JSON serialization
   String toJson() const;
   static AuthUser fromJson(const String &json);
@@ -67,29 +42,6 @@ struct AuthSession {
   AuthSession() : createdAt(0), expiresAt(0) {}
   AuthSession(const String &sessionId, const String &userId,
               const String &username);
-
-  // Rule of Five: Destructor, copy constructor, copy assignment, move
-  // constructor, move assignment
-  ~AuthSession() = default;
-  AuthSession(const AuthSession &other) = default;
-  AuthSession &operator=(const AuthSession &other) = default;
-
-  // Move semantics
-  AuthSession(AuthSession &&other) noexcept
-      : id(std::move(other.id)), userId(std::move(other.userId)),
-        username(std::move(other.username)), createdAt(other.createdAt),
-        expiresAt(other.expiresAt) {}
-
-  AuthSession &operator=(AuthSession &&other) noexcept {
-    if (this != &other) {
-      id = std::move(other.id);
-      userId = std::move(other.userId);
-      username = std::move(other.username);
-      createdAt = other.createdAt;
-      expiresAt = other.expiresAt;
-    }
-    return *this;
-  }
 
   // JSON serialization
   String toJson() const;
@@ -112,32 +64,6 @@ struct AuthApiToken {
                const String &username, const String &name,
                unsigned long expireInDays = 0);
 
-  // Rule of Five: Destructor, copy constructor, copy assignment, move
-  // constructor, move assignment
-  ~AuthApiToken() = default;
-  AuthApiToken(const AuthApiToken &other) = default;
-  AuthApiToken &operator=(const AuthApiToken &other) = default;
-
-  // Move semantics
-  AuthApiToken(AuthApiToken &&other) noexcept
-      : id(std::move(other.id)), token(std::move(other.token)),
-        userId(std::move(other.userId)), username(std::move(other.username)),
-        name(std::move(other.name)), createdAt(other.createdAt),
-        expiresAt(other.expiresAt) {}
-
-  AuthApiToken &operator=(AuthApiToken &&other) noexcept {
-    if (this != &other) {
-      id = std::move(other.id);
-      token = std::move(other.token);
-      userId = std::move(other.userId);
-      username = std::move(other.username);
-      name = std::move(other.name);
-      createdAt = other.createdAt;
-      expiresAt = other.expiresAt;
-    }
-    return *this;
-  }
-
   // JSON serialization
   String toJson() const;
   static AuthApiToken fromJson(const String &json);
@@ -158,29 +84,6 @@ struct AuthPageToken {
   AuthPageToken() : createdAt(0), expiresAt(0) {}
   AuthPageToken(const String &token, const String &clientIp);
 
-  // Rule of Five: Destructor, copy constructor, copy assignment, move
-  // constructor, move assignment
-  ~AuthPageToken() = default;
-  AuthPageToken(const AuthPageToken &other) = default;
-  AuthPageToken &operator=(const AuthPageToken &other) = default;
-
-  // Move semantics
-  AuthPageToken(AuthPageToken &&other) noexcept
-      : id(std::move(other.id)), token(std::move(other.token)),
-        clientIp(std::move(other.clientIp)), createdAt(other.createdAt),
-        expiresAt(other.expiresAt) {}
-
-  AuthPageToken &operator=(AuthPageToken &&other) noexcept {
-    if (this != &other) {
-      id = std::move(other.id);
-      token = std::move(other.token);
-      clientIp = std::move(other.clientIp);
-      createdAt = other.createdAt;
-      expiresAt = other.expiresAt;
-    }
-    return *this;
-  }
-
   // JSON serialization
   String toJson() const;
   static AuthPageToken fromJson(const String &json);
@@ -196,27 +99,6 @@ struct ConfigItem {
 
   ConfigItem() : updatedAt(0) {}
   ConfigItem(const String &key, const String &value);
-
-  // Rule of Five: Destructor, copy constructor, copy assignment, move
-  // constructor, move assignment
-  ~ConfigItem() = default;
-  ConfigItem(const ConfigItem &other) = default;
-  ConfigItem &operator=(const ConfigItem &other) = default;
-
-  // Move semantics
-  ConfigItem(ConfigItem &&other) noexcept
-      : id(std::move(other.id)), key(std::move(other.key)),
-        value(std::move(other.value)), updatedAt(other.updatedAt) {}
-
-  ConfigItem &operator=(ConfigItem &&other) noexcept {
-    if (this != &other) {
-      id = std::move(other.id);
-      key = std::move(other.key);
-      value = std::move(other.value);
-      updatedAt = other.updatedAt;
-    }
-    return *this;
-  }
 
   // JSON serialization
   String toJson() const;
