@@ -19,6 +19,7 @@
 #include <EEPROM.h>
 #include <functional>
 #include <map>
+#include <utility> // for std::move
 #include <vector>
 
 #include <EEPROM.h>
@@ -101,17 +102,17 @@ public:
   void begin(const char *deviceName, const PlatformConfig &config);
 
   // Module pre-registration (must be called before begin())
-  bool registerModule(const char *basePath, IWebModule *module);
-  bool registerModule(const char *basePath, IWebModule *module,
+  bool registerModule(const char *basePath, IWebModule *webModule);
+  bool registerModule(const char *basePath, IWebModule *webModule,
                       const JsonVariant &config);
 
   // Convenience methods for common module configurations
   template <typename T>
-  bool registerModule(const char *basePath, IWebModule *module,
+  bool registerModule(const char *basePath, IWebModule *webModule,
                       const T &config) {
     DynamicJsonDocument doc(1024);
     doc.set(config);
-    return registerModule(basePath, module, doc.as<JsonVariant>());
+    return registerModule(basePath, webModule, doc.as<JsonVariant>());
   }
 
   // Route registration - unified handler system with auth requirements
@@ -338,23 +339,49 @@ private:                            // Core server components
   // Module registry structures
   struct PendingModule {
     String basePath;
-    IWebModule *module;
+    IWebModule *webModule;
     DynamicJsonDocument config; // Store full config document
 
     // Constructor to properly initialize DynamicJsonDocument
     PendingModule() : config(512) {} // 512 bytes for config storage
     PendingModule(const String &path, IWebModule *mod,
                   const JsonVariant &configData)
-        : basePath(path), module(mod), config(512) {
+        : basePath(path), webModule(mod), config(512) {
       if (!configData.isNull()) {
         config.set(configData);
       }
+    }
+
+    // Move semantics
+    PendingModule(PendingModule &&other) noexcept
+        : basePath(std::move(other.basePath)), webModule(other.module),
+          config(std::move(other.config)) {}
+
+    PendingModule &operator=(PendingModule &&other) noexcept {
+      if (this != &other) {
+        basePath = std::move(other.basePath);
+        webModule = other.module;
+        config = std::move(other.config);
+      }
+      return *this;
     }
   };
 
   struct RegisteredModule {
     String basePath;
-    IWebModule *module;
+    IWebModule *webModule;
+
+    // Move semantics
+    RegisteredModule(RegisteredModule &&other) noexcept
+        : basePath(std::move(other.basePath)), webModule(other.module) {}
+
+    RegisteredModule &operator=(RegisteredModule &&other) noexcept {
+      if (this != &other) {
+        basePath = std::move(other.basePath);
+        webModule = other.module;
+      }
+      return *this;
+    }
   };
 
   std::vector<PendingModule> pendingModules; // Pre-registration storage

@@ -107,10 +107,11 @@ String NTPClient::getFormattedTime(const char *format) {
   }
 
   time_t now = time(nullptr);
-  struct tm *timeinfo = gmtime(&now);
+  struct tm timeinfo;
+  gmtime_r(&now, &timeinfo);
 
   char buffer[64];
-  strftime(buffer, sizeof(buffer), format, timeinfo);
+  strftime(buffer, sizeof(buffer), format, &timeinfo);
   return String(buffer);
 }
 

@@ -366,7 +366,7 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *module,
   }
 
   // Store module for initialization during begin()
-  pendingModules.emplace_back(basePath, module, config);
+  pendingModules.emplace_back(basePath, webModule, config);
 
   // Check for Maker API module and extract tags configuration
   String basePathStr = String(basePath);
@@ -398,15 +398,15 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *module,
   }
 
   DEBUG_PRINTF("WebPlatform: Pre-registered module '%s' at path: %s\n",
-               module->getModuleName().c_str(), basePath);
+               webModule->getModuleName().c_str(), basePath);
   return true;
 }
 
 // Register routes for a specific module
 void WebPlatform::registerModuleRoutesForModule(const String &basePath,
-                                                IWebModule *module) {
+                                                IWebModule *webModule) {
   DEBUG_PRINTF("  Processing module: %s at path: %s\n",
-               module->getModuleName().c_str(), basePath.c_str());
+               webModule->getModuleName().c_str(), basePath.c_str());
 
   // Process HTTP routes (now returns RouteVariant)
   auto httpRoutes = module->getHttpRoutes();
