@@ -3,7 +3,11 @@
 
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 #include <time.h>
+
 
 // Static member definitions
 const char *NTPClient::_ntpServer = "pool.ntp.org";
@@ -106,13 +110,17 @@ String NTPClient::getFormattedTime(const char *format) {
     return "Time not synchronized";
   }
 
-  time_t now = time(nullptr);
-  struct tm timeinfo;
-  gmtime_r(&now, &timeinfo);
+  // Use std::chrono for modern C++ time handling
+  auto now = std::chrono::system_clock::now();
+  auto time_t_now = std::chrono::system_clock::to_time_t(now);
 
-  char buffer[64];
-  strftime(buffer, sizeof(buffer), format, &timeinfo);
-  return String(buffer);
+  struct tm timeinfo;
+  gmtime_r(&time_t_now, &timeinfo);
+
+  // Use stringstream with std::put_time for formatting
+  std::stringstream ss;
+  ss << std::put_time(&timeinfo, format);
+  return String(ss.str().c_str());
 }
 
 unsigned long NTPClient::getTimeSinceLastSync() {

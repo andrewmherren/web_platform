@@ -355,27 +355,9 @@ private:                            // Core server components
       }
     }
 
-    // Rule of Five: Destructor, copy constructor, copy assignment, move
-    // constructor, move assignment
-    ~PendingModule() = default;
-    PendingModule(const PendingModule &other) =
-        delete; // Copying DynamicJsonDocument is complex
-    PendingModule &operator=(const PendingModule &other) =
-        delete; // Copying DynamicJsonDocument is complex
-
-    // Move semantics
-    PendingModule(PendingModule &&other) noexcept
-        : basePath(std::move(other.basePath)), webModule(other.webModule),
-          config(std::move(other.config)) {}
-
-    PendingModule &operator=(PendingModule &&other) noexcept {
-      if (this != &other) {
-        basePath = std::move(other.basePath);
-        webModule = other.webModule;
-        config = std::move(other.config);
-      }
-      return *this;
-    }
+    // Use compiler-generated special member functions (Rule of Zero)
+    // DynamicJsonDocument has proper move semantics, so compiler-generated
+    // operations are optimal
   };
 
   struct RegisteredModule {
@@ -389,23 +371,9 @@ private:                            // Core server components
     RegisteredModule(const String &path, IWebModule *webModule)
         : basePath(path), webModule(webModule) {}
 
-    // Rule of Five: Destructor, copy constructor, copy assignment, move
-    // constructor, move assignment
-    ~RegisteredModule() = default;
-    RegisteredModule(const RegisteredModule &other) = default;
-    RegisteredModule &operator=(const RegisteredModule &other) = default;
-
-    // Move semantics
-    RegisteredModule(RegisteredModule &&other) noexcept
-        : basePath(std::move(other.basePath)), webModule(other.webModule) {}
-
-    RegisteredModule &operator=(RegisteredModule &&other) noexcept {
-      if (this != &other) {
-        basePath = std::move(other.basePath);
-        webModule = other.webModule;
-      }
-      return *this;
-    }
+    // Use compiler-generated special member functions (Rule of Zero)
+    // The compiler will generate optimal copy/move operations for String +
+    // pointer members
   };
 
   std::vector<PendingModule> pendingModules; // Pre-registration storage
