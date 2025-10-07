@@ -2,6 +2,7 @@
 #define DATA_MODELS_H
 
 #include <Arduino.h>
+#include <utility> // for std::move
 #include <vector>
 
 /**
