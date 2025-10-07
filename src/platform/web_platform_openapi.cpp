@@ -134,7 +134,7 @@ bool WebPlatform::generateAndStoreSpec(
     String defaultModuleTag = inferModuleFromPath(routePathStr);
 
     if (!docs.getTags().empty()) {
-      // Add default module tag first
+      // Add default webModule tag first
       tags.add(defaultModuleTag);
 
       // Add custom tags, avoiding duplicates
@@ -149,7 +149,7 @@ bool WebPlatform::generateAndStoreSpec(
         }
       }
     } else {
-      // Just add the default module tag
+      // Just add the default webModule tag
       tags.add(defaultModuleTag);
     }
 
@@ -615,17 +615,17 @@ String WebPlatform::generateOperationId(const String &method,
 }
 
 String WebPlatform::inferModuleFromPath(const String &path) const {
-  // First, try to find a registered module that matches this path
+  // First, try to find a registered webModule that matches this path
   String moduleName = "";
 
   for (const auto &regModule : registeredModules) {
     if (path.startsWith(regModule.basePath)) {
-      moduleName = regModule.module->getModuleName();
+      moduleName = regModule.webModule->getModuleName();
       break;
     }
   }
 
-  // If we found a registered module, format its name
+  // If we found a registered webModule, format its name
   if (!moduleName.isEmpty()) {
     return formatModuleName(moduleName);
   }
@@ -669,7 +669,7 @@ void WebPlatform::addParametersToOperationFromDocs(
   // Track parameter names to avoid duplicates
   std::map<String, bool> parameterNames;
 
-  // First, add custom parameters from module documentation
+  // First, add custom parameters from webModule documentation
   if (!docs.getParameters().isEmpty()) {
     DynamicJsonDocument paramDoc(2048);
     if (deserializeJson(paramDoc, docs.getParameters()) ==
@@ -799,7 +799,7 @@ void WebPlatform::addResponsesToOperationFromDocs(
     }
   }
 
-  // Add module-provided response info
+  // Add webModule-provided response info
   if (!docs.getResponsesJson().isEmpty()) {
     DynamicJsonDocument responseDoc(2048);
     if (deserializeJson(responseDoc, docs.getResponsesJson()) ==

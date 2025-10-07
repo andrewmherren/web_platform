@@ -443,9 +443,10 @@ void WebPlatform::getModulesApiHandler(WebRequest &req, WebResponse &res) {
         JsonArray webModules = root.createNestedArray("modules");
         for (const auto &regModule : registeredModules) {
           JsonObject webModule = webModules.createNestedObject();
-          webModule["name"] = regModule.module->getModuleName();
-          webModule["version"] = regModule.module->getModuleVersion();
-          webModule["description"] = regModule.module->getModuleDescription();
+          webModule["name"] = regModule.webModule->getModuleName();
+          webModule["version"] = regModule.webModule->getModuleVersion();
+          webModule["description"] =
+              regModule.webModule->getModuleDescription();
           webModule["basePath"] = regModule.basePath;
         }
       },

@@ -368,13 +368,13 @@ String WebPlatform::getBaseUrl() const {
   }
 }
 
-bool WebPlatform::registerModule(const char *basePath, IWebModule *module) {
-  return registerModule(basePath, module, JsonVariant());
+bool WebPlatform::registerModule(const char *basePath, IWebModule *webModule) {
+  return registerModule(basePath, webModule, JsonVariant());
 }
 
-bool WebPlatform::registerModule(const char *basePath, IWebModule *module,
+bool WebPlatform::registerModule(const char *basePath, IWebModule *webModule,
                                  const JsonVariant &config) {
-  if (!module) {
+  if (!webModule) {
     DEBUG_PRINTLN("WebPlatform: Cannot register null module");
     return false;
   }
@@ -441,7 +441,7 @@ void WebPlatform::registerModuleRoutesForModule(const String &basePath,
                webModule->getModuleName().c_str(), basePath.c_str());
 
   // Process HTTP routes (now returns RouteVariant)
-  auto httpRoutes = module->getHttpRoutes();
+  auto httpRoutes = webModule->getHttpRoutes();
   DEBUG_PRINTF("  Module has %d HTTP routes\n", httpRoutes.size());
 
   for (const auto &routeVariant : httpRoutes) {
@@ -544,24 +544,26 @@ void WebPlatform::initializeRegisteredModules() {
   // Initialize modules one by one with error handling
   for (auto &pendingModule : pendingModules) {
     DEBUG_PRINTF("  Initializing: %s at %s\n",
-                 pendingModule.module->getModuleName().c_str(),
+                 pendingModule.webModule->getModuleName().c_str(),
                  pendingModule.basePath.c_str());
 
     // Initialize module with config if provided
     if (pendingModule.config.size() > 0) {
-      pendingModule.module->begin(pendingModule.config.as<JsonVariant>());
+      pendingModule.webModule->begin(pendingModule.config.as<JsonVariant>());
     } else {
-      pendingModule.module->begin();
+      pendingModule.webModule->begin();
     }
 
     // Move to active registry
-    registeredModules.push_back({pendingModule.basePath, pendingModule.module});
+    registeredModules.push_back(
+        {pendingModule.basePath, pendingModule.webModule});
 
     // Register module routes immediately to spread memory usage
-    registerModuleRoutesForModule(pendingModule.basePath, pendingModule.module);
+    registerModuleRoutesForModule(pendingModule.basePath,
+                                  pendingModule.webModule);
 
     DEBUG_PRINTF("  ✓ Module %s initialized successfully\n",
-                 pendingModule.module->getModuleName().c_str());
+                 pendingModule.webModule->getModuleName().c_str());
   }
 
   // Clear pending modules to free memory
@@ -575,8 +577,8 @@ void WebPlatform::initializeRegisteredModules() {
 void WebPlatform::handleRegisteredModules() {
   // Call handle() on all registered modules
   for (const auto &regModule : registeredModules) {
-    if (regModule.module) {
-      regModule.module->handle();
+    if (regModule.webModule) {
+      regModule.webModule->handle();
     }
   }
 }
@@ -598,7 +600,7 @@ bool WebPlatform::validatePendingModules() {
 
   // Validate module pointers
   for (const auto &pending : pendingModules) {
-    if (!pending.module) {
+    if (!pending.webModule) {
       ERROR_PRINTF("ERROR: Null module pointer for path: %s\n",
                    pending.basePath.c_str());
       return false;

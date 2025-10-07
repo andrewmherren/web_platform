@@ -355,15 +355,23 @@ private:                            // Core server components
       }
     }
 
+    // Rule of Five: Destructor, copy constructor, copy assignment, move
+    // constructor, move assignment
+    ~PendingModule() = default;
+    PendingModule(const PendingModule &other) =
+        delete; // Copying DynamicJsonDocument is complex
+    PendingModule &operator=(const PendingModule &other) =
+        delete; // Copying DynamicJsonDocument is complex
+
     // Move semantics
     PendingModule(PendingModule &&other) noexcept
-        : basePath(std::move(other.basePath)), webModule(other.module),
+        : basePath(std::move(other.basePath)), webModule(other.webModule),
           config(std::move(other.config)) {}
 
     PendingModule &operator=(PendingModule &&other) noexcept {
       if (this != &other) {
         basePath = std::move(other.basePath);
-        webModule = other.module;
+        webModule = other.webModule;
         config = std::move(other.config);
       }
       return *this;
@@ -374,14 +382,27 @@ private:                            // Core server components
     String basePath;
     IWebModule *webModule;
 
+    // Default constructor
+    RegisteredModule() : webModule(nullptr) {}
+
+    // Constructor
+    RegisteredModule(const String &path, IWebModule *webModule)
+        : basePath(path), webModule(webModule) {}
+
+    // Rule of Five: Destructor, copy constructor, copy assignment, move
+    // constructor, move assignment
+    ~RegisteredModule() = default;
+    RegisteredModule(const RegisteredModule &other) = default;
+    RegisteredModule &operator=(const RegisteredModule &other) = default;
+
     // Move semantics
     RegisteredModule(RegisteredModule &&other) noexcept
-        : basePath(std::move(other.basePath)), webModule(other.module) {}
+        : basePath(std::move(other.basePath)), webModule(other.webModule) {}
 
     RegisteredModule &operator=(RegisteredModule &&other) noexcept {
       if (this != &other) {
         basePath = std::move(other.basePath);
-        webModule = other.module;
+        webModule = other.webModule;
       }
       return *this;
     }
@@ -429,7 +450,7 @@ private:                            // Core server components
   void registerConfigPortalRoutes();
   void registerConnectedModeRoutes();
   void registerModuleRoutesForModule(const String &basePath,
-                                     IWebModule *module);
+                                     IWebModule *webModule);
   void bindRegisteredRoutes();
   bool dispatchRoute(const String &path, WebModule::Method wmMethod,
                      WebRequest &request, WebResponse &response,
