@@ -37,10 +37,14 @@ private:
 
   // Helper methods
   static void ensureInitialized();
-  static void createDefaultAdminUser();
   static void cleanExpiredData();
 
 public:
+  /**
+   * Check if any users exist in the system
+   * @return true if users exist, false if empty
+   */
+  static bool hasUsers();
   /**
    * Initialize with specific driver (or default)
    * @param driver Driver name to use ("" = default)
@@ -53,9 +57,11 @@ public:
    * Create a new user
    * @param username Username
    * @param password Plain text password (will be hashed)
+   * @param isFirstUser Whether this is the first user (gets admin privileges)
    * @return User ID if successful, empty string if failed
    */
-  static String createUser(const String &username, const String &password);
+  static String createUser(const String &username, const String &password,
+                           bool isFirstUser = false);
 
   /**
    * Find user by ID
@@ -101,6 +107,12 @@ public:
    * @return Vector of AuthUser objects
    */
   static std::vector<AuthUser> getAllUsers();
+
+  /**
+   * Check if initial setup is required (no users exist)
+   * @return true if no users exist (setup needed)
+   */
+  static bool requiresInitialSetup();
 
   // Session management
 

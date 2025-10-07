@@ -22,28 +22,15 @@ void AuthStorage::ensureInitialized() {
   }
 }
 
-void AuthStorage::createDefaultAdminUser() {
-  // Check if any users exist
+bool AuthStorage::hasUsers() {
+  ensureInitialized();
+
   IDatabaseDriver *driver = &StorageManager::driver(driverName);
   std::vector<String> userKeys = driver->listKeys(USERS_COLLECTION);
 
-  if (userKeys.empty()) {
-    // No users exist, create default admin
-    String salt = AuthUtils::generateSalt();
-    String hash =
-        AuthUtils::hashPassword(AuthConstants::DEFAULT_ADMIN_PASSWORD, salt);
+  DEBUG_PRINTF("AuthStorage: Found %d existing users\n", userKeys.size());
 
-    AuthUser admin(AuthConstants::DEFAULT_ADMIN_USERNAME, hash, salt);
-
-    bool stored = driver->store(USERS_COLLECTION, admin.id, admin.toJson());
-
-    if (stored) {
-      DEBUG_PRINTF("AuthStorage: Created default admin user (ID: %s)\n",
-                   admin.id.c_str());
-    } else {
-      ERROR_PRINTLN("AuthStorage: ERROR - Failed to create default admin user");
-    }
-  }
+  return !userKeys.empty();
 }
 
 void AuthStorage::cleanExpiredData() {
@@ -70,8 +57,8 @@ void AuthStorage::initialize(const String &driver) {
     }
   }
 
-  // Create default admin user if needed
-  createDefaultAdminUser();
+  // Note: No longer creating default admin user
+  // First user will be created via setup process
 
   initialized = true;
 
@@ -84,7 +71,8 @@ void AuthStorage::initialize(const String &driver) {
 
 // User management
 
-String AuthStorage::createUser(const String &username, const String &password) {
+String AuthStorage::createUser(const String &username, const String &password,
+                               bool isFirstUser) {
   ensureInitialized();
 
   if (username.length() == 0 || password.length() == 0) {
@@ -101,13 +89,22 @@ String AuthStorage::createUser(const String &username, const String &password) {
   // Create new user
   String salt = AuthUtils::generateSalt();
   String hash = AuthUtils::hashPassword(password, salt);
-  AuthUser user(username, hash, salt);
+
+  // First user automatically gets admin privileges
+  bool shouldBeAdmin = isFirstUser || !hasUsers();
+  if (shouldBeAdmin) {
+    DEBUG_PRINTF("AuthStorage: First user '%s' - granting admin privileges\n",
+                 username.c_str());
+  }
+
+  AuthUser user(username, hash, salt, shouldBeAdmin);
 
   IDatabaseDriver *driver = &StorageManager::driver(driverName);
 
   if (driver->store(USERS_COLLECTION, user.id, user.toJson())) {
-    DEBUG_PRINTF("AuthStorage: Created user '%s' (ID: %s)\n", username.c_str(),
-                 user.id.c_str());
+    DEBUG_PRINTF("AuthStorage: Created user '%s' (ID: %s, Admin: %s)\n",
+                 username.c_str(), user.id.c_str(),
+                 user.isAdmin ? "YES" : "NO");
     return user.id;
   }
 
@@ -621,4 +618,11 @@ String AuthStorage::getStorageStats() {
   String stats;
   serializeJson(doc, stats);
   return stats;
+}
+
+bool AuthStorage::requiresInitialSetup() {
+  ensureInitialized();
+
+  // Initial setup is required if no users exist at all
+  return !hasUsers();
 }

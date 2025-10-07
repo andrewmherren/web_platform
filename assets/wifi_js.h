@@ -3,7 +3,8 @@
 
 #include <Arduino.h>
 
-// Unified WiFi management JavaScript for both config portal and WiFi management pages
+// Unified WiFi management JavaScript for both config portal and WiFi management
+// pages
 const char WIFI_JS[] PROGMEM = R"rawliteral(
 // Unified WiFi JavaScript Handler
 class WiFiHandler {
@@ -140,15 +141,13 @@ class WiFiHandler {
     UIUtils.updateButtonState(submitBtn, true, '⟳ Connecting...');
     
     try {
-      const response = await AuthUtils.fetchJSON('/api/wifi', {
+      const data = await AuthUtils.fetchJSON('/api/wifi', {
         method: 'POST',
         body: JSON.stringify({
           ssid: ssid,
           password: password
         })
       });
-      
-      const data = await response.json();
       
       if (data.success) {
         UIUtils.showAlert('Success!', 

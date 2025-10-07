@@ -351,7 +351,7 @@ struct AuthContext {
     String username;             // Username (for SESSION auth)
     String userId;               // User ID (for SESSION auth)
     String token;                // Token ID (for TOKEN auth)
-    bool isAdmin;                // Whether user has admin privileges
+    bool isAdmin;                // Whether user has admin privileges (from initial setup or privileged users)
 };
 ```
 

@@ -1,7 +1,7 @@
 #include "../../assets/favicon_ico.h"
+#include "../../assets/style_css.h"
 #include "../../assets/web_platform_styles_css.h"
 #include "../../assets/web_platform_utils_js.h"
-#include "../../assets/web_ui_styles.h"
 #include "../../assets/wifi_js.h"
 #include "web_platform.h"
 
@@ -17,7 +17,7 @@ void WebPlatform::webPlatformJSAssetHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::styleCSSAssetHandler(WebRequest &req, WebResponse &res) {
-  res.setProgmemContent(WEB_UI_DEFAULT_CSS, "text/css");
+  res.setProgmemContent(DEFAULT_STYLE_CSS, "text/css");
   res.setHeader("Cache-Control", "public, max-age=3600");
 }
 

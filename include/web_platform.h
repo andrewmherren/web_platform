@@ -88,7 +88,7 @@ public:
   ~WebPlatform();
 
   // System Version
-  String getPlatformVersion() const { return "0.1.0"; }
+  String getPlatformVersion() const { return "0.1.1"; }
   String getSystemVersion() const {
     return systemVersion.isEmpty() ? "0.0.0" : systemVersion;
   }
@@ -128,6 +128,9 @@ public:
 
   // Handle all web requests and WiFi operations
   void handle();
+
+  // Finalize route registration (seals string pool and enables optimizations)
+  void finalizeRoutes();
 
   // Module lifecycle management
   void handleRegisteredModules();
@@ -263,7 +266,7 @@ private:                            // Core server components
   void accountPageHandler(WebRequest &req, WebResponse &res);
   void accountPageJSAssetHandler(WebRequest &req, WebResponse &res);
   void configPortalPageHandler(WebRequest &req, WebResponse &res);
-  void configPortalSuccessJSAssetHandler(WebRequest &req, WebResponse &res);
+  void initialSetupPageHandler(WebRequest &req, WebResponse &res);
   void webPlatformCSSAssetHandler(WebRequest &req, WebResponse &res);
   void webPlatformJSAssetHandler(WebRequest &req, WebResponse &res);
   void wifiJSAssetHandler(WebRequest &req, WebResponse &res);
@@ -466,6 +469,13 @@ public:
   void updateConnectionState();
   unsigned long lastConnectionCheck = 0;
   static const unsigned long CONNECTION_CHECK_INTERVAL = 5000; // 5 seconds
+
+  // Restart scheduling
+  bool restartScheduled = false;
+  unsigned long restartScheduledTime = 0;
+
+  // Route finalization tracking
+  bool routesFinalized = false;
 };
 
 // Global instance

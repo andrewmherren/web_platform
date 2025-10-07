@@ -7,9 +7,10 @@
 
 void WebPlatform::getUsersApiHandler(WebRequest &req, WebResponse &res) {
 
-  // Check if user is admin (for now, assume username "admin" is admin)
+  // Check if user is admin
   const AuthContext &auth = req.getAuthContext();
-  if (auth.username != "admin") {
+  AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
+  if (!currentUser.isValid() || !currentUser.isAdmin) {
     JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
@@ -35,16 +36,34 @@ void WebPlatform::getUsersApiHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::createUserApiHandler(WebRequest &req, WebResponse &res) {
-
-  // Check if user is admin
   const AuthContext &auth = req.getAuthContext();
-  if (auth.username != "admin") {
-    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
-    return;
-  }
+  bool isInitialSetup = !AuthStorage::hasUsers();
 
-  String username = req.getJsonParam("username");
-  String password = req.getJsonParam("password");
+  // For normal operation (users exist), require admin privileges
+  if (!isInitialSetup) {
+    // Check if current user is admin (check by actual admin flag, not hardcoded
+    // username)
+    AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
+    if (!currentUser.isValid() || !currentUser.isAdmin) {
+      JsonResponseBuilder::createErrorResponse(res, "Admin access required",
+                                               403);
+      return;
+    }
+  }
+  // For initial setup (no users exist), anyone with page token can create the
+  // first admin user
+
+  // Support both form data and JSON input
+  String username = req.getParam("username");
+  String password = req.getParam("password");
+
+  // If form data is empty, try JSON
+  if (username.isEmpty()) {
+    username = req.getJsonParam("username");
+  }
+  if (password.isEmpty()) {
+    password = req.getJsonParam("password");
+  }
 
   if (username.isEmpty() || password.isEmpty()) {
     JsonResponseBuilder::createErrorResponse(
@@ -65,16 +84,20 @@ void WebPlatform::createUserApiHandler(WebRequest &req, WebResponse &res) {
     return;
   }
 
-  String userId = AuthStorage::createUser(username, password);
+  // Pass isInitialSetup flag to createUser so first user gets admin privileges
+  String userId = AuthStorage::createUser(username, password, isInitialSetup);
   if (userId.isEmpty()) {
     JsonResponseBuilder::createErrorResponse(res, "Failed to create user", 500);
     return;
   }
 
-  // Success response
+  // Success response with different message for initial setup
+  String message = isInitialSetup
+                       ? "First user account created with admin privileges"
+                       : "User created";
   JsonResponseBuilder::createResponse<256>(res, [&](JsonObject &root) {
     root["success"] = true;
-    root["message"] = "User created";
+    root["message"] = message;
     root["id"] = userId;
   });
   res.setStatus(201);
@@ -92,7 +115,7 @@ void WebPlatform::getUserByIdApiHandler(WebRequest &req, WebResponse &res) {
   AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
 
   // Users can only access their own data unless they are admin
-  if (userId != currentUser.id && auth.username != "admin") {
+  if (userId != currentUser.id && !currentUser.isAdmin) {
     JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
@@ -127,7 +150,7 @@ void WebPlatform::updateUserByIdApiHandler(WebRequest &req, WebResponse &res) {
   AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
 
   // Users can only update their own data unless they are admin
-  if (userId != currentUser.id && auth.username != "admin") {
+  if (userId != currentUser.id && !currentUser.isAdmin) {
     JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
@@ -158,10 +181,10 @@ void WebPlatform::updateUserByIdApiHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::deleteUserByIdApiHandler(WebRequest &req, WebResponse &res) {
-
   // Check if user is admin
   const AuthContext &auth = req.getAuthContext();
-  if (auth.username != "admin") {
+  AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
+  if (!currentUser.isValid() || !currentUser.isAdmin) {
     JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
@@ -172,9 +195,9 @@ void WebPlatform::deleteUserByIdApiHandler(WebRequest &req, WebResponse &res) {
     return;
   }
 
-  // Don't allow deleting the admin user
+  // Don't allow deleting admin users (any user with admin privileges)
   AuthUser targetUser = AuthStorage::findUserById(userId);
-  if (targetUser.username == "admin") {
+  if (targetUser.isAdmin) {
     JsonResponseBuilder::createErrorResponse(res, "Cannot delete admin user",
                                              403);
     return;
@@ -260,7 +283,7 @@ void WebPlatform::getUserTokensApiHandler(WebRequest &req, WebResponse &res) {
   AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
 
   // Users can only access their own tokens unless they are admin
-  if (userId != currentUser.id && auth.username != "admin") {
+  if (userId != currentUser.id && !currentUser.isAdmin) {
     JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }
@@ -298,7 +321,7 @@ void WebPlatform::createUserTokenApiHandler(WebRequest &req, WebResponse &res) {
   AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
 
   // Users can only create tokens for themselves unless they are admin
-  if (userId != currentUser.id && auth.username != "admin") {
+  if (userId != currentUser.id && !currentUser.isAdmin) {
     JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
     return;
   }

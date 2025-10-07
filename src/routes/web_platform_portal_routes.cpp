@@ -1,5 +1,7 @@
 #include "docs/system_api_docs.h"
 #include "interface/openapi_types.h"
+#include "storage/auth_storage.h"
+#include "utilities/json_response_builder.h"
 #include "web_platform.h"
 #include <ArduinoJson.h>
 
@@ -35,18 +37,23 @@ void WebPlatform::registerConfigPortalRoutes() {
                              std::placeholders::_1, std::placeholders::_2),
                    {AuthType::NONE}, WebModule::WM_GET);
 
-  // Register static assets first
-  registerWebRoute("/assets/config-portal-success.js",
-                   std::bind(&WebPlatform::configPortalSuccessJSAssetHandler,
-                             this, std::placeholders::_1,
-                             std::placeholders::_2),
+  // Initial setup route (if admin password not set)
+  registerWebRoute("/setup",
+                   std::bind(&WebPlatform::initialSetupPageHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
+                   {AuthType::NONE}, WebModule::WM_GET);
+
+  // Captive portal catch-all routes for common detection URLs
+  registerWebRoute("/",
+                   std::bind(&WebPlatform::configPortalPageHandler, this,
+                             std::placeholders::_1, std::placeholders::_2),
                    {AuthType::NONE}, WebModule::WM_GET);
 
   // Register at multiple paths to ensure captive portal works
   registerWebRoute("/portal",
                    std::bind(&WebPlatform::configPortalPageHandler, this,
                              std::placeholders::_1, std::placeholders::_2),
-                   {AuthType::LOCAL_ONLY}, WebModule::WM_GET);
+                   {AuthType::NONE}, WebModule::WM_GET);
 
   registerApiRoute("/wifi",
                    std::bind(&WebPlatform::wifiConfigHandler, this,
@@ -72,4 +79,23 @@ void WebPlatform::registerConfigPortalRoutes() {
                              std::placeholders::_1, std::placeholders::_2),
                    {AuthType::PAGE_TOKEN}, WebModule::WM_POST,
                    API_DOC_BLOCK(SystemApiDocs::createResetDevice()));
+
+  // User creation route for initial setup (reuses existing handler with
+  // wrapper)
+  registerApiRoute(
+      "/user",
+      [this](WebRequest &req, WebResponse &res) {
+        // Only allow user creation if no users exist (initial setup)
+        if (AuthStorage::hasUsers()) {
+          JsonResponseBuilder::createErrorResponse(
+              res, "User creation not allowed - users already exist", 403);
+          return;
+        }
+        // Forward to the normal user creation handler
+        this->createUserApiHandler(req, res);
+      },
+      {AuthType::PAGE_TOKEN}, WebModule::WM_POST,
+      API_DOC("Create first user account",
+              "Creates the first user account with admin privileges during "
+              "initial setup. Only works when no users exist."));
 }
