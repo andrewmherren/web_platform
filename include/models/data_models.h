@@ -5,7 +5,6 @@
 #include <utility> // for std::move
 #include <vector>
 
-
 /**
  * Core data models for the storage-based systems
  *
@@ -26,11 +25,18 @@ struct AuthUser {
   AuthUser(const String &username, const String &hash, const String &salt,
            bool admin = false);
 
+  // Rule of Five: Destructor, copy constructor, copy assignment, move
+  // constructor, move assignment
+  ~AuthUser() = default;
+  AuthUser(const AuthUser &other) = default;
+  AuthUser &operator=(const AuthUser &other) = default;
+
   // Move semantics
   AuthUser(AuthUser &&other) noexcept
       : id(std::move(other.id)), username(std::move(other.username)),
         passwordHash(std::move(other.passwordHash)),
-        salt(std::move(other.salt)), createdAt(other.createdAt) {}
+        salt(std::move(other.salt)), isAdmin(other.isAdmin),
+        createdAt(other.createdAt) {}
 
   AuthUser &operator=(AuthUser &&other) noexcept {
     if (this != &other) {
@@ -38,6 +44,7 @@ struct AuthUser {
       username = std::move(other.username);
       passwordHash = std::move(other.passwordHash);
       salt = std::move(other.salt);
+      isAdmin = other.isAdmin;
       createdAt = other.createdAt;
     }
     return *this;
@@ -60,6 +67,12 @@ struct AuthSession {
   AuthSession() : createdAt(0), expiresAt(0) {}
   AuthSession(const String &sessionId, const String &userId,
               const String &username);
+
+  // Rule of Five: Destructor, copy constructor, copy assignment, move
+  // constructor, move assignment
+  ~AuthSession() = default;
+  AuthSession(const AuthSession &other) = default;
+  AuthSession &operator=(const AuthSession &other) = default;
 
   // Move semantics
   AuthSession(AuthSession &&other) noexcept
@@ -98,6 +111,12 @@ struct AuthApiToken {
   AuthApiToken(const String &token, const String &userId,
                const String &username, const String &name,
                unsigned long expireInDays = 0);
+
+  // Rule of Five: Destructor, copy constructor, copy assignment, move
+  // constructor, move assignment
+  ~AuthApiToken() = default;
+  AuthApiToken(const AuthApiToken &other) = default;
+  AuthApiToken &operator=(const AuthApiToken &other) = default;
 
   // Move semantics
   AuthApiToken(AuthApiToken &&other) noexcept
@@ -139,6 +158,12 @@ struct AuthPageToken {
   AuthPageToken() : createdAt(0), expiresAt(0) {}
   AuthPageToken(const String &token, const String &clientIp);
 
+  // Rule of Five: Destructor, copy constructor, copy assignment, move
+  // constructor, move assignment
+  ~AuthPageToken() = default;
+  AuthPageToken(const AuthPageToken &other) = default;
+  AuthPageToken &operator=(const AuthPageToken &other) = default;
+
   // Move semantics
   AuthPageToken(AuthPageToken &&other) noexcept
       : id(std::move(other.id)), token(std::move(other.token)),
@@ -171,6 +196,12 @@ struct ConfigItem {
 
   ConfigItem() : updatedAt(0) {}
   ConfigItem(const String &key, const String &value);
+
+  // Rule of Five: Destructor, copy constructor, copy assignment, move
+  // constructor, move assignment
+  ~ConfigItem() = default;
+  ConfigItem(const ConfigItem &other) = default;
+  ConfigItem &operator=(const ConfigItem &other) = default;
 
   // Move semantics
   ConfigItem(ConfigItem &&other) noexcept
