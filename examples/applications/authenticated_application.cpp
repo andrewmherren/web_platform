@@ -454,6 +454,9 @@ else:
 void setup() {
   Serial.begin(115200);
   DEBUG_PRINTLN("Starting Authenticated WebPlatform Application...");
+  
+  // Set up the production platform provider first (before any modules are used)
+  setupProductionPlatformProvider();
 
   // Set up navigation menu with authentication-aware
   // items

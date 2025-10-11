@@ -1,6 +1,6 @@
-#include "../include/interface/auth_types.h"
 #include "../include/route_entry.h"
 #include "../include/web_platform.h"
+#include <interface/auth_types.h>
 
 void WebPlatform::printUnifiedRoutes() const {
   // Determine what we're printing based on parameters

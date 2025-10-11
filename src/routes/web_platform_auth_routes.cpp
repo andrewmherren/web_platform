@@ -2,11 +2,12 @@
 #include "../../assets/login_page_html.h"
 #include "auth/auth_constants.h"
 #include "docs/auth_api_docs.h"
-#include "interface/auth_types.h"
-#include "interface/openapi_types.h"
 #include "storage/auth_storage.h"
 #include "web_platform.h"
 #include <functional>
+#include <interface/auth_types.h>
+#include <interface/openapi_types.h>
+
 
 // In general, auth api routes should use Token and Session auth types because
 // only those two identify the actual user preforming interactions and we dont

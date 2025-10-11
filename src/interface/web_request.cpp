@@ -1,9 +1,9 @@
-#include "interface/web_request.h"
-#include "interface/webserver_typedefs.h"
 #include "models/data_models.h"
 #include "storage/auth_storage.h"
 #include "utilities/debug_macros.h"
 #include <ArduinoJson.h>
+#include <interface/web_request.h>
+#include <interface/webserver_typedefs.h>
 
 #include <WebServer.h>
 #include <arpa/inet.h>
@@ -17,23 +17,8 @@
    ((const uint32_t *)(a))[2] == htonl(0xffff))
 #endif
 
-const char *COMMON_HTTP_HEADERS[] = {"Host",
-                                     "User-Agent",
-                                     "Accept",
-                                     "Accept-Language",
-                                     "Accept-Encoding",
-                                     "Content-Type",
-                                     "Content-Length",
-                                     "Authorization",
-                                     "Cookie",
-                                     "X-CSRF-Token",
-                                     "X-Requested-With",
-                                     "Referer",
-                                     "Cache-Control",
-                                     "Connection",
-                                     "Pragma"};
-const size_t COMMON_HTTP_HEADERS_COUNT =
-    sizeof(COMMON_HTTP_HEADERS) / sizeof(COMMON_HTTP_HEADERS[0]);
+// COMMON_HTTP_HEADERS is now defined in
+// web_platform_interface/src/web_request_constants.cpp
 
 // Constructor for Arduino WebServer
 WebRequest::WebRequest(WebServerClass *server) {
@@ -97,7 +82,8 @@ WebRequest::WebRequest(httpd_req *req) {
     delete[] query;
   }
 
-  for (const char *headerName : COMMON_HTTP_HEADERS) {
+  for (size_t i = 0; i < COMMON_HTTP_HEADERS_COUNT; i++) {
+    const char *headerName = COMMON_HTTP_HEADERS[i];
     size_t headerLen = httpd_req_get_hdr_value_len(req, headerName);
     if (headerLen > 0) {
       char *headerValue = new char[headerLen + 1];

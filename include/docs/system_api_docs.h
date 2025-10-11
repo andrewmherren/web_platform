@@ -1,6 +1,6 @@
 #ifndef SYSTEM_API_DOCS_H
 #define SYSTEM_API_DOCS_H
-#include "../interface/openapi_factory.h"
+#include <interface/openapi_factory.h>
 #include <vector>
 
 /**

@@ -1,10 +1,11 @@
-#include "interface/openapi_types.h"
-#include "interface/web_module_types.h"
 #include "route_entry.h"
 #include "storage/storage_manager.h"
 #include "web_platform.h"
 #include <ArduinoJson.h>
+#include <interface/openapi_types.h>
+#include <interface/web_module_types.h>
 #include <map>
+
 
 // OpenAPI specification generation and serving functions
 // This file contains the comprehensive OpenAPI generation logic that was moved

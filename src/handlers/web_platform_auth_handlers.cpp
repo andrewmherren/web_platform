@@ -2,11 +2,11 @@
 #include "../../assets/account_page_js.h"
 #include "../../assets/login_page_html.h"
 #include "auth/auth_constants.h"
-#include "interface/auth_types.h"
 #include "storage/auth_storage.h"
 #include "utilities/json_response_builder.h"
 #include "web_platform.h"
 #include <functional>
+#include <interface/auth_types.h>
 
 void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
   String redirectUrl = req.getParam("redirect");

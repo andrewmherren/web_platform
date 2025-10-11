@@ -1,7 +1,7 @@
 #ifndef PLATFORM_SERVICE_H
 #define PLATFORM_SERVICE_H
 
-#include "web_request.h"
+#include <interface/web_request.h>
 
 class IPlatformService {
 public:

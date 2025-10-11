@@ -1,13 +1,8 @@
 #ifndef WEB_PLATFORM_H
 #define WEB_PLATFORM_H
 
-#include "interface/auth_types.h"
 #include "interface/openapi_generation_context.h"
-#include "interface/openapi_types.h"
 #include "interface/platform_service.h"
-#include "interface/web_module_interface.h"
-#include "interface/web_request.h"
-#include "interface/web_response.h"
 #include "platform/ntp_client.h"
 #include "storage/storage_manager.h"
 #include "types/navigation_types.h"
@@ -18,8 +13,15 @@
 #include <DNSServer.h>
 #include <EEPROM.h>
 #include <functional>
+#include <interface/auth_types.h>
+#include <interface/openapi_types.h>
+#include <interface/web_module_interface.h>
+#include <interface/web_platform_interface.h>
+#include <interface/web_request.h>
+#include <interface/web_response.h>
 #include <map>
 #include <vector>
+
 
 #include <EEPROM.h>
 #include <ESPmDNS.h>
@@ -81,7 +83,9 @@ typedef std::function<void()> WiFiSetupCompleteCallback;
  * - Module registration system for connected mode
  * - Automatic certificate detection without build flags
  */
-class WebPlatform : public IWebModule, public IPlatformService {
+class WebPlatform : public IWebPlatform,
+                    public IWebModule,
+                    public IPlatformService {
 public:
   WebPlatform();
   ~WebPlatform();
@@ -100,10 +104,32 @@ public:
              bool forceHttpsOnly);
   void begin(const char *deviceName, const PlatformConfig &config);
 
+  // IWebPlatform interface implementations
+  void begin(const String &deviceName) override { begin(deviceName.c_str()); }
+  void begin(const String &deviceName, bool httpsOnly) override {
+    begin(deviceName.c_str(), "", httpsOnly);
+  }
+
   // Module pre-registration (must be called before begin())
   bool registerModule(const char *basePath, IWebModule *module);
   bool registerModule(const char *basePath, IWebModule *module,
                       const JsonVariant &config);
+
+  // IWebPlatform interface implementation for module registration
+  void registerModule(const String &basePath, IWebModule *module) override {
+    registerModule(basePath.c_str(), module);
+  }
+
+  bool isConnected() const override { return currentMode == CONNECTED; }
+  String getBaseUrl() const override;
+
+  // IWebPlatform interface implementations - JSON utilities
+  void createJsonResponse(WebResponse &res,
+                          std::function<void(JsonObject &)> builder) override;
+
+  void
+  createJsonArrayResponse(WebResponse &res,
+                          std::function<void(JsonArray &)> builder) override;
 
   // Convenience methods for common module configurations
   template <typename T>
@@ -118,12 +144,13 @@ public:
   void registerWebRoute(const String &path,
                         WebModule::UnifiedRouteHandler handler,
                         const AuthRequirements &auth = {AuthType::NONE},
-                        WebModule::Method method = WebModule::WM_GET);
+                        WebModule::Method method = WebModule::WM_GET) override;
 
-  void
-  registerApiRoute(const String &path, WebModule::UnifiedRouteHandler handler,
-                   const AuthRequirements &auth, WebModule::Method method,
-                   const OpenAPIDocumentation &docs = OpenAPIDocumentation());
+  void registerApiRoute(
+      const String &path, WebModule::UnifiedRouteHandler handler,
+      const AuthRequirements &auth = {AuthType::NONE},
+      WebModule::Method method = WebModule::WM_GET,
+      const OpenAPIDocumentation &docs = OpenAPIDocumentation()) override;
 
   // Handle all web requests and WiFi operations
   void handle();
@@ -135,13 +162,8 @@ public:
   void handleRegisteredModules();
 
   // WiFi state queries
-  bool isConnected() const { return currentMode == CONNECTED; }
   WiFiConnectionState getConnectionState() const { return connectionState; }
   PlatformMode getCurrentMode() const { return currentMode; }
-
-  // Server capabilities
-  String getBaseUrl() const;
-  // int getPort() const { return serverPort; }
 
   // Device information
   const char *getAPName() const { return apSSIDBuffer; }
@@ -157,8 +179,17 @@ public:
   String getModuleVersion() const override { return "1.0.0"; }
 
   // Debug and monitoring
-  size_t getRouteCount() const;
   void printUnifiedRoutes() const;
+
+  // IWebPlatform interface implementations
+  size_t getRouteCount() const override;
+  void disableRoute(const String &path,
+                    WebModule::Method method = WebModule::WM_GET) override;
+  void setErrorPage(int statusCode, const String &html) override;
+  void addGlobalRedirect(const String &fromPath,
+                         const String &toPath) override {
+    addRedirect(fromPath, toPath);
+  }
 
   // Memory analysis functions
   void measureHeapUsage(const char *phase);
@@ -173,7 +204,6 @@ public:
   String generateNavigationHtml(bool isAuthenticated = false) const;
 
   // Custom error page management (moved from IWebModule)
-  void setErrorPage(int statusCode, const String &html);
   String getErrorPage(int statusCode) const;
   String generateDefaultErrorPage(int statusCode,
                                   const String &message = "") const;

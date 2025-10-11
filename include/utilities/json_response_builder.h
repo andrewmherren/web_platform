@@ -1,10 +1,10 @@
 #ifndef JSON_RESPONSE_BUILDER_H
 #define JSON_RESPONSE_BUILDER_H
 
-#include "../interface/web_response.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <functional>
+#include <interface/web_response.h>
 
 /**
  * JsonResponseBuilder - Memory-safe JSON response creation
