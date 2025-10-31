@@ -13,29 +13,25 @@
 // TODO: Extract core logic into testable utilities following core/wrapper
 // pattern
 
-// Include all test header files
-// #include "include/test_platform_provider.h"
-// #include "include/test_web_platform.h"
-// #include "include/types/test_navigation_types.h"
-// #include "include/types/test_redirect_types.h"
+// Forward declarations for test registrars we enable incrementally
+void register_navigation_types_tests(void);
+void register_redirect_types_tests(void);
 
-void setUp() {
-  // ArduinoFakeReset(); // Commented until tests are enabled
-}
-
-void tearDown() {
-  // Clean teardown - nothing needed currently
-}
+// Pull in native-safe production implementations needed by tests
+#include "../src/types/navigation_types.cpp"
+#include "../src/types/redirect_types.cpp"
 
 #ifdef NATIVE_PLATFORM
+// Unity expects these even if empty
+extern "C" void setUp(void) {}
+extern "C" void tearDown(void) {}
+
 int main(int argc, char **argv) {
   UNITY_BEGIN();
 
-  // Register and run all test groups (currently disabled - see note above)
-  // register_web_platform_tests();
-  // register_platform_provider_tests();
-  // register_redirect_types_tests();
-  // register_navigation_types_tests();
+  // Enable type tests first (safe for native)
+  register_navigation_types_tests();
+  register_redirect_types_tests();
 
   UNITY_END();
   return 0;
@@ -44,14 +40,14 @@ int main(int argc, char **argv) {
 void setup() {
   UNITY_BEGIN();
 
-  // Register and run all test groups (currently disabled - see note above)
-  // register_web_platform_tests();
-  // register_platform_provider_tests();
-  // register_redirect_types_tests();
-  // register_navigation_types_tests();
+  // Enable type tests first (safe for native)
+  register_navigation_types_tests();
+  register_redirect_types_tests();
 
   UNITY_END();
 }
 
-void loop() {}
+void loop() {
+  // No-op loop required for Arduino test harness
+}
 #endif
