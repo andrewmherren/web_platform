@@ -3,11 +3,10 @@
 
 #include "mock_web_platform.h"
 #include <Arduino.h>
-#include <interface/web_platform_interface.h>
 #include <memory>
 #include <utility>
 #include <vector>
-
+#include <web_platform_interface.h>
 
 /**
  * Single canonical mock platform

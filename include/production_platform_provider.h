@@ -1,6 +1,6 @@
 #pragma once
 #include "web_platform.h"
-#include <interface/web_platform_interface.h>
+#include <web_platform_interface.h>
 
 // Production platform provider implementation
 class ProductionPlatformProvider : public IWebPlatformProvider {

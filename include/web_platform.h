@@ -10,25 +10,26 @@
 #include "utilities/debug_macros.h"
 #include "utilities/json_response_builder.h"
 #include <ArduinoJson.h>
-#include <DNSServer.h>
-#include <EEPROM.h>
 #include <functional>
 #include <interface/auth_types.h>
 #include <interface/openapi_types.h>
 #include <interface/web_module_interface.h>
-#include <interface/web_platform_interface.h>
 #include <interface/web_request.h>
 #include <interface/web_response.h>
 #include <map>
 #include <vector>
+#include <web_platform_interface.h>
 
 
+#ifdef ESP_PLATFORM
+#include <DNSServer.h>
 #include <EEPROM.h>
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <esp_https_server.h>
+#endif
 
 #include "route_entry.h"
 
@@ -265,9 +266,13 @@ public:
       const String &serverDescription, const String &storageKey,
       size_t targetSize, bool isMakerAPI) const;
 
-private:                            // Core server components
+private: // Core server components
+#ifdef ESP_PLATFORM
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
   DNSServer dnsServer;              // For captive portal functionality
+#else
+  void *server = nullptr; // Mock pointer for non-ESP32 platforms
+#endif
 
   void registerRoute(const String &path, WebModule::UnifiedRouteHandler handler,
                      const AuthRequirements &auth, WebModule::Method method,
@@ -456,7 +461,11 @@ private:                            // Core server components
   bool getEmbeddedCertificates(const uint8_t **cert_data, size_t *cert_len,
                                const uint8_t **key_data, size_t *key_len);
 
+#ifdef ESP_PLATFORM
   httpd_handle_t httpsServerHandle = nullptr;
+#else
+  void *httpsServerHandle = nullptr; // Mock for non-ESP32 platforms
+#endif
 
   std::vector<String> httpsRoutePaths; // Permanent path storage
 

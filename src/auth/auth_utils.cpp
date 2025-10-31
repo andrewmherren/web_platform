@@ -1,5 +1,18 @@
 #include "auth/auth_utils.h"
 
+#ifdef ESP_PLATFORM
+// ESP32 platform - use hardware random and mbedTLS
+#else
+// Native platform - use standard library alternatives
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
+#include <iomanip>
+#include <random>
+#include <sstream>
+
+#endif
+
 // Generate a cryptographically secure random token
 String AuthUtils::generateSecureToken(size_t length) {
   const char *chars =
@@ -8,7 +21,15 @@ String AuthUtils::generateSecureToken(size_t length) {
   token.reserve(length);
 
   for (size_t i = 0; i < length; i++) {
+#ifdef ESP_PLATFORM
     uint32_t randomValue = esp_random();
+#else
+    // Native testing - use standard random
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 61);
+    uint32_t randomValue = dis(gen);
+#endif
     token += chars[randomValue % 62];
   }
   return token;
@@ -25,6 +46,7 @@ String AuthUtils::hashPassword(const String &password, const String &salt,
   const size_t hashLength = 32; // 256 bits
   uint8_t hash[hashLength];
 
+#ifdef ESP_PLATFORM
   // Use mbedTLS PBKDF2 on ESP32
   mbedtls_md_context_t md_ctx;
   mbedtls_md_init(&md_ctx);
@@ -46,6 +68,19 @@ String AuthUtils::hashPassword(const String &password, const String &salt,
   if (result != 0) {
     return "";
   }
+#else
+  // Native testing - simple hash for compatibility (NOT SECURE)
+  // This is only for testing - real security happens on ESP32
+  std::string combined =
+      std::string(password.c_str()) + std::string(salt.c_str());
+  std::hash<std::string> hasher;
+  size_t hashValue = hasher(combined);
+
+  // Fill hash array with repeating pattern based on hash value
+  for (size_t i = 0; i < hashLength; i++) {
+    hash[i] = (uint8_t)((hashValue >> (i % 8)) & 0xFF);
+  }
+#endif
 
   return bytesToHex(hash, hashLength);
 }
@@ -61,7 +96,18 @@ bool AuthUtils::verifyPassword(const String &password, const String &hash,
 String AuthUtils::generateSalt(size_t length) {
   uint8_t saltBytes[length];
 
+#ifdef ESP_PLATFORM
   esp_fill_random(saltBytes, length);
+#else
+  // Native testing - use standard random
+  static std::random_device rd;
+  static std::mt19937 gen(rd());
+  std::uniform_int_distribution<uint8_t> dis(0, 255);
+
+  for (size_t i = 0; i < length; i++) {
+    saltBytes[i] = dis(gen);
+  }
+#endif
 
   return bytesToHex(saltBytes, length);
 }
@@ -70,7 +116,18 @@ String AuthUtils::generateSalt(size_t length) {
 String AuthUtils::generateUserId() {
   uint8_t uuid[16];
 
+#ifdef ESP_PLATFORM
   esp_fill_random(uuid, 16);
+#else
+  // Native testing - use standard random
+  static std::random_device rd;
+  static std::mt19937 gen(rd());
+  std::uniform_int_distribution<uint8_t> dis(0, 255);
+
+  for (int i = 0; i < 16; i++) {
+    uuid[i] = dis(gen);
+  }
+#endif
 
   // Set version (4) and variant bits for UUID v4
   uuid[6] = (uuid[6] & 0x0F) | 0x40; // Version 4
