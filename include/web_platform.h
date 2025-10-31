@@ -94,7 +94,7 @@ public:
   // System Version
   String getPlatformVersion() const { return "0.1.1"; }
   String getSystemVersion() const {
-    return systemVersion.isEmpty() ? "0.0.0" : systemVersion;
+    return systemVersion.length() == 0 ? "0.0.0" : systemVersion;
   }
   void setSystemVersion(const String &version) { systemVersion = version; }
 

@@ -172,7 +172,7 @@ String AuthUtils::bytesToHex(const uint8_t *bytes, size_t length) {
 AuthUtils::IPAddress AuthUtils::parseIPAddress(const String &ipStr) {
   IPAddress ip;
 
-  if (ipStr.isEmpty()) {
+  if (ipStr.length() == 0) {
     return ip; // Invalid IP (all zeros)
   }
 

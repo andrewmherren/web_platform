@@ -2,9 +2,14 @@
 #define JSON_RESPONSE_BUILDER_H
 
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include <functional>
 #include <interface/web_response.h>
+#include "platform_utils.h"
+
+// ArduinoJson with Arduino String doesn't work in native tests due to ArduinoFake limitations
+// In native tests, this class is not available - modules should test via mocks instead
+#ifndef NATIVE_PLATFORM
+#include <ArduinoJson.h>
 
 /**
  * JsonResponseBuilder - Memory-safe JSON response creation
@@ -52,7 +57,7 @@ public:
   static void createDynamicResponse(WebResponse &res,
                                     std::function<void(JsonObject &)> builder,
                                     size_t estimatedSize = MEDIUM_JSON_SIZE) {
-    size_t freeHeap = ESP.getFreeHeap();
+    size_t freeHeap = PlatformUtils::getFreeHeap();
 
     if (estimatedSize > LARGE_JSON_THRESHOLD || freeHeap < estimatedSize * 3) {
       createStreamingResponse(res, builder, estimatedSize);
@@ -128,7 +133,7 @@ private:
   static void createMediumResponse(WebResponse &res,
                                    std::function<void(JsonObject &)> builder,
                                    size_t size) {
-    size_t freeHeap = ESP.getFreeHeap();
+    size_t freeHeap = PlatformUtils::getFreeHeap();
     if (freeHeap < size * 2) {
       createErrorResponse(res, "Insufficient memory for response", 503);
       return;
@@ -159,9 +164,9 @@ private:
     // Use a smaller document for streaming - we only need enough memory for the
     // structure
     const size_t streamingDocSize =
-        min(estimatedSize, static_cast<size_t>(4096));
+        std::min(estimatedSize, static_cast<size_t>(4096));
 
-    size_t freeHeap = ESP.getFreeHeap();
+    size_t freeHeap = PlatformUtils::getFreeHeap();
     if (freeHeap < streamingDocSize * 2) {
       createErrorResponse(res, "Insufficient memory for response", 503);
       return;
@@ -196,5 +201,7 @@ private:
 
 #define JSON_SUCCESS(res, msg)                                                 \
   JsonResponseBuilder::createSuccessResponse(res, msg)
+
+#endif // NATIVE_PLATFORM
 
 #endif // JSON_RESPONSE_BUILDER_H

@@ -245,7 +245,7 @@ void WebResponse::sendProgmemChunked(const char *data, WebServerClass *server) {
 
   // Pre-calculate content length and send it directly instead of chunked
   server->setContentLength(len);
-  server->send(statusCode, mimeType, "");
+  server->send(core.getStatus(), String(core.getMimeType().c_str()), "");
 
   // Allocate buffer once and reuse
   char *buffer = (char *)malloc(CHUNK_SIZE + 1);
@@ -347,7 +347,7 @@ void WebResponse::streamFromStorage(const String &collection, const String &key,
   // For large files, we'll still need to load due to WebServer limitations
   // but with improved memory management
   server->setContentLength(CONTENT_LENGTH_UNKNOWN);
-  server->send(statusCode, mimeType, "");
+  server->send(core.getStatus(), String(core.getMimeType().c_str()), "");
 
   const size_t STORAGE_CHUNK_SIZE = 1024;
 

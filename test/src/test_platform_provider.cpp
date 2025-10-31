@@ -4,20 +4,6 @@
 #include <unity.h>
 #include <web_platform_interface.h>
 
-void setUp(void) {
-  ArduinoFakeReset();
-  // Reset the static instance to ensure clean test state
-  IWebPlatformProvider::instance = nullptr;
-}
-
-void tearDown(void) {
-  // Clean up any allocated provider instance
-  if (IWebPlatformProvider::instance) {
-    delete IWebPlatformProvider::instance;
-    IWebPlatformProvider::instance = nullptr;
-  }
-}
-
 void test_setup_production_platform_provider_creates_instance(void) {
 #ifdef STANDALONE_TESTS
   TEST_PASS_MESSAGE("Platform provider not available in standalone test mode");

@@ -2,12 +2,6 @@
 #include <ArduinoFake.h>
 #include <unity.h>
 
-void setUp(void) { ArduinoFakeReset(); }
-
-void tearDown(void) {
-  // Nothing to cleanup - string pool is static
-}
-
 void test_navigation_item_basic_constructor(void) {
   // Test basic two-parameter constructor (name, url)
   String name = "Home";
