@@ -1,4 +1,4 @@
-#include "../../../include/types/navigation_types.h"
+#include "types/navigation_types.h"
 #include <ArduinoFake.h>
 #include <unity.h>
 

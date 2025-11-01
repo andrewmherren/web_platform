@@ -1,7 +1,6 @@
-#include "../../../include/types/redirect_types.h"
+#include "types/redirect_types.h"
 #include <ArduinoFake.h>
 #include <unity.h>
-
 
 void test_redirect_rule_basic_construction(void) {
   // Test basic construction of RedirectRule with String parameters
