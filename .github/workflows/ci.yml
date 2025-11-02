@@ -11,6 +11,7 @@ on:
     pull_request:
         branches:
             - main
+
 permissions:
     contents: read
     issues: write
@@ -70,8 +71,8 @@ jobs:
                     --exclude ".*Arduino.*" \
                     --exclude ".*unity.*" \
                     --exclude "/usr/include/.*" \
-                    --exclude-lines-by-pattern ".*#ifdef ESP_PLATFORM.*" \
-                    --exclude-lines-by-pattern ".*#if defined\(ESP_PLATFORM\).*" \
+                    --exclude-lines-by-pattern ".*#ifdef (ARDUINO|ESP_PLATFORM).*" \
+                    --exclude-lines-by-pattern ".*#if defined\((ARDUINO|ESP_PLATFORM)\).*" \
                     --exclude-unreachable-branches \
                     -o coverage.xml \
                     --print-summary
