@@ -11,7 +11,6 @@ on:
     pull_request:
         branches:
             - main
-
 permissions:
     contents: read
     issues: write
@@ -65,15 +64,14 @@ jobs:
                     --root $GITHUB_WORKSPACE \
                     --object-directory .pio/build/test_native \
                     --filter "src|include" \
-                    --exclude ".*include/arduino/.*" \
                     --exclude-throw-branches \
                     --exclude-directories ".*libdeps.*" \
                     --exclude ".*FakeIt.*" \
                     --exclude ".*Arduino.*" \
                     --exclude ".*unity.*" \
                     --exclude "/usr/include/.*" \
-                    --exclude-lines-by-pattern ".*#ifdef (ARDUINO|ESP_PLATFORM).*" \
-                    --exclude-lines-by-pattern ".*#if defined\((ARDUINO|ESP_PLATFORM)\).*" \
+                    --exclude-lines-by-pattern ".*#ifdef ESP_PLATFORM.*" \
+                    --exclude-lines-by-pattern ".*#if defined\(ESP_PLATFORM\).*" \
                     --exclude-unreachable-branches \
                     -o coverage.xml \
                     --print-summary
@@ -92,8 +90,8 @@ jobs:
                     -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
                     -Dsonar.sources=src,include \
                     -Dsonar.tests=test \
-                    -Dsonar.exclusions=**/build-wrapper-dump.json \
-                    -Dsonar.coverage.exclusions=**/test/**/*,**/libdeps/**/*,**/.github/**/*,**/include/arduino/**/* \
+                    -Dsonar.exclusions=**/build-wrapper-dump.json,**/libdeps/**/*,**/.pio/**/* \
+                    -Dsonar.coverage.exclusions=**/test/**/*,**/libdeps/**/*,**.github/**/*,**/examples/**/* \
                     -Dsonar.cfamily.compile-commands=bw-output/compile_commands.json \
                     -Dsonar.cfamily.gcov.reportsPath=. \
                     -Dsonar.cfamily.gcov.xmlReportPaths=coverage.xml \
