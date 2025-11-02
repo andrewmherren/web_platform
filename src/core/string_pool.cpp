@@ -66,7 +66,18 @@ struct StringPool::Impl {
   void setReserve(size_t cap) {
     reservedCapacity = cap;
     if (!sealed) {
-      strings.reserve(cap);
+      // If requesting smaller capacity than current, we need to shrink
+      if (cap < strings.capacity()) {
+        // Create new vector with exact capacity and move existing strings
+        std::vector<std::string> newStrings;
+        newStrings.reserve(cap);
+        for (auto &str : strings) {
+          newStrings.push_back(std::move(str));
+        }
+        strings = std::move(newStrings);
+      } else {
+        strings.reserve(cap);
+      }
     }
   }
 };
