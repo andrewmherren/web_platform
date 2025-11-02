@@ -3,6 +3,7 @@
 #include "web_platform.h"
 #include <functional>
 #include <interface/auth_types.h>
+#include <testing/arduino_string_compat.h>
 
 // Initialize authentication system
 void WebPlatform::initializeAuth() {

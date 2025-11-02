@@ -71,7 +71,7 @@ String AuthUtils::hashPassword(const String &password, const String &salt,
 #else
 // Native testing - simple hash for compatibility (NOT SECURE)
 // This is only for testing - real security happens on ESP32
-#ifndef UNIT_TESTING
+#ifndef NATIVE_PLATFORM
 #error                                                                         \
     "Native password hashing is only available in testing contexts. Use ESP_PLATFORM for production builds."
 #endif

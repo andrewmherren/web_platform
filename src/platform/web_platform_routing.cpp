@@ -3,7 +3,9 @@
 #include "web_platform.h"
 #include <interface/web_module_interface.h>
 
+#ifdef ESP_PLATFORM
 #include <WebServer.h>
+#endif
 
 // WebPlatform unified route handler implementation
 

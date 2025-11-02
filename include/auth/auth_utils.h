@@ -8,7 +8,8 @@
 #include "mbedtls/sha256.h"
 #endif
 
-#include <Arduino.h>
+#include <interface/string_compat.h>
+#include <testing/arduino_string_compat.h>
 
 namespace AuthUtils {
 // Generate a secure random token

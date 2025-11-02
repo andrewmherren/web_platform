@@ -7,8 +7,9 @@
 #include "web_platform.h"
 #include <interface/web_module_interface.h>
 
-
+#ifdef ESP_PLATFORM
 #include <WebServer.h>
+#endif
 
 void WebPlatform::systemStatusJSAssetHandler(WebRequest &req,
                                              WebResponse &res) {
