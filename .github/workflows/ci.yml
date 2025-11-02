@@ -40,21 +40,10 @@ jobs:
                   unzip sonar-scanner-cli-5.0.1.3006-linux.zip
                   echo "$PWD/sonar-scanner-5.0.1.3006-linux/bin" >> $GITHUB_PATH
 
-            - name: Setup Build Wrapper
+            - name: Run native tests
               run: |
-                  mkdir -p build-tools
-                  cd build-tools
-                  wget https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
-                  unzip build-wrapper-linux-x86.zip
-                  chmod +x build-wrapper-linux-x86/build-wrapper-linux-x86-64
-                  echo "BUILD_WRAPPER_PATH=$PWD/build-wrapper-linux-x86/build-wrapper-linux-x86-64" >> $GITHUB_ENV
-                  cd $GITHUB_WORKSPACE
-
-            - name: Build and test with build-wrapper
-              run: |
-                  mkdir -p bw-output
                   mkdir -p test-results
-                  $BUILD_WRAPPER_PATH --out-dir bw-output pio test -e test_native --junit-output-path test-results/results.xml || true
+                  pio test -e test_native --junit-output-path test-results/results.xml || true
 
             - name: Generate coverage data
               run: |
@@ -93,14 +82,12 @@ jobs:
                     -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
                     -Dsonar.sources=src,include \
                     -Dsonar.tests=test \
-                    -Dsonar.exclusions=**/build-wrapper-dump.json,**/libdeps/**/*,**/.pio/**/* \
+                    -Dsonar.exclusions=**/libdeps/**/*,**/.pio/**/*,**/examples/**/* \
                     -Dsonar.coverage.exclusions=**/test/**/*,**/libdeps/**/*,**.github/**/*,**/examples/**/* \
-                    -Dsonar.cfamily.compile-commands=bw-output/compile_commands.json \
                     -Dsonar.cfamily.gcov.reportsPath=. \
                     -Dsonar.cfamily.gcov.xmlReportPaths=coverage.xml \
                     -Dsonar.cpp.file.suffixes=.cpp,.h,.hpp \
                     -Dsonar.c.file.suffixes=.c \
-                    -Dsonar.verbose=false \
                     -Dsonar.sourceEncoding=UTF-8 \
                     -Dsonar.working.directory=.scannerwork
 

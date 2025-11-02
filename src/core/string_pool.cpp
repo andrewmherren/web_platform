@@ -30,10 +30,8 @@ struct StringPool::Impl {
       return it->c_str();
     }
 
-    // Safety check - never exceed reserved capacity
-    // Use reservedCapacity instead of vector::capacity() for consistent
-    // behavior
-    if (strings.size() >= reservedCapacity) {
+    // Safety check - never exceed actual capacity
+    if (strings.size() >= strings.capacity()) {
       // Capacity exceeded - return nullptr to indicate failure
       return nullptr;
     }

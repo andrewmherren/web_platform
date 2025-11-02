@@ -24,7 +24,7 @@
 #define UNITY_INCLUDE_CONFIG_H
 #endif
 
-// Memory leak detection for native platform
+// Execution time tracking for native platform
 #ifdef NATIVE_PLATFORM
 #define UNITY_INCLUDE_EXEC_TIME
 #define UNITY_OUTPUT_CHAR(c) putchar(c)

@@ -3,7 +3,6 @@
 #include "web_platform.h"
 #include <interface/web_module_interface.h>
 
-
 #include <WebServer.h>
 
 // WebPlatform unified route handler implementation
@@ -65,7 +64,7 @@ void WebPlatform::registerApiRoute(const String &path,
 void WebPlatform::disableRoute(const String &path, WebModule::Method method) {
   // Find and disable the route by setting handler to nullptr
   for (auto &route : routeRegistry) {
-    if (strcmp(route.path ? route.path : "", path.c_str()) == 0 &&
+    if (route.path && strcmp(route.path, path.c_str()) == 0 &&
         route.method == method) {
       DEBUG_PRINTF("WebPlatform: Disabling route %s %s\n",
                    wmMethodToString(method).c_str(), path.c_str());

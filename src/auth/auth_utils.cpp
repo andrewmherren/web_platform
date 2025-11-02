@@ -69,8 +69,13 @@ String AuthUtils::hashPassword(const String &password, const String &salt,
     return "";
   }
 #else
-  // Native testing - simple hash for compatibility (NOT SECURE)
-  // This is only for testing - real security happens on ESP32
+// Native testing - simple hash for compatibility (NOT SECURE)
+// This is only for testing - real security happens on ESP32
+#ifndef UNIT_TESTING
+#error                                                                         \
+    "Native password hashing is only available in testing contexts. Use ESP_PLATFORM for production builds."
+#endif
+
   std::string combined =
       std::string(password.c_str()) + std::string(salt.c_str());
   std::hash<std::string> hasher;
