@@ -91,7 +91,7 @@ jobs:
                     -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
                     -Dsonar.sources=src,include \
                     -Dsonar.tests=test \
-                    -Dsonar.exclusions=**/build-wrapper-dump.json,**/libdeps/**/*,**/.pio/**/* \
+                    -Dsonar.exclusions=**/build-wrapper-dump.json,**/libdeps/**/* \
                     -Dsonar.coverage.exclusions=**/test/**/*,**/libdeps/**/*,**.github/**/*,**/examples/**/* \
                     -Dsonar.cfamily.compile-commands=bw-output/compile_commands.json \
                     -Dsonar.cfamily.gcov.reportsPath=. \
