@@ -8,11 +8,9 @@ on:
     push:
         branches:
             - main
-            - cpp_arduino
     pull_request:
         branches:
             - main
-            - cpp_arduino
 
 permissions:
     contents: read
@@ -40,10 +38,21 @@ jobs:
                   unzip sonar-scanner-cli-5.0.1.3006-linux.zip
                   echo "$PWD/sonar-scanner-5.0.1.3006-linux/bin" >> $GITHUB_PATH
 
-            - name: Run native tests
+            - name: Setup Build Wrapper
               run: |
+                  mkdir -p build-tools
+                  cd build-tools
+                  wget https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
+                  unzip build-wrapper-linux-x86.zip
+                  chmod +x build-wrapper-linux-x86/build-wrapper-linux-x86-64
+                  echo "BUILD_WRAPPER_PATH=$PWD/build-wrapper-linux-x86/build-wrapper-linux-x86-64" >> $GITHUB_ENV
+                  cd $GITHUB_WORKSPACE
+
+            - name: Build and test with build-wrapper
+              run: |
+                  mkdir -p bw-output
                   mkdir -p test-results
-                  pio test -e test_native --junit-output-path test-results/results.xml || true
+                  $BUILD_WRAPPER_PATH --out-dir bw-output pio test -e test_native --junit-output-path test-results/results.xml || true
 
             - name: Generate coverage data
               run: |
@@ -56,14 +65,15 @@ jobs:
                     --root $GITHUB_WORKSPACE \
                     --object-directory .pio/build/test_native \
                     --filter "src|include" \
+                    --exclude ".*include/arduino/.*" \
                     --exclude-throw-branches \
                     --exclude-directories ".*libdeps.*" \
                     --exclude ".*FakeIt.*" \
                     --exclude ".*Arduino.*" \
                     --exclude ".*unity.*" \
                     --exclude "/usr/include/.*" \
-                    --exclude-lines-by-pattern ".*#ifdef ESP_PLATFORM.*" \
-                    --exclude-lines-by-pattern ".*#if defined\(ESP_PLATFORM\).*" \
+                    --exclude-lines-by-pattern ".*#ifdef (ARDUINO|ESP_PLATFORM).*" \
+                    --exclude-lines-by-pattern ".*#if defined\((ARDUINO|ESP_PLATFORM)\).*" \
                     --exclude-unreachable-branches \
                     -o coverage.xml \
                     --print-summary
@@ -82,12 +92,14 @@ jobs:
                     -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
                     -Dsonar.sources=src,include \
                     -Dsonar.tests=test \
-                    -Dsonar.exclusions=**/libdeps/**/*,**/.pio/**/*,**/examples/**/* \
-                    -Dsonar.coverage.exclusions=**/test/**/*,**/libdeps/**/*,**.github/**/*,**/examples/**/* \
+                    -Dsonar.exclusions=**/build-wrapper-dump.json \
+                    -Dsonar.coverage.exclusions=**/test/**/*,**/libdeps/**/*,**/.github/**/*,**/include/arduino/**/* \
+                    -Dsonar.cfamily.compile-commands=bw-output/compile_commands.json \
                     -Dsonar.cfamily.gcov.reportsPath=. \
                     -Dsonar.cfamily.gcov.xmlReportPaths=coverage.xml \
                     -Dsonar.cpp.file.suffixes=.cpp,.h,.hpp \
                     -Dsonar.c.file.suffixes=.c \
+                    -Dsonar.verbose=false \
                     -Dsonar.sourceEncoding=UTF-8 \
                     -Dsonar.working.directory=.scannerwork
 
@@ -98,6 +110,19 @@ jobs:
                   name: PlatformIO Tests
                   path: test-results/results.xml
                   reporter: java-junit
+
+            - name: Generate AI-ready uncovered snippets
+              run: |
+                  echo "Generating uncovered-snippets.jsonl for AI assistants..."
+                  python3 tools/extract_uncovered.py --coverage coverage.xml \
+                    --root $GITHUB_WORKSPACE --out uncovered-snippets.jsonl --context 4 --max-block 50
+                  ls -l uncovered-snippets.jsonl || true
+
+            - name: Upload uncovered snippets artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: uncovered-snippets
+                  path: uncovered-snippets.jsonl
 
             # Optional: Upload coverage.xml as an artifact for debugging
             # - name: Upload coverage report
