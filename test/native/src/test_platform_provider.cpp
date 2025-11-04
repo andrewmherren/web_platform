@@ -1,4 +1,3 @@
-#include "platform_provider.h"
 #include <unity.h>
 #include <web_platform_interface.h>
 
@@ -37,11 +36,14 @@ void test_production_provider_initialization_with_web_platform(void) {
 #endif // Native-safe: Mock-based provider test
 #ifndef ESP_PLATFORM
 void test_web_platform_provider_class_functionality(void) {
-  // Native: verify provider wraps any IWebPlatform implementation
-  MockWebPlatform mock;
-  WebPlatformProvider provider(&mock);
+  // Native: verify MockWebPlatformProvider functionality
+  MockWebPlatformProvider provider;
   IWebPlatform &platform = provider.getPlatform();
-  TEST_ASSERT_EQUAL_PTR(&mock, &platform);
+  MockWebPlatform &mockPlatform = provider.getMockPlatform();
+  TEST_ASSERT_EQUAL_PTR(&mockPlatform, &platform);
+  TEST_ASSERT_EQUAL_STRING("", platform.getDeviceName().c_str());
+  platform.begin("TestDevice");
+  TEST_ASSERT_EQUAL_STRING("TestDevice", platform.getDeviceName().c_str());
 }
 #endif
 
