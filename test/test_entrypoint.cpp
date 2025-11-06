@@ -33,13 +33,15 @@ int main(int argc, char **argv) {
 #include <Arduino.h>
 
 void setup() {
-  // Allow USB CDC/Serial to enumerate; mirrors existing ESP32 test
+  // Allow USB CDC/Serial to enumerate
   delay(2000);
   Serial.begin(115200);
   while (!Serial) {
     delay(10);
   }
   UNITY_BEGIN();
+  // Give the serial monitor a moment to attach before printing results
+  delay(500);
 
   // ESP32-specific platform provider tests
   register_platform_provider_tests();
