@@ -39,18 +39,21 @@ os.makedirs(include_dir, exist_ok=True)
 
 version_header_path = os.path.join(include_dir, "version_autogen.h")
 
+# Use module-specific header guard to avoid collisions when multiple modules are used
+guard_name = f"{platform_name.upper().replace('-', '_')}_VERSION_AUTOGEN_H"
+
 header_content = f"""// Auto-generated file - DO NOT EDIT
 // Generated from library.json version field
 // Platform: {platform_name}
 
-#ifndef VERSION_AUTOGEN_H
-#define VERSION_AUTOGEN_H
+#ifndef {guard_name}
+#define {guard_name}
 
 // Platform version from library.json
 #define WEB_PLATFORM_VERSION_STR "{version}"
 #define WEB_PLATFORM_VERSION {version.replace('.', '')}
 
-#endif // VERSION_AUTOGEN_H
+#endif // {guard_name}
 """
 
 # Write the header file
