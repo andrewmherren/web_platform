@@ -88,6 +88,8 @@ void loop() {
 
 ### For Module Developers
 
+**💡 Tip:** Use the **[Web Module Example](https://github.com/andrewmherren/web_module_example)** template as a starting point for new modules!
+
 ```cpp
 #include <web_platform.h>
 
@@ -99,7 +101,7 @@ public:
                 [this](WebRequest& req, WebResponse& res) {
                     res.setContent(getMainPage(), "text/html");
                 }),
-            ApiRoute("/data", WebModule::WM_GET, 
+            ApiRoute("/api/data", WebModule::WM_GET, 
                 [this](WebRequest& req, WebResponse& res) {
                     res.setContent(getDataJSON(), "application/json");
                 }, {AuthType::TOKEN})  // API requires token authentication
@@ -119,6 +121,8 @@ private:
     String getDataJSON() { /* return JSON data */ }
 };
 ```
+
+See the **[Web Module Example](https://github.com/andrewmherren/web_module_example)** repository for a complete, production-ready template with testing infrastructure, documentation, and best practices.
 
 ## Build Configuration
 
@@ -198,6 +202,7 @@ The following modules are designed to work with WebPlatform:
 
 - **[Maker API](https://www.github.com/andrewmherren/maker_api)** - Interactive API documentation and testing interface specifically for maker-friendly public APIs
 - **[USB PD Controller](https://github.com/andrewmherren/usb_pd_controller)** - USB-C Power Delivery voltage and current control with web interface
+- **[Web Module Example](https://github.com/andrewmherren/web_module_example)** - Boilerplate template for creating new WebPlatform modules with proper architecture, testing, and documentation
 - More modules coming soon...
 
 ## Dual OpenAPI 3.0 Support
@@ -329,6 +334,16 @@ The WebPlatform ecosystem includes specialized modules for common embedded appli
 
 - **[Maker API Module](https://github.com/andrewmherren/maker_api)**: Interactive API documentation interface with OpenAPI 3.0 support, Swagger UI, and maker-friendly filtering
 - **[USB PD Controller](https://github.com/andrewmherren/usb_pd_controller)**: USB-C Power Delivery control module supporting 5V-20V output with real-time monitoring and configuration
+- **[Web Module Example](https://github.com/andrewmherren/web_module_example)**: Boilerplate template for creating custom WebPlatform modules - includes complete skeleton implementation, comprehensive testing, and detailed documentation
+
+### Creating Your Own Modules
+
+Want to create a custom module? Start with the **[Web Module Example](https://github.com/andrewmherren/web_module_example)** template which provides:
+- Complete `IWebModule` interface implementation
+- Platform-agnostic request/response handling
+- Native and ESP32 test suites
+- OpenAPI documentation support
+- Best practices and patterns from production modules
 
 *More modules in development - contributions welcome!*
 
