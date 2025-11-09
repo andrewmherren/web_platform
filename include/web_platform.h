@@ -1,6 +1,7 @@
 #ifndef WEB_PLATFORM_H
 #define WEB_PLATFORM_H
 
+#include "version_autogen.h"
 #include "interface/openapi_generation_context.h"
 #include "interface/platform_service.h"
 #include "platform/ntp_client.h"
@@ -20,6 +21,11 @@
 #include <utility> // for std::move
 #include <vector>
 #include <web_platform_interface.h>
+
+// Compile-time check to ensure version was injected
+#ifndef WEB_PLATFORM_VERSION_STR
+#error "WEB_PLATFORM_VERSION_STR not defined - version injection script may have failed"
+#endif
 
 
 #ifdef ESP_PLATFORM
@@ -93,7 +99,7 @@ public:
   ~WebPlatform();
 
   // System Version
-  String getPlatformVersion() const { return "0.1.1"; }
+  String getPlatformVersion() const { return WEB_PLATFORM_VERSION_STR; }
   String getSystemVersion() const {
     return systemVersion.length() == 0 ? "0.0.0" : systemVersion;
   }

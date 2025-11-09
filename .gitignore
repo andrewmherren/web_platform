@@ -50,6 +50,9 @@ dist/
 bin/
 obj/
 
+# Auto-generated version header
+include/version_autogen.h
+
 # Custom
 lib/*
 src/server_*.pem
