@@ -401,8 +401,9 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *webModule,
   pendingModules.emplace_back(basePath, webModule, config);
 
   // Check for Maker API module and extract tags configuration
-  String basePathStr = String(basePath);
-  if (basePathStr.indexOf("/maker") != -1 && !config.isNull()) {
+  // Check module name instead of path (module can be registered at any path)
+  String moduleName = webModule->getModuleName();
+  if (moduleName.indexOf("Maker API") != -1 && !config.isNull()) {
     if (config.containsKey("tags") && config["tags"].is<JsonArray>()) {
       // Clear default tags and add configured ones
       makerApiTags.clear();
