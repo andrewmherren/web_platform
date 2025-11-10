@@ -409,54 +409,61 @@ void WebPlatform::generateOpenAPISpec() {
 #endif
 
 #if MAKERAPI_ENABLED
-  // Generate Maker API spec - check if we have any maker routes first
-  bool hasMakerRoutes = false;
+  // Generate Maker API spec - always generate, even if empty
+  // This ensures a valid (empty) spec is available rather than returning 503
+  DEBUG_PRINTLN("WebPlatform: Generating Maker API OpenAPI specification...");
+
+  // Count routes for logging
+  int makerRouteCount = 0;
   for (const auto &routeDoc : openAPIGenerationContext.getApiRoutes()) {
     if (isMakerAPIRoute(routeDoc)) {
-      hasMakerRoutes = true;
-      break;
+      makerRouteCount++;
     }
   }
 
-  if (!hasMakerRoutes) {
-    DEBUG_PRINTLN("WebPlatform: No routes with 'maker' tag found, skipping "
-                  "Maker API spec");
-    makerAPISpecReady = false;
+  if (makerRouteCount == 0) {
+    DEBUG_PRINTLN("WebPlatform: No routes with configured maker tags found");
+    DEBUG_PRINT("WebPlatform: Configured maker tags: ");
+    for (size_t i = 0; i < makerApiTags.size(); i++) {
+      DEBUG_PRINT(makerApiTags[i]);
+      if (i < makerApiTags.size() - 1) DEBUG_PRINT(", ");
+    }
+    DEBUG_PRINTLN();
   } else {
-    DEBUG_PRINTLN("WebPlatform: Generating Maker API OpenAPI specification...");
-
-    auto makerRoutesFilter =
-        [this](const OpenAPIGenerationContext::RouteDocumentation &routeDoc)
-        -> bool { return isMakerAPIRoute(routeDoc); };
-
-    auto makerTagModifier =
-        [](JsonArray &tags,
-           const OpenAPIGenerationContext::RouteDocumentation &routeDoc) {
-          // Just clear and rebuild with Maker API tag first - matches original
-          // simple logic
-          String moduleTag = "";
-          if (tags.size() > 0) {
-            moduleTag = tags[0].as<String>();
-          }
-          tags.clear();
-          tags.add("Maker API");
-          if (!moduleTag.isEmpty() && moduleTag != "Maker API") {
-            tags.add(moduleTag);
-          }
-        };
-
-    // Use appropriate size for Maker API - it should be smaller than main API
-    // but not tiny
-    size_t makerTargetSize = std::min(maxAllowable, targetSize / 2);
-    if (makerTargetSize < 24576)
-      makerTargetSize = 24576; // Minimum 24KB
-
-    makerAPISpecReady = generateAndStoreSpec(
-        makerTargetSize, String(deviceName) + " Maker API",
-        "Public Maker API endpoints for " + String(deviceName) + ".",
-        makerRoutesFilter, makerTagModifier, MAKER_OPENAPI_SPEC_KEY,
-        "Maker API");
+    DEBUG_PRINTF("WebPlatform: Found %d routes matching maker tags\n", makerRouteCount);
   }
+
+  auto makerRoutesFilter =
+      [this](const OpenAPIGenerationContext::RouteDocumentation &routeDoc)
+      -> bool { return isMakerAPIRoute(routeDoc); };
+
+  auto makerTagModifier =
+      [](JsonArray &tags,
+         const OpenAPIGenerationContext::RouteDocumentation &routeDoc) {
+        // Just clear and rebuild with Maker API tag first - matches original
+        // simple logic
+        String moduleTag = "";
+        if (tags.size() > 0) {
+          moduleTag = tags[0].as<String>();
+        }
+        tags.clear();
+        tags.add("Maker API");
+        if (!moduleTag.isEmpty() && moduleTag != "Maker API") {
+          tags.add(moduleTag);
+        }
+      };
+
+  // Use appropriate size for Maker API - it should be smaller than main API
+  // but not tiny
+  size_t makerTargetSize = std::min(maxAllowable, targetSize / 2);
+  if (makerTargetSize < 24576)
+    makerTargetSize = 24576; // Minimum 24KB
+
+  makerAPISpecReady = generateAndStoreSpec(
+      makerTargetSize, String(deviceName) + " Maker API",
+      "Public Maker API endpoints for " + String(deviceName) + ".",
+      makerRoutesFilter, makerTagModifier, MAKER_OPENAPI_SPEC_KEY,
+      "Maker API");
 #else
   makerAPISpecReady = false;
 #endif
@@ -535,8 +542,9 @@ void WebPlatform::streamPreGeneratedMakerAPISpec(WebResponse &res) const {
 #else
   // Check if we have any Maker API routes
   if (!makerAPISpecReady) {
-    res.setStatus(503);
-    res.setContent("{\"error\":\"Maker API specification not ready\"}",
+    ERROR_PRINTLN("WebPlatform: Maker API spec generation failed during initialization");
+    res.setStatus(500);
+    res.setContent("{\"error\":\"Maker API specification failed to generate during initialization\"}",
                    "application/json");
     return;
   }
