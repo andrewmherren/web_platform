@@ -1,7 +1,6 @@
 #ifndef WEB_PLATFORM_H
 #define WEB_PLATFORM_H
 
-#include "version_autogen.h"
 #include "interface/openapi_generation_context.h"
 #include "interface/platform_service.h"
 #include "platform/ntp_client.h"
@@ -10,6 +9,7 @@
 #include "types/redirect_types.h"
 #include "utilities/debug_macros.h"
 #include "utilities/json_response_builder.h"
+#include "version_autogen.h"
 #include <ArduinoJson.h>
 #include <functional>
 #include <interface/auth_types.h>
@@ -22,11 +22,12 @@
 #include <vector>
 #include <web_platform_interface.h>
 
+
 // Compile-time check to ensure version was injected
 #ifndef WEB_PLATFORM_VERSION_STR
-#error "WEB_PLATFORM_VERSION_STR not defined - version injection script may have failed"
+#error                                                                         \
+    "WEB_PLATFORM_VERSION_STR not defined - version injection script may have failed"
 #endif
-
 
 #ifdef ESP_PLATFORM
 #include <DNSServer.h>
@@ -225,6 +226,14 @@ public:
   // Pre-generated OpenAPI serving
   void streamPreGeneratedOpenAPISpec(WebResponse &res) const;
   void streamPreGeneratedMakerAPISpec(WebResponse &res) const;
+
+  // IWebPlatform interface implementations - Time synchronization
+  unsigned long getCurrentTime() const override {
+    return NTPClient::getCurrentTime();
+  }
+  bool isTimeSynchronized() const override {
+    return NTPClient::isSynchronized();
+  }
 
   // OpenAPI generation helper methods
   String generateDefaultSummary(const String &path, const String &method) const;
