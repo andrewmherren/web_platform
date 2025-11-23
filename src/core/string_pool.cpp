@@ -151,5 +151,8 @@ void StringPool::reserve(size_t cap) {
 } // namespace Core
 } // namespace WebPlatform
 
-// Destructor implementation - must be defined where Impl is complete
+// Special member functions - must be defined where Impl is complete
+WebPlatform::Core::StringPool::StringPool() = default;
 WebPlatform::Core::StringPool::~StringPool() = default;
+WebPlatform::Core::StringPool::StringPool(StringPool&&) noexcept = default;
+WebPlatform::Core::StringPool& WebPlatform::Core::StringPool::operator=(StringPool&&) noexcept = default;

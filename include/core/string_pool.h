@@ -20,12 +20,12 @@ namespace Core {
 class StringPool {
 public:
   // Special member functions for proper PIMPL with unique_ptr
-  StringPool() = default;
+  StringPool();
   ~StringPool();
   StringPool(const StringPool&) = delete;
   StringPool& operator=(const StringPool&) = delete;
-  StringPool(StringPool&&) = default;
-  StringPool& operator=(StringPool&&) = default;
+  StringPool(StringPool&&) noexcept;
+  StringPool& operator=(StringPool&&) noexcept;
 
   /**
    * @brief Store a string in the pool
@@ -91,9 +91,6 @@ public:
    * @param cap Maximum number of strings to reserve space for
    */
   void reserve(size_t cap);
-
-  // Destructor must be declared here but defined in .cpp where Impl is complete
-  ~StringPool();
 
 private:
   struct Impl;
