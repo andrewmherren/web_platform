@@ -405,6 +405,10 @@ private: // Core server components
       }
     }
 
+    // Move semantics
+    PendingModule(PendingModule &&) noexcept = default;
+    PendingModule &operator=(PendingModule &&) noexcept = default;
+
     // Use compiler-generated special member functions (Rule of Zero)
     // DynamicJsonDocument has proper move semantics, so compiler-generated
     // operations are optimal
@@ -420,6 +424,10 @@ private: // Core server components
     // Constructor
     RegisteredModule(const String &path, IWebModule *webModule)
         : basePath(path), webModule(webModule) {}
+
+    // Move semantics
+    RegisteredModule(RegisteredModule &&) noexcept = default;
+    RegisteredModule &operator=(RegisteredModule &&) noexcept = default;
 
     // Use compiler-generated special member functions (Rule of Zero)
     // The compiler will generate optimal copy/move operations for String +

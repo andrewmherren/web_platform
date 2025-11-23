@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <string>
+#include <memory>
 
 namespace WebPlatform {
 namespace Core {
@@ -85,7 +86,7 @@ public:
 
 private:
   struct Impl;
-  Impl *impl = nullptr;
+  std::unique_ptr<Impl> impl;
 
   // Initialize implementation on first use
   void ensureInitialized();

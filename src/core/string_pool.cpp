@@ -1,6 +1,7 @@
 #include "core/string_pool.h"
 #include <algorithm>
 #include <vector>
+#include <memory>
 
 namespace WebPlatform {
 namespace Core {
@@ -84,7 +85,7 @@ struct StringPool::Impl {
 
 void StringPool::ensureInitialized() {
   if (!impl) {
-    impl = new Impl();
+    impl = std::make_unique<Impl>();
   }
 }
 
