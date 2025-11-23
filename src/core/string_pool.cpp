@@ -150,3 +150,6 @@ void StringPool::reserve(size_t cap) {
 
 } // namespace Core
 } // namespace WebPlatform
+
+// Destructor implementation - must be defined where Impl is complete
+WebPlatform::Core::StringPool::~StringPool() = default;
