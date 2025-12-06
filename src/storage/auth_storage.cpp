@@ -79,14 +79,18 @@ String AuthStorage::createUser(const String &username, const String &password,
     return "";
   }
 
-  // Check if username already exists
-  AuthUser existing = findUserByUsername(username);
+  // Normalize username to lowercase for case-insensitive matching
+  String normalizedUsername = username;
+  normalizedUsername.toLowerCase();
+
+  // Check if username already exists (case-insensitive)
+  AuthUser existing = findUserByUsername(normalizedUsername);
   if (existing.isValid()) {
-    DEBUG_PRINTF("AuthStorage: User '%s' already exists\n", username.c_str());
+    DEBUG_PRINTF("AuthStorage: User '%s' already exists\n", normalizedUsername.c_str());
     return "";
   }
 
-  // Create new user
+  // Create new user with normalized username
   String salt = AuthUtils::generateSalt();
   String hash = AuthUtils::hashPassword(password, salt);
 
@@ -94,10 +98,10 @@ String AuthStorage::createUser(const String &username, const String &password,
   bool shouldBeAdmin = isFirstUser || !hasUsers();
   if (shouldBeAdmin) {
     DEBUG_PRINTF("AuthStorage: First user '%s' - granting admin privileges\n",
-                 username.c_str());
+                 normalizedUsername.c_str());
   }
 
-  AuthUser user(username, hash, salt, shouldBeAdmin);
+  AuthUser user(normalizedUsername, hash, salt, shouldBeAdmin);
 
   IDatabaseDriver *driver = &StorageManager::driver(driverName);
 
@@ -135,13 +139,17 @@ AuthUser AuthStorage::findUserByUsername(const String &username) {
     return AuthUser();
   }
 
+  // Normalize username to lowercase for case-insensitive matching
+  String normalizedUsername = username;
+  normalizedUsername.toLowerCase();
+
   // Use QueryBuilder to find by username
   QueryBuilder query = StorageManager::query(USERS_COLLECTION);
   if (driverName.length() > 0) {
     query = QueryBuilder(&StorageManager::driver(driverName), USERS_COLLECTION);
   }
 
-  String userData = query.where("username", username).get();
+  String userData = query.where("username", normalizedUsername).get();
 
   if (userData.length() > 0) {
     return AuthUser::fromJson(userData);
@@ -215,7 +223,11 @@ String AuthStorage::validateCredentials(const String &username,
                                         const String &password) {
   ensureInitialized();
 
-  AuthUser user = findUserByUsername(username);
+  // Normalize username to lowercase for case-insensitive matching
+  String normalizedUsername = username;
+  normalizedUsername.toLowerCase();
+
+  AuthUser user = findUserByUsername(normalizedUsername);
   if (!user.isValid()) {
     return "";
   }

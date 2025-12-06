@@ -88,6 +88,8 @@ void loop() {
 
 ### For Module Developers
 
+**💡 Tip:** Use the **[Web Module Example](https://github.com/andrewmherren/web_module_example)** template as a starting point for new modules!
+
 ```cpp
 #include <web_platform.h>
 
@@ -99,7 +101,7 @@ public:
                 [this](WebRequest& req, WebResponse& res) {
                     res.setContent(getMainPage(), "text/html");
                 }),
-            ApiRoute("/data", WebModule::WM_GET, 
+            ApiRoute("/api/data", WebModule::WM_GET, 
                 [this](WebRequest& req, WebResponse& res) {
                     res.setContent(getDataJSON(), "application/json");
                 }, {AuthType::TOKEN})  // API requires token authentication
@@ -119,6 +121,8 @@ private:
     String getDataJSON() { /* return JSON data */ }
 };
 ```
+
+See the **[Web Module Example](https://github.com/andrewmherren/web_module_example)** repository for a complete, production-ready template with testing infrastructure, documentation, and best practices.
 
 ## Build Configuration
 
@@ -192,13 +196,13 @@ For more information on WebPlatform features, see the [User Guide](GUIDE.md).
 - [Examples](examples/README.md)
 - [API Reference](API.md)
 
-## Compatible Modules
+## Related Projects
 
-The following modules are designed to work with WebPlatform:
-
-- **[Maker API](https://www.github.com/andrewmherren/maker_api)** - Interactive API documentation and testing interface specifically for maker-friendly public APIs
-- **[USB PD Controller](https://github.com/andrewmherren/usb_pd_controller)** - USB-C Power Delivery voltage and current control with web interface
-- More modules coming soon...
+- **[web_platform_interface](https://github.com/andrewmherren/web_platform_interface)**: Core interface and testing library for WebPlatform ecosystem
+- **[maker_api](https://github.com/andrewmherren/maker_api)**: Interactive API explorer module
+- **[usb_pd_controller](https://github.com/andrewmherren/usb_pd_controller)**: USB-C Power Delivery control module
+- **[ota_update](https://github.com/andrewmherren/ota_update)**: Over-the-air firmware update module
+- **[web_module_example](https://github.com/andrewmherren/web_module_example)**: Boilerplate template for creating custom WebPlatform modules
 
 ## Dual OpenAPI 3.0 Support
 
@@ -323,14 +327,13 @@ build_flags =
   -DWEB_PLATFORM_DEBUG=1
 ```
 
-## WebPlatform Modules
+## Related Projects
 
-The WebPlatform ecosystem includes specialized modules for common embedded applications:
-
-- **[Maker API Module](https://github.com/andrewmherren/maker_api)**: Interactive API documentation interface with OpenAPI 3.0 support, Swagger UI, and maker-friendly filtering
-- **[USB PD Controller](https://github.com/andrewmherren/usb_pd_controller)**: USB-C Power Delivery control module supporting 5V-20V output with real-time monitoring and configuration
-
-*More modules in development - contributions welcome!*
+- **[web_platform_interface](https://github.com/andrewmherren/web_platform_interface)**: Core interface and testing library for WebPlatform ecosystem
+- **[maker_api](https://github.com/andrewmherren/maker_api)**: Interactive API explorer module
+- **[usb_pd_controller](https://github.com/andrewmherren/usb_pd_controller)**: USB-C Power Delivery control module
+- **[ota_update](https://github.com/andrewmherren/ota_update)**: Over-the-air firmware update module
+- **[web_module_example](https://github.com/andrewmherren/web_module_example)**: Boilerplate template for creating custom WebPlatform modules
 
 ## License
 

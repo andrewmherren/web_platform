@@ -25,6 +25,10 @@ struct AuthUser {
   AuthUser(const String &username, const String &hash, const String &salt,
            bool admin = false);
 
+  // Move semantics
+  AuthUser(AuthUser &&) noexcept = default;
+  AuthUser &operator=(AuthUser &&) noexcept = default;
+
   // JSON serialization
   String toJson() const;
   static AuthUser fromJson(const String &json);
@@ -42,6 +46,10 @@ struct AuthSession {
   AuthSession() : createdAt(0), expiresAt(0) {}
   AuthSession(const String &sessionId, const String &userId,
               const String &username);
+
+  // Move semantics
+  AuthSession(AuthSession &&) noexcept = default;
+  AuthSession &operator=(AuthSession &&) noexcept = default;
 
   // JSON serialization
   String toJson() const;
@@ -64,6 +72,10 @@ struct AuthApiToken {
                const String &username, const String &name,
                unsigned long expireInDays = 0);
 
+  // Move semantics
+  AuthApiToken(AuthApiToken &&) noexcept = default;
+  AuthApiToken &operator=(AuthApiToken &&) noexcept = default;
+
   // JSON serialization
   String toJson() const;
   static AuthApiToken fromJson(const String &json);
@@ -84,6 +96,10 @@ struct AuthPageToken {
   AuthPageToken() : createdAt(0), expiresAt(0) {}
   AuthPageToken(const String &token, const String &clientIp);
 
+  // Move semantics
+  AuthPageToken(AuthPageToken &&) noexcept = default;
+  AuthPageToken &operator=(AuthPageToken &&) noexcept = default;
+
   // JSON serialization
   String toJson() const;
   static AuthPageToken fromJson(const String &json);
@@ -99,6 +115,10 @@ struct ConfigItem {
 
   ConfigItem() : updatedAt(0) {}
   ConfigItem(const String &key, const String &value);
+
+  // Move semantics
+  ConfigItem(ConfigItem &&) noexcept = default;
+  ConfigItem &operator=(ConfigItem &&) noexcept = default;
 
   // JSON serialization
   String toJson() const;

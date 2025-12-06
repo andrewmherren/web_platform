@@ -1,7 +1,7 @@
 #ifndef AUTH_API_DOCS_H
 #define AUTH_API_DOCS_H
 
-#include "../interface/openapi_factory.h"
+#include <interface/openapi_factory.h>
 #include <vector>
 
 /**

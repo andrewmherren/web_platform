@@ -1,33 +1,43 @@
 #ifndef WEB_PLATFORM_H
 #define WEB_PLATFORM_H
 
-#include "interface/auth_types.h"
 #include "interface/openapi_generation_context.h"
-#include "interface/openapi_types.h"
 #include "interface/platform_service.h"
-#include "interface/web_module_interface.h"
-#include "interface/web_request.h"
-#include "interface/web_response.h"
 #include "platform/ntp_client.h"
 #include "storage/storage_manager.h"
 #include "types/navigation_types.h"
 #include "types/redirect_types.h"
 #include "utilities/debug_macros.h"
 #include "utilities/json_response_builder.h"
+#include "version_autogen.h"
 #include <ArduinoJson.h>
-#include <DNSServer.h>
-#include <EEPROM.h>
 #include <functional>
+#include <interface/auth_types.h>
+#include <interface/openapi_types.h>
+#include <interface/web_module_interface.h>
+#include <interface/web_request.h>
+#include <interface/web_response.h>
 #include <map>
 #include <utility> // for std::move
 #include <vector>
+#include <web_platform_interface.h>
 
+
+// Compile-time check to ensure version was injected
+#ifndef WEB_PLATFORM_VERSION_STR
+#error                                                                         \
+    "WEB_PLATFORM_VERSION_STR not defined - version injection script may have failed"
+#endif
+
+#ifdef ESP_PLATFORM
+#include <DNSServer.h>
 #include <EEPROM.h>
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <esp_https_server.h>
+#endif
 
 #include "route_entry.h"
 
@@ -82,15 +92,17 @@ typedef std::function<void()> WiFiSetupCompleteCallback;
  * - Module registration system for connected mode
  * - Automatic certificate detection without build flags
  */
-class WebPlatform : public IWebModule, public IPlatformService {
+class WebPlatform : public IWebPlatform,
+                    public IWebModule,
+                    public IPlatformService {
 public:
   WebPlatform();
   ~WebPlatform();
 
   // System Version
-  String getPlatformVersion() const { return "0.1.1"; }
+  String getPlatformVersion() const { return WEB_PLATFORM_VERSION_STR; }
   String getSystemVersion() const {
-    return systemVersion.isEmpty() ? "0.0.0" : systemVersion;
+    return systemVersion.length() == 0 ? "0.0.0" : systemVersion;
   }
   void setSystemVersion(const String &version) { systemVersion = version; }
 
@@ -101,10 +113,32 @@ public:
              bool forceHttpsOnly);
   void begin(const char *deviceName, const PlatformConfig &config);
 
+  // IWebPlatform interface implementations
+  void begin(const String &deviceName) override { begin(deviceName.c_str()); }
+  void begin(const String &deviceName, bool httpsOnly) override {
+    begin(deviceName.c_str(), "", httpsOnly);
+  }
+
   // Module pre-registration (must be called before begin())
   bool registerModule(const char *basePath, IWebModule *webModule);
   bool registerModule(const char *basePath, IWebModule *webModule,
                       const JsonVariant &config);
+
+  // IWebPlatform interface implementation for module registration
+  void registerModule(const String &basePath, IWebModule *module) override {
+    registerModule(basePath.c_str(), module);
+  }
+
+  bool isConnected() const override { return currentMode == CONNECTED; }
+  String getBaseUrl() const override;
+
+  // IWebPlatform interface implementations - JSON utilities
+  void createJsonResponse(WebResponse &res,
+                          std::function<void(JsonObject &)> builder) override;
+
+  void
+  createJsonArrayResponse(WebResponse &res,
+                          std::function<void(JsonArray &)> builder) override;
 
   // Convenience methods for common module configurations
   template <typename T>
@@ -119,12 +153,13 @@ public:
   void registerWebRoute(const String &path,
                         WebModule::UnifiedRouteHandler handler,
                         const AuthRequirements &auth = {AuthType::NONE},
-                        WebModule::Method method = WebModule::WM_GET);
+                        WebModule::Method method = WebModule::WM_GET) override;
 
-  void
-  registerApiRoute(const String &path, WebModule::UnifiedRouteHandler handler,
-                   const AuthRequirements &auth, WebModule::Method method,
-                   const OpenAPIDocumentation &docs = OpenAPIDocumentation());
+  void registerApiRoute(
+      const String &path, WebModule::UnifiedRouteHandler handler,
+      const AuthRequirements &auth = {AuthType::NONE},
+      WebModule::Method method = WebModule::WM_GET,
+      const OpenAPIDocumentation &docs = OpenAPIDocumentation()) override;
 
   // Handle all web requests and WiFi operations
   void handle();
@@ -136,13 +171,8 @@ public:
   void handleRegisteredModules();
 
   // WiFi state queries
-  bool isConnected() const { return currentMode == CONNECTED; }
   WiFiConnectionState getConnectionState() const { return connectionState; }
   PlatformMode getCurrentMode() const { return currentMode; }
-
-  // Server capabilities
-  String getBaseUrl() const;
-  // int getPort() const { return serverPort; }
 
   // Device information
   const char *getAPName() const { return apSSIDBuffer; }
@@ -158,8 +188,17 @@ public:
   String getModuleVersion() const override { return "1.0.0"; }
 
   // Debug and monitoring
-  size_t getRouteCount() const;
   void printUnifiedRoutes() const;
+
+  // IWebPlatform interface implementations
+  size_t getRouteCount() const override;
+  void disableRoute(const String &path,
+                    WebModule::Method method = WebModule::WM_GET) override;
+  void setErrorPage(int statusCode, const String &html) override;
+  void addGlobalRedirect(const String &fromPath,
+                         const String &toPath) override {
+    addRedirect(fromPath, toPath);
+  }
 
   // Memory analysis functions
   void measureHeapUsage(const char *phase);
@@ -174,7 +213,6 @@ public:
   String generateNavigationHtml(bool isAuthenticated = false) const;
 
   // Custom error page management (moved from IWebModule)
-  void setErrorPage(int statusCode, const String &html);
   String getErrorPage(int statusCode) const;
   String generateDefaultErrorPage(int statusCode,
                                   const String &message = "") const;
@@ -188,6 +226,14 @@ public:
   // Pre-generated OpenAPI serving
   void streamPreGeneratedOpenAPISpec(WebResponse &res) const;
   void streamPreGeneratedMakerAPISpec(WebResponse &res) const;
+
+  // IWebPlatform interface implementations - Time synchronization
+  unsigned long getCurrentTime() const override {
+    return NTPClient::getCurrentTime();
+  }
+  bool isTimeSynchronized() const override {
+    return NTPClient::isSynchronized();
+  }
 
   // OpenAPI generation helper methods
   String generateDefaultSummary(const String &path, const String &method) const;
@@ -236,9 +282,13 @@ public:
       const String &serverDescription, const String &storageKey,
       size_t targetSize, bool isMakerAPI) const;
 
-private:                            // Core server components
+private: // Core server components
+#ifdef ESP_PLATFORM
   WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
   DNSServer dnsServer;              // For captive portal functionality
+#else
+  void *server = nullptr; // Mock pointer for non-ESP32 platforms
+#endif
 
   void registerRoute(const String &path, WebModule::UnifiedRouteHandler handler,
                      const AuthRequirements &auth, WebModule::Method method,
@@ -355,6 +405,10 @@ private:                            // Core server components
       }
     }
 
+    // Move semantics
+    PendingModule(PendingModule &&) noexcept = default;
+    PendingModule &operator=(PendingModule &&) noexcept = default;
+
     // Use compiler-generated special member functions (Rule of Zero)
     // DynamicJsonDocument has proper move semantics, so compiler-generated
     // operations are optimal
@@ -370,6 +424,10 @@ private:                            // Core server components
     // Constructor
     RegisteredModule(const String &path, IWebModule *webModule)
         : basePath(path), webModule(webModule) {}
+
+    // Move semantics
+    RegisteredModule(RegisteredModule &&) noexcept = default;
+    RegisteredModule &operator=(RegisteredModule &&) noexcept = default;
 
     // Use compiler-generated special member functions (Rule of Zero)
     // The compiler will generate optimal copy/move operations for String +
@@ -442,7 +500,11 @@ private:                            // Core server components
   bool getEmbeddedCertificates(const uint8_t **cert_data, size_t *cert_len,
                                const uint8_t **key_data, size_t *key_len);
 
+#ifdef ESP_PLATFORM
   httpd_handle_t httpsServerHandle = nullptr;
+#else
+  void *httpsServerHandle = nullptr; // Mock for non-ESP32 platforms
+#endif
 
   std::vector<String> httpsRoutePaths; // Permanent path storage
 

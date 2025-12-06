@@ -1,8 +1,8 @@
 #include "auth/auth_constants.h"
-#include "interface/auth_types.h"
 #include "storage/auth_storage.h"
 #include "web_platform.h"
 #include <functional>
+#include <interface/auth_types.h>
 
 /**
  * WebPlatform CSRF Token Handling

@@ -1,95 +1,59 @@
 #include "platform/route_string_pool.h"
+#include "core/string_pool.h"
 #include "utilities/debug_macros.h"
 #include <Arduino.h>
-#include <vector>
+#include <string>
 
-// Pre-allocated string storage with fixed capacity to prevent reallocations
-class StableStringStorage {
-private:
-  std::vector<String> strings;
-  bool sealed = false;
-
-public:
-  StableStringStorage() {
-    // Only route paths are stored
-    strings.reserve(64); // Sufficient for route paths only
-  }
-
-  const char *store(const String &str) {
-    if (str.length() == 0) {
-      return nullptr;
-    }
-
-    if (sealed) {
-      ERROR_PRINTLN(
-          "ERROR: Attempted to store string in sealed RouteStringPool");
-      return nullptr;
-    }
-
-    // Check if we already have this string to avoid duplicates
-    for (const auto &existing : strings) {
-      if (existing == str) {
-        return existing.c_str();
-      }
-    }
-
-    // Safety check - never exceed reserved capacity
-    if (strings.size() >= strings.capacity()) {
-      ERROR_PRINTF("ERROR: RouteStringPool capacity exceeded (%d/%d)\n",
-                   strings.size(), strings.capacity());
-      return nullptr;
-    }
-
-    // Store the new string
-    strings.push_back(str);
-    return strings.back().c_str();
-  }
-
-  void seal() {
-    sealed = true;
-    DEBUG_PRINTF("RouteStringPool: Sealed with %d strings, capacity %d\n",
-                 strings.size(), strings.capacity());
-  }
-
-  size_t size() const { return strings.size(); }
-
-  size_t memoryUsage() const {
-    size_t total = 0;
-    for (const auto &str : strings) {
-      total += str.length() + 1; // +1 for null terminator
-    }
-    return total;
-  }
-
-  void clear() {
-    if (!sealed) {
-      strings.clear();
-    }
-  }
-};
-
-// Static singleton instance
-static StableStringStorage storage;
+// Arduino adapter for platform-agnostic StringPool
+// This thin layer converts Arduino String to std::string and delegates to core
+static WebPlatform::Core::StringPool corePool;
 
 const char *RouteStringPool::store(const String &str) {
-  return storage.store(str);
+  // Convert Arduino String to std::string and delegate to core
+  if (str.length() == 0) {
+    return nullptr;
+  }
+  std::string stdStr(str.c_str());
+  const char *result = corePool.store(stdStr);
+
+  if (!result && !corePool.isSealed()) {
+    ERROR_PRINTF("ERROR: RouteStringPool capacity exceeded (%d/%d)\n",
+                 corePool.size(), corePool.capacity());
+  } else if (!result && corePool.isSealed()) {
+    ERROR_PRINTLN("ERROR: Attempted to store string in sealed RouteStringPool");
+  }
+
+  return result;
 }
 
 const char *RouteStringPool::store(const char *str) {
   if (!str || *str == '\0') { // NOSONAR: Safer than strlen for null-check
     return nullptr;
   }
-  return storage.store(String(str));
+  const char *result = corePool.store(str);
+
+  if (!result && !corePool.isSealed()) {
+    ERROR_PRINTF("ERROR: RouteStringPool capacity exceeded (%d/%d)\n",
+                 corePool.size(), corePool.capacity());
+  } else if (!result && corePool.isSealed()) {
+    ERROR_PRINTLN("ERROR: Attempted to store string in sealed RouteStringPool");
+  }
+
+  return result;
 }
 
-const char *RouteStringPool::empty() { return nullptr; }
+const char *RouteStringPool::empty() { return corePool.empty(); }
 
-void RouteStringPool::seal() { storage.seal(); }
+void RouteStringPool::seal() {
+  corePool.seal();
+  DEBUG_PRINTF("RouteStringPool: Sealed with %d strings, capacity %d\n",
+               corePool.size(), corePool.capacity());
+}
 
-void RouteStringPool::clear() { storage.clear(); }
+void RouteStringPool::clear() { corePool.clear(); }
 
-size_t RouteStringPool::getStorageCount() { return storage.size(); }
+size_t RouteStringPool::getStorageCount() { return corePool.size(); }
 
 size_t RouteStringPool::getEstimatedMemoryUsage() {
-  return storage.memoryUsage();
+  return corePool.memoryUsage();
 }

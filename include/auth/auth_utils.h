@@ -1,11 +1,15 @@
 #ifndef AUTH_UTILS_H
 #define AUTH_UTILS_H
 
+#ifdef ESP_PLATFORM
 #include "esp_random.h"
 #include "mbedtls/md.h"
 #include "mbedtls/pkcs5.h"
 #include "mbedtls/sha256.h"
-#include <Arduino.h>
+#endif
+
+#include <interface/string_compat.h>
+#include <testing/arduino_string_compat.h>
 
 namespace AuthUtils {
 // Generate a secure random token

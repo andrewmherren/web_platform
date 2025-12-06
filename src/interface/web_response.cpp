@@ -1,117 +1,110 @@
-#include "interface/web_response.h"
-#include "interface/webserver_typedefs.h"
 #include "storage/storage_manager.h"
 #include "utilities/debug_macros.h"
 #include "web_platform.h"
+#include <interface/web_response.h>
+#include <interface/webserver_typedefs.h>
 
 #include <WebServer.h>
 #include <esp_http_server.h>
 // Forward declare WebServerClass - the actual implementation is in
 // web_platform.h
 
-WebResponse::WebResponse()
-    : statusCode(200), mimeType("text/html"), headersSent(false),
-      responseSent(false), progmemData(nullptr), isProgmemContent(false),
-      jsonDoc(nullptr), isJsonContent(false), isStorageStreamContent(false) {}
+WebResponse::WebResponse() : core(), jsonDoc(nullptr), isJsonContent(false) {}
 
 void WebResponse::setStatus(int code) {
-  if (headersSent)
+  if (core.isHeadersSent())
     return;
-  statusCode = code;
+  core.setStatus(code);
 }
 
 void WebResponse::setContent(const String &content, const String &mimeType) {
-  if (responseSent)
+  if (core.isResponseSent())
     return;
-  this->content = content;
-  this->mimeType = mimeType;
-  this->isProgmemContent = false;
-  this->progmemData = nullptr;
-  this->isStorageStreamContent = false;
+  core.setContent(content.c_str(), mimeType.c_str());
+  isJsonContent = false;
 }
 
 void WebResponse::setProgmemContent(const char *progmemData,
                                     const String &mimeType) {
-  if (responseSent || !progmemData)
+  if (core.isResponseSent() || !progmemData)
     return;
 
-  this->progmemData = progmemData;
-  this->mimeType = mimeType;
-  this->isProgmemContent = true;
-  this->isStorageStreamContent = false;
-  this->content = ""; // Clear regular content
+  core.setProgmemContent(progmemData, mimeType.c_str());
+  isJsonContent = false;
 }
 
 void WebResponse::setStorageStreamContent(const String &collection,
                                           const String &key,
                                           const String &mimeType,
                                           const String &driverName) {
-  if (responseSent || collection.isEmpty() || key.isEmpty())
+  if (core.isResponseSent() || collection.isEmpty() || key.isEmpty())
     return;
 
-  this->storageCollection = collection;
-  this->storageKey = key;
-  this->storageDriverName = driverName.isEmpty() ? "littlefs" : driverName;
-  this->mimeType = mimeType;
-  this->isStorageStreamContent = true;
-  this->isProgmemContent = false;
-  this->progmemData = nullptr;
-  this->content = ""; // Clear regular content
+  std::string driver =
+      driverName.isEmpty() ? "littlefs" : std::string(driverName.c_str());
+  core.setStorageStreamContent(collection.c_str(), key.c_str(),
+                               mimeType.c_str(), driver);
+  isJsonContent = false;
 }
 
 void WebResponse::setJsonContent(const JsonDocument &doc) {
-  if (responseSent)
+  if (core.isResponseSent())
     return;
 
-  setStatus(200);
-  setHeader("Content-Type", "application/json");
-  // Set a flag to indicate this should be streamed
-  // We'll handle the actual streaming in sendTo methods
+  jsonDoc = &doc;
+  isJsonContent = true;
+  core.setJsonContent("application/json");
+  core.setStatus(200);
+  core.setHeader("Content-Type", "application/json");
 }
 
 void WebResponse::setHeader(const String &name, const String &value) {
-  if (headersSent)
+  if (core.isHeadersSent())
     return;
-  headers[name] = value;
+  core.setHeader(name.c_str(), value.c_str());
 }
 
 void WebResponse::redirect(const String &url, int code) {
-  if (headersSent)
+  if (core.isHeadersSent())
     return;
 
-  setStatus(code);
-  setHeader("Location", url);
-  setContent("Redirecting...", "text/plain");
+  core.setRedirect(url.c_str(), code);
 }
 
 String WebResponse::getHeader(const String &name) const {
-  auto it = headers.find(name);
-  return (it != headers.end()) ? it->second : String();
+  std::string value = core.getHeader(name.c_str());
+  return String(value.c_str());
 }
 
-String WebResponse::getContent() const { return content; }
+String WebResponse::getContent() const {
+  return String(core.getContent().c_str());
+}
 
 // Send response to Arduino WebServer
 void WebResponse::sendTo(WebServerClass *server) {
-  if (!server || responseSent)
+  if (!server || core.isResponseSent())
     return;
 
-  // Send all custom headers
-  for (const auto &header : headers) {
-    server->sendHeader(header.first, header.second);
+  // Send all custom headers from core
+  for (const auto &header : core.getHeaders()) {
+    server->sendHeader(String(header.first.c_str()),
+                       String(header.second.c_str()));
   }
 
   markHeadersSent();
 
   // Send response - use streaming for PROGMEM, JSON, or storage content
-  if (isProgmemContent && progmemData != nullptr) {
-    sendProgmemChunked(progmemData, server);
+  if (core.hasProgmemContent()) {
+    sendProgmemChunked(core.getProgmemData(), server);
   } else if (isJsonContent && jsonDoc != nullptr) {
     streamJsonContent(*jsonDoc, server);
-  } else if (isStorageStreamContent) {
-    streamFromStorage(storageCollection, storageKey, server, storageDriverName);
+  } else if (core.hasStorageStreamContent()) {
+    streamFromStorage(String(core.getStorageCollection().c_str()),
+                      String(core.getStorageKey().c_str()), server,
+                      String(core.getStorageDriverName().c_str()));
   } else {
-    server->send(statusCode, mimeType, content);
+    server->send(core.getStatus(), String(core.getMimeType().c_str()),
+                 String(core.getContent().c_str()));
   }
 
   markResponseSent();
@@ -119,19 +112,19 @@ void WebResponse::sendTo(WebServerClass *server) {
 
 // Send response to ESP-IDF HTTPS server
 esp_err_t WebResponse::sendTo(httpd_req *req) {
-  if (!req || responseSent)
+  if (!req || core.isResponseSent())
     return ESP_FAIL;
 
   // Set status
   char status_str[8];
-  snprintf(status_str, sizeof(status_str), "%d", statusCode);
+  snprintf(status_str, sizeof(status_str), "%d", core.getStatus());
   httpd_resp_set_status(req, status_str);
 
   // Set content type
-  httpd_resp_set_type(req, mimeType.c_str());
+  httpd_resp_set_type(req, core.getMimeType().c_str());
 
-  // Set custom headers
-  for (const auto &header : headers) {
+  // Set custom headers from core
+  for (const auto &header : core.getHeaders()) {
     httpd_resp_set_hdr(req, header.first.c_str(), header.second.c_str());
   }
 
@@ -140,14 +133,16 @@ esp_err_t WebResponse::sendTo(httpd_req *req) {
 
   // Send response body - use streaming for PROGMEM, JSON, or storage content
   esp_err_t ret;
-  if (isProgmemContent && progmemData != nullptr) {
-    ret = sendProgmemChunked(progmemData, req);
+  if (core.hasProgmemContent()) {
+    ret = sendProgmemChunked(core.getProgmemData(), req);
   } else if (isJsonContent && jsonDoc != nullptr) {
     ret = streamJsonContent(*jsonDoc, req);
-  } else if (isStorageStreamContent) {
-    ret = streamFromStorage(storageCollection, storageKey, req,
-                            storageDriverName);
+  } else if (core.hasStorageStreamContent()) {
+    ret = streamFromStorage(String(core.getStorageCollection().c_str()),
+                            String(core.getStorageKey().c_str()), req,
+                            String(core.getStorageDriverName().c_str()));
   } else {
+    std::string content = core.getContent();
     ret = httpd_resp_send(req, content.c_str(), content.length());
   }
 
@@ -189,7 +184,7 @@ void WebResponse::streamJsonContent(const JsonDocument &doc,
 
   ServerPrint printer(server);
   server->setContentLength(CONTENT_LENGTH_UNKNOWN); // Enable chunked encoding
-  server->send(statusCode, mimeType, "");
+  server->send(core.getStatus(), String(core.getMimeType().c_str()), "");
 
   serializeJson(doc, printer); // Streams directly!
   printer.flush();
@@ -222,8 +217,8 @@ esp_err_t WebResponse::streamJsonContent(const JsonDocument &doc,
   };
 
   // Set chunked encoding
-  httpd_resp_set_type(req, mimeType.c_str());
-  httpd_resp_set_status(req, std::to_string(statusCode).c_str());
+  httpd_resp_set_type(req, core.getMimeType().c_str());
+  httpd_resp_set_status(req, std::to_string(core.getStatus()).c_str());
 
   HttpdPrint printer(req);
   serializeJson(doc, printer); // Streams directly!
@@ -250,7 +245,7 @@ void WebResponse::sendProgmemChunked(const char *data, WebServerClass *server) {
 
   // Pre-calculate content length and send it directly instead of chunked
   server->setContentLength(len);
-  server->send(statusCode, mimeType, "");
+  server->send(core.getStatus(), String(core.getMimeType().c_str()), "");
 
   // Allocate buffer once and reuse
   char *buffer = (char *)malloc(CHUNK_SIZE + 1);
@@ -352,7 +347,7 @@ void WebResponse::streamFromStorage(const String &collection, const String &key,
   // For large files, we'll still need to load due to WebServer limitations
   // but with improved memory management
   server->setContentLength(CONTENT_LENGTH_UNKNOWN);
-  server->send(statusCode, mimeType, "");
+  server->send(core.getStatus(), String(core.getMimeType().c_str()), "");
 
   const size_t STORAGE_CHUNK_SIZE = 1024;
 

@@ -2,11 +2,14 @@
 #include "../../assets/account_page_js.h"
 #include "../../assets/login_page_html.h"
 #include "auth/auth_constants.h"
-#include "interface/auth_types.h"
 #include "storage/auth_storage.h"
+#ifndef NATIVE_PLATFORM
 #include "utilities/json_response_builder.h"
+#endif
 #include "web_platform.h"
 #include <functional>
+#include <interface/auth_types.h>
+#include <testing/arduino_string_compat.h>
 
 void WebPlatform::loginPageHandler(WebRequest &req, WebResponse &res) {
   String redirectUrl = req.getParam("redirect");
@@ -128,6 +131,12 @@ void WebPlatform::accountPageJSAssetHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
+#ifdef NATIVE_PLATFORM
+  // Simple JSON responses for native testing (no ArduinoJson dependency)
+  res.setStatus(501);
+  res.setContent("{\"error\":\"Not implemented in native tests\"}",
+                 "application/json");
+#else
   const AuthContext &auth = req.getAuthContext();
   String username = auth.username;
 
@@ -172,4 +181,5 @@ void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
     JsonResponseBuilder::createErrorResponse(res, "Failed to delete token",
                                              500);
   }
+#endif
 }

@@ -1,7 +1,7 @@
 #include "docs/system_api_docs.h"
-#include "interface/openapi_types.h"
-#include "interface/web_module_interface.h"
 #include "web_platform.h"
+#include <interface/openapi_types.h>
+#include <interface/web_module_interface.h>
 
 void WebPlatform::registerConnectedModeRoutes() {
   registerWebRoute("/assets/favicon.svg",

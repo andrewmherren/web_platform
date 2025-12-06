@@ -230,6 +230,9 @@ void setup() {
   Serial.begin(115200);
   DEBUG_PRINTLN("Starting Basic WebPlatform Application...");
 
+  // Set up the production platform provider first (before any modules are used)
+  setupProductionPlatformProvider();
+
   // Set up the navigation menu using PROGMEM-friendly const char* strings
   std::vector<NavigationItem> navItems = {
       NavigationItem("Home", "/"), NavigationItem("About", "/about"),

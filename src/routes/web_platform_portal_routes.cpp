@@ -1,9 +1,10 @@
 #include "docs/system_api_docs.h"
-#include "interface/openapi_types.h"
 #include "storage/auth_storage.h"
 #include "utilities/json_response_builder.h"
 #include "web_platform.h"
 #include <ArduinoJson.h>
+#include <interface/openapi_types.h>
+
 
 void WebPlatform::registerConfigPortalRoutes() {
   // Static assets - no authentication required for captive portal

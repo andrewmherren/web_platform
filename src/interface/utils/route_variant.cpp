@@ -1,5 +1,5 @@
-#include "interface/utils/route_variant.h"
-#include "interface/web_module_interface.h"
+#include <interface/utils/route_variant.h>
+#include <interface/web_module_interface.h>
 #include <stdexcept>
 
 RouteVariant::RouteVariant(const WebRoute &route) : type(WEB_ROUTE) {

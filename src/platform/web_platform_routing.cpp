@@ -1,9 +1,11 @@
-#include "interface/web_module_interface.h"
 #include "platform/route_string_pool.h"
 #include "route_entry.h"
 #include "web_platform.h"
+#include <interface/web_module_interface.h>
 
+#ifdef ESP_PLATFORM
 #include <WebServer.h>
+#endif
 
 // WebPlatform unified route handler implementation
 
@@ -59,6 +61,21 @@ void WebPlatform::registerApiRoute(const String &path,
   }
 
   registerRoute(finalPath, handler, auth, method, docs);
+}
+
+void WebPlatform::disableRoute(const String &path, WebModule::Method method) {
+  // Find and disable the route by setting handler to nullptr
+  for (auto &route : routeRegistry) {
+    if (route.path && strcmp(route.path, path.c_str()) == 0 &&
+        route.method == method) {
+      DEBUG_PRINTF("WebPlatform: Disabling route %s %s\n",
+                   wmMethodToString(method).c_str(), path.c_str());
+      route.handler = nullptr; // This will cause shouldSkipRoute to return true
+      return;
+    }
+  }
+  DEBUG_PRINTF("WebPlatform: Route %s %s not found for disabling\n",
+               wmMethodToString(method).c_str(), path.c_str());
 }
 
 void WebPlatform::registerRoute(const String &path,

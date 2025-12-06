@@ -21,6 +21,9 @@ void setup() {
   Serial.begin(115200);
   DEBUG_PRINTLN("Starting Custom Environmental Sensor Example...");
 
+  // Set up the production platform provider first (before any modules are used)
+  setupProductionPlatformProvider();
+
   // Set up navigation menu
   std::vector<NavigationItem> navItems = {
       NavigationItem("Dashboard", "/"),
