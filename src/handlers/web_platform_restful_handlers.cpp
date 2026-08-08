@@ -3,17 +3,38 @@
 #include "web_platform.h"
 #include <functional>
 
+namespace {
+
+// Rejects the request with 403 unless currentUser is a valid admin.
+bool requireAdmin(const AuthUser &currentUser, WebResponse &res) {
+  if (!currentUser.isValid() || !currentUser.isAdmin) {
+    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
+    return false;
+  }
+  return true;
+}
+
+// Rejects the request with 403 unless currentUser is targetUserId (acting on
+// their own data) or is an admin.
+bool requireSelfOrAdmin(const AuthUser &currentUser, const String &targetUserId,
+                        WebResponse &res) {
+  if (targetUserId != currentUser.id && !currentUser.isAdmin) {
+    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
+    return false;
+  }
+  return true;
+}
+
+} // namespace
+
 // RESTful API Handlers - User Management
 
 void WebPlatform::getUsersApiHandler(WebRequest &req, WebResponse &res) {
 
-  // Check if user is admin
   const AuthContext &auth = req.getAuthContext();
   AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
-  if (!currentUser.isValid() || !currentUser.isAdmin) {
-    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
+  if (!requireAdmin(currentUser, res))
     return;
-  }
 
   std::vector<AuthUser> users = AuthStorage::getAllUsers();
 
@@ -41,14 +62,9 @@ void WebPlatform::createUserApiHandler(WebRequest &req, WebResponse &res) {
 
   // For normal operation (users exist), require admin privileges
   if (!isInitialSetup) {
-    // Check if current user is admin (check by actual admin flag, not hardcoded
-    // username)
     AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
-    if (!currentUser.isValid() || !currentUser.isAdmin) {
-      JsonResponseBuilder::createErrorResponse(res, "Admin access required",
-                                               403);
+    if (!requireAdmin(currentUser, res))
       return;
-    }
   }
   // For initial setup (no users exist), anyone with page token can create the
   // first admin user
@@ -113,12 +129,8 @@ void WebPlatform::getUserByIdApiHandler(WebRequest &req, WebResponse &res) {
 
   const AuthContext &auth = req.getAuthContext();
   AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
-
-  // Users can only access their own data unless they are admin
-  if (userId != currentUser.id && !currentUser.isAdmin) {
-    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
+  if (!requireSelfOrAdmin(currentUser, userId, res))
     return;
-  }
 
   AuthUser user = AuthStorage::findUserById(userId);
   if (!user.isValid()) {
@@ -148,12 +160,8 @@ void WebPlatform::updateUserByIdApiHandler(WebRequest &req, WebResponse &res) {
 
   const AuthContext &auth = req.getAuthContext();
   AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
-
-  // Users can only update their own data unless they are admin
-  if (userId != currentUser.id && !currentUser.isAdmin) {
-    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
+  if (!requireSelfOrAdmin(currentUser, userId, res))
     return;
-  }
 
   String password = req.getJsonParam("password");
   if (password.isEmpty()) {
@@ -181,13 +189,10 @@ void WebPlatform::updateUserByIdApiHandler(WebRequest &req, WebResponse &res) {
 }
 
 void WebPlatform::deleteUserByIdApiHandler(WebRequest &req, WebResponse &res) {
-  // Check if user is admin
   const AuthContext &auth = req.getAuthContext();
   AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
-  if (!currentUser.isValid() || !currentUser.isAdmin) {
-    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
+  if (!requireAdmin(currentUser, res))
     return;
-  }
 
   String userId = req.getRouteParameter("id");
   if (userId.isEmpty()) {
@@ -281,12 +286,8 @@ void WebPlatform::getUserTokensApiHandler(WebRequest &req, WebResponse &res) {
 
   const AuthContext &auth = req.getAuthContext();
   AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
-
-  // Users can only access their own tokens unless they are admin
-  if (userId != currentUser.id && !currentUser.isAdmin) {
-    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
+  if (!requireSelfOrAdmin(currentUser, userId, res))
     return;
-  }
 
   std::vector<AuthApiToken> tokens = AuthStorage::getUserApiTokens(userId);
 
@@ -319,12 +320,8 @@ void WebPlatform::createUserTokenApiHandler(WebRequest &req, WebResponse &res) {
 
   const AuthContext &auth = req.getAuthContext();
   AuthUser currentUser = AuthStorage::findUserByUsername(auth.username);
-
-  // Users can only create tokens for themselves unless they are admin
-  if (userId != currentUser.id && !currentUser.isAdmin) {
-    JsonResponseBuilder::createErrorResponse(res, "Admin access required", 403);
+  if (!requireSelfOrAdmin(currentUser, userId, res))
     return;
-  }
 
   String tokenName = req.getJsonParam("name");
   if (tokenName.isEmpty()) {

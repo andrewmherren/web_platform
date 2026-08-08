@@ -9,9 +9,7 @@
  * 
  * Provides abstract interface for different storage backends:
  * - JsonDatabaseDriver (Preferences/EEPROM)
- * - LittleFSDriver (flash files) - future
- * - MemoryDriver (RAM only) - future
- * - AWSRDSDriver (cloud database) - future
+ * - LittleFSDriver (flash files)
  */
 class IDatabaseDriver {
 public:
