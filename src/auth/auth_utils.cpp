@@ -1,16 +1,20 @@
-#include "auth/auth_utils.h"
-
-#ifdef ESP_PLATFORM
-// ESP32 platform - use hardware random and mbedTLS
-#else
-// Native platform - use standard library alternatives
+#ifndef ESP_PLATFORM
+// Native platform - use standard library alternatives. These must be
+// included before auth_utils.h (which pulls in Arduino.h/ArduinoFake) -
+// ArduinoFake's round()/abs() are unguarded function-like macros that
+// corrupt <random>'s internal use of those identifiers if included after.
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
 #include <iomanip>
 #include <random>
 #include <sstream>
+#endif
 
+#include "auth/auth_utils.h"
+
+#ifdef ESP_PLATFORM
+// ESP32 platform - use hardware random and mbedTLS
 #endif
 
 // Generate a cryptographically secure random token

@@ -7,6 +7,7 @@ void runUrlUtilsTests();
 void register_navigation_types_tests(void);
 void register_redirect_types_tests(void);
 void register_platform_provider_tests(void);
+void runAuthUtilsTests();
 
 // Native entrypoint
 #ifdef NATIVE_PLATFORM
@@ -24,6 +25,7 @@ int main(int argc, char **argv) {
   register_navigation_types_tests();
   register_redirect_types_tests();
   register_platform_provider_tests();
+  runAuthUtilsTests();
 
   UNITY_END();
   return 0;
