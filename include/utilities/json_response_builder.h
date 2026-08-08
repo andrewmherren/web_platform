@@ -17,12 +17,12 @@
  * This class provides automatic memory management for JSON responses,
  * eliminating the need for handlers to manage String allocation/deallocation.
  *
- * Usage patterns:
- * 1. Small JSON (< 1KB): Uses stack-allocated StaticJsonDocument
- * 2. Medium JSON (1-8KB): Uses heap-allocated DynamicJsonDocument with safety
- * checks
- * 3. Large JSON (> 8KB): Uses streaming approach to avoid large String
- * allocation
+ * All sizes use ArduinoJson v7's self-sizing JsonDocument (no more manual
+ * Static/Dynamic capacity math); createDynamicResponse() still picks a
+ * strategy based on estimated size:
+ * 1. Small/medium responses: builds the document and serializes to a String.
+ * 2. Large (> 8KB) responses: streams the document out directly via
+ * res.setJsonContent() to avoid a large intermediate String allocation.
  */
 class JsonResponseBuilder {
 private:
@@ -38,8 +38,8 @@ public:
   template <size_t N = SMALL_JSON_SIZE>
   static void createResponse(WebResponse &res,
                              std::function<void(JsonObject &)> builder) {
-    StaticJsonDocument<N> doc;
-    JsonObject root = doc.template to<ArduinoJson::JsonObject>();
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
 
     builder(root);
 
@@ -72,27 +72,15 @@ public:
   template <size_t N = MEDIUM_JSON_SIZE>
   static void createArrayResponse(WebResponse &res,
                                   std::function<void(JsonArray &)> builder) {
-    if (N <= SMALL_JSON_SIZE) {
-      StaticJsonDocument<N> doc;
-      JsonArray root = doc.createNestedArray();
-      builder(root);
+    JsonDocument doc;
+    JsonArray root = doc.to<JsonArray>();
+    builder(root);
 
-      String jsonStr;
-      size_t jsonSize = measureJson(doc);
-      jsonStr.reserve(jsonSize + 10);
-      serializeJson(doc, jsonStr);
-      res.setContent(jsonStr, "application/json");
-    } else {
-      DynamicJsonDocument doc(N);
-      JsonArray root = doc.createNestedArray();
-      builder(root);
-
-      String jsonStr;
-      size_t jsonSize = measureJson(doc);
-      jsonStr.reserve(jsonSize + 10);
-      serializeJson(doc, jsonStr);
-      res.setContent(jsonStr, "application/json");
-    }
+    String jsonStr;
+    size_t jsonSize = measureJson(doc);
+    jsonStr.reserve(jsonSize + 10);
+    serializeJson(doc, jsonStr);
+    res.setContent(jsonStr, "application/json");
   }
 
   /**
@@ -100,8 +88,8 @@ public:
    */
   static void createErrorResponse(WebResponse &res, const String &error,
                                   int statusCode = 400) {
-    StaticJsonDocument<256> doc;
-    JsonObject root = doc.template to<ArduinoJson::JsonObject>();
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
     root["success"] = false;
     root["error"] = error;
 
@@ -116,8 +104,8 @@ public:
    */
   static void createSuccessResponse(WebResponse &res,
                                     const String &message = "Success") {
-    StaticJsonDocument<256> doc;
-    JsonObject root = doc.template to<ArduinoJson::JsonObject>();
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
     root["success"] = true;
     root["message"] = message;
 
@@ -139,14 +127,14 @@ private:
       return;
     }
 
-    DynamicJsonDocument doc(size);
-    if (doc.capacity() == 0) {
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
+    builder(root);
+
+    if (doc.overflowed()) {
       createErrorResponse(res, "Memory allocation failed", 503);
       return;
     }
-
-    JsonObject root = doc.template to<ArduinoJson::JsonObject>();
-    builder(root);
 
     String jsonStr;
     size_t jsonSize = measureJson(doc);
@@ -172,14 +160,14 @@ private:
       return;
     }
 
-    DynamicJsonDocument doc(streamingDocSize);
-    if (doc.capacity() == 0) {
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
+    builder(root);
+
+    if (doc.overflowed()) {
       createErrorResponse(res, "Memory allocation failed", 503);
       return;
     }
-
-    JsonObject root = doc.template to<ArduinoJson::JsonObject>();
-    builder(root);
 
     // Use the new streaming method instead of creating a String
     res.setStatus(200);

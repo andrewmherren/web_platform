@@ -44,7 +44,7 @@ String QueryBuilder::get() {
         
         // Check if data matches all conditions
         bool matches = true;
-        DynamicJsonDocument doc(1024);
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, data);
         
         if (!error) {
@@ -95,7 +95,7 @@ std::vector<String> QueryBuilder::getAll() {
         
         // Check if data matches all conditions
         bool matches = true;
-        DynamicJsonDocument doc(1024);
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, data);
         
         if (!error) {
@@ -158,7 +158,7 @@ bool QueryBuilder::remove() {
         
         // Check if data matches all conditions
         bool matches = true;
-        DynamicJsonDocument doc(1024);
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, data);
         
         if (!error) {

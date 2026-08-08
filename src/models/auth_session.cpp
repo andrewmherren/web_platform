@@ -11,7 +11,7 @@ AuthSession::AuthSession(const String &sessionId, const String &userId,
       expiresAt(time(nullptr) + (AuthConstants::SESSION_DURATION_MS / 1000)) {}
 
 String AuthSession::toJson() const {
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   doc["id"] = id;
   doc["userId"] = userId;
   doc["username"] = username;
@@ -26,7 +26,7 @@ String AuthSession::toJson() const {
 AuthSession AuthSession::fromJson(const String &json) {
   AuthSession session;
 
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, json);
 
   if (!error) {

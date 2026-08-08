@@ -44,10 +44,10 @@ void WebPlatform::getUsersApiHandler(WebRequest &req, WebResponse &res) {
       res,
       [&](JsonObject &root) {
         root["success"] = true;
-        JsonArray usersArray = root.createNestedArray("users");
+        JsonArray usersArray = root["users"].to<JsonArray>();
 
         for (const auto &user : users) {
-          JsonObject userObj = usersArray.createNestedObject();
+          JsonObject userObj = usersArray.add<JsonObject>();
           userObj["id"] = user.id;
           userObj["username"] = user.username;
           userObj["createdAt"] = user.createdAt;
@@ -143,7 +143,7 @@ void WebPlatform::getUserByIdApiHandler(WebRequest &req, WebResponse &res) {
       res,
       [&](JsonObject &root) {
         root["success"] = true;
-        JsonObject userObj = root.createNestedObject("user");
+        JsonObject userObj = root["user"].to<JsonObject>();
         userObj["id"] = user.id;
         userObj["username"] = user.username;
         userObj["createdAt"] = user.createdAt;
@@ -237,7 +237,7 @@ void WebPlatform::getCurrentUserApiHandler(WebRequest &req, WebResponse &res) {
       res,
       [&](JsonObject &root) {
         root["success"] = true;
-        JsonObject userObj = root.createNestedObject("user");
+        JsonObject userObj = root["user"].to<JsonObject>();
         userObj["id"] = user.id;
         userObj["username"] = user.username;
         userObj["createdAt"] = user.createdAt;
@@ -297,10 +297,10 @@ void WebPlatform::getUserTokensApiHandler(WebRequest &req, WebResponse &res) {
       res,
       [&](JsonObject &root) {
         root["success"] = true;
-        JsonArray tokensArray = root.createNestedArray("tokens");
+        JsonArray tokensArray = root["tokens"].to<JsonArray>();
 
         for (const auto &token : tokens) {
-          JsonObject tokenObj = tokensArray.createNestedObject();
+          JsonObject tokenObj = tokensArray.add<JsonObject>();
           tokenObj["id"] = token.id;
           tokenObj["token"] = token.token;
           tokenObj["name"] = token.name;
@@ -387,22 +387,22 @@ void WebPlatform::getSystemStatusApiHandler(WebRequest &req, WebResponse &res) {
   JsonResponseBuilder::createResponse<1024>(res, [&](JsonObject &root) {
     root["success"] = true;
 
-    JsonObject status = root.createNestedObject("status");
+    JsonObject status = root["status"].to<JsonObject>();
     status["uptime"] = millis() / 1000;
 
-    JsonObject memory = status.createNestedObject("memory");
+    JsonObject memory = status["memory"].to<JsonObject>();
     memory["freeHeap"] = freeHeap;
     memory["freeHeapPercent"] = freeHeapPercent;
     memory["color"] = heapColor;
 
-    JsonObject storage = status.createNestedObject("storage");
+    JsonObject storage = status["storage"].to<JsonObject>();
     storage["flashSize"] = flashSize;
     storage["usedSpace"] = usedSpace;
     storage["availableSpace"] = availableSpace;
     storage["usedSpacePercent"] = usedSpacePercent;
     storage["color"] = spaceColor;
 
-    JsonObject platform = status.createNestedObject("platform");
+    JsonObject platform = status["platform"].to<JsonObject>();
     platform["mode"] =
         (currentMode == CONNECTED) ? "Connected" : "Config Portal";
     platform["httpsEnabled"] = httpsEnabled;
@@ -421,7 +421,7 @@ void WebPlatform::getNetworkStatusApiHandler(WebRequest &req,
   JsonResponseBuilder::createResponse<512>(res, [&](JsonObject &root) {
     root["success"] = true;
 
-    JsonObject network = root.createNestedObject("network");
+    JsonObject network = root["network"].to<JsonObject>();
     network["ssid"] = WiFi.SSID();
     network["ipAddress"] = WiFi.localIP().toString();
     network["macAddress"] = WiFi.macAddress();
@@ -437,9 +437,9 @@ void WebPlatform::getModulesApiHandler(WebRequest &req, WebResponse &res) {
       [&](JsonObject &root) {
         root["success"] = true;
 
-        JsonArray webModules = root.createNestedArray("modules");
+        JsonArray webModules = root["modules"].to<JsonArray>();
         for (const auto &regModule : registeredModules) {
-          JsonObject webModule = webModules.createNestedObject();
+          JsonObject webModule = webModules.add<JsonObject>();
           webModule["name"] = regModule.webModule->getModuleName();
           webModule["version"] = regModule.webModule->getModuleVersion();
           webModule["description"] =

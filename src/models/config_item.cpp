@@ -9,7 +9,7 @@ ConfigItem::ConfigItem(const String &key, const String &value)
       updatedAt(time(nullptr)) {}
       
 String ConfigItem::toJson() const {
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   doc["id"] = id;
   doc["key"] = key;
   doc["value"] = value;
@@ -23,7 +23,7 @@ String ConfigItem::toJson() const {
 ConfigItem ConfigItem::fromJson(const String &json) {
   ConfigItem item;
 
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, json);
   if (!error) {
     item.id = doc["id"].as<String>();

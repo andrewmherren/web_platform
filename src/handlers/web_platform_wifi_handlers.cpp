@@ -5,8 +5,8 @@
 
 
 void WebPlatform::scanApiHandler(WebRequest &req, WebResponse &res) {
-  DynamicJsonDocument doc(2048);
-  JsonArray networks = doc.createNestedArray("networks");
+  JsonDocument doc;
+  JsonArray networks = doc["networks"].to<JsonArray>();
 
   DEBUG_PRINTLN("WebPlatform: Scanning for WiFi networks...");
   int n = WiFi.scanNetworks();
@@ -47,7 +47,7 @@ void WebPlatform::scanApiHandler(WebRequest &req, WebResponse &res) {
 
   // Add to JSON response
   for (const auto &network : sortedNetworks) {
-    JsonObject netObj = networks.createNestedObject();
+    JsonObject netObj = networks.add<JsonObject>();
     netObj["ssid"] = network.ssid;
     netObj["rssi"] = network.rssi;
     netObj["encryption"] = network.encryption;

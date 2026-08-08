@@ -12,7 +12,7 @@ AuthPageToken::AuthPageToken(const String &token, const String &clientIp)
                 (AuthConstants::PAGE_TOKEN_DURATION_MS / 1000)) {}
                 
 String AuthPageToken::toJson() const {
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   doc["id"] = id;
   doc["token"] = token;
   doc["clientIp"] = clientIp;
@@ -27,7 +27,7 @@ String AuthPageToken::toJson() const {
 AuthPageToken AuthPageToken::fromJson(const String &json) {
   AuthPageToken pageToken;
 
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, json);
   if (!error) {
     pageToken.id = doc["id"].as<String>();

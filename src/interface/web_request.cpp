@@ -178,7 +178,7 @@ void WebRequest::parseJsonData(const String &jsonData) {
 
   // Use ArduinoJson for robust JSON parsing
   // Allocate a document with sufficient capacity (adjust size as needed)
-  DynamicJsonDocument doc(1024);
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, jsonData);
 
   if (error) {
