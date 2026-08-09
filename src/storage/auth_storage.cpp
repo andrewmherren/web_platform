@@ -5,6 +5,7 @@
 #include "utilities/debug_macros.h"
 
 #include <ArduinoJson.h>
+#include <string>
 
 // Initialize static members
 bool AuthStorage::initialized = false;
@@ -255,7 +256,7 @@ std::vector<AuthUser> AuthStorage::getAllUsers() {
   for (const String &userData : userDataList) {
     AuthUser user = AuthUser::fromJson(userData);
     if (user.isValid()) {
-      users.push_back(user);
+      users.push_back(std::move(user));
     }
   }
 
@@ -310,7 +311,7 @@ String AuthStorage::validateSession(const String &sessionId,
                                     const String &clientIp) {
   ensureInitialized();
 
-  if (sessionId.isEmpty()) {
+  if (sessionId.length() == 0) {
     return "";
   }
 
@@ -472,7 +473,7 @@ std::vector<AuthApiToken> AuthStorage::getUserApiTokens(const String &userId) {
   for (const String &tokenData : tokenDataList) {
     AuthApiToken token = AuthApiToken::fromJson(tokenData);
     if (token.isValid()) {
-      tokens.push_back(token);
+      tokens.push_back(std::move(token));
     }
   }
 
@@ -627,9 +628,9 @@ String AuthStorage::getStorageStats() {
   doc["api_tokens"] = driver->listKeys(API_TOKENS_COLLECTION).size();
   doc["page_tokens"] = driver->listKeys(PAGE_TOKENS_COLLECTION).size();
 
-  String stats;
+  std::string stats;
   serializeJson(doc, stats);
-  return stats;
+  return String(stats.c_str());
 }
 
 bool AuthStorage::requiresInitialSetup() {

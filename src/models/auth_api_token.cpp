@@ -1,6 +1,7 @@
 #include "auth/auth_utils.h"
 #include "models/data_models.h"
 #include <ArduinoJson.h>
+#include <string>
 #include <time.h>
 
 // AuthApiToken implementation
@@ -22,22 +23,22 @@ String AuthApiToken::toJson() const {
   doc["createdAt"] = createdAt;
   doc["expiresAt"] = expiresAt;
 
-  String json;
+  std::string json;
   serializeJson(doc, json);
-  return json;
+  return String(json.c_str());
 }
 
 AuthApiToken AuthApiToken::fromJson(const String &json) {
   AuthApiToken apiToken;
 
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, json);
+  DeserializationError error = deserializeJson(doc, json.c_str());
   if (!error) {
-    apiToken.id = doc["id"].as<String>();
-    apiToken.token = doc["token"].as<String>();
-    apiToken.userId = doc["userId"].as<String>();
-    apiToken.username = doc["username"].as<String>();
-    apiToken.name = doc["name"].as<String>();
+    apiToken.id = String(doc["id"].as<std::string>().c_str());
+    apiToken.token = String(doc["token"].as<std::string>().c_str());
+    apiToken.userId = String(doc["userId"].as<std::string>().c_str());
+    apiToken.username = String(doc["username"].as<std::string>().c_str());
+    apiToken.name = String(doc["name"].as<std::string>().c_str());
     apiToken.createdAt = doc["createdAt"].as<unsigned long>();
     apiToken.expiresAt = doc["expiresAt"].as<unsigned long>();
   }

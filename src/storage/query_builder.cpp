@@ -45,11 +45,11 @@ String QueryBuilder::get() {
         // Check if data matches all conditions
         bool matches = true;
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, data);
+        DeserializationError error = deserializeJson(doc, data.c_str());
         
         if (!error) {
             for (const auto& condition : conditions) {
-                String fieldValue = doc[condition.first].as<String>();
+                String fieldValue = String(doc[condition.first].as<std::string>().c_str());
                 if (fieldValue != condition.second) {
                     matches = false;
                     break;
@@ -96,11 +96,11 @@ std::vector<String> QueryBuilder::getAll() {
         // Check if data matches all conditions
         bool matches = true;
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, data);
+        DeserializationError error = deserializeJson(doc, data.c_str());
         
         if (!error) {
             for (const auto& condition : conditions) {
-                String fieldValue = doc[condition.first].as<String>();
+                String fieldValue = String(doc[condition.first].as<std::string>().c_str());
                 if (fieldValue != condition.second) {
                     matches = false;
                     break;
@@ -159,11 +159,11 @@ bool QueryBuilder::remove() {
         // Check if data matches all conditions
         bool matches = true;
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, data);
+        DeserializationError error = deserializeJson(doc, data.c_str());
         
         if (!error) {
             for (const auto& condition : conditions) {
-                String fieldValue = doc[condition.first].as<String>();
+                String fieldValue = String(doc[condition.first].as<std::string>().c_str());
                 if (fieldValue != condition.second) {
                     matches = false;
                     break;

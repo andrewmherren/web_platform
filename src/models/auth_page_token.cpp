@@ -2,6 +2,7 @@
 #include "auth/auth_utils.h"
 #include "models/data_models.h"
 #include <ArduinoJson.h>
+#include <string>
 #include <time.h>
 
 // AuthPageToken implementation
@@ -19,20 +20,20 @@ String AuthPageToken::toJson() const {
   doc["createdAt"] = createdAt;
   doc["expiresAt"] = expiresAt;
 
-  String json;
+  std::string json;
   serializeJson(doc, json);
-  return json;
+  return String(json.c_str());
 }
 
 AuthPageToken AuthPageToken::fromJson(const String &json) {
   AuthPageToken pageToken;
 
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, json);
+  DeserializationError error = deserializeJson(doc, json.c_str());
   if (!error) {
-    pageToken.id = doc["id"].as<String>();
-    pageToken.token = doc["token"].as<String>();
-    pageToken.clientIp = doc["clientIp"].as<String>();
+    pageToken.id = String(doc["id"].as<std::string>().c_str());
+    pageToken.token = String(doc["token"].as<std::string>().c_str());
+    pageToken.clientIp = String(doc["clientIp"].as<std::string>().c_str());
     pageToken.createdAt = doc["createdAt"].as<unsigned long>();
     pageToken.expiresAt = doc["expiresAt"].as<unsigned long>();
   }
