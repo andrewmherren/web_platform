@@ -1,6 +1,7 @@
 #include "auth/auth_utils.h"
 #include "models/data_models.h"
 #include <ArduinoJson.h>
+#include <string>
 #include <time.h>
 
 // AuthUser implementation
@@ -18,22 +19,22 @@ String AuthUser::toJson() const {
   doc["isAdmin"] = isAdmin;
   doc["createdAt"] = createdAt;
 
-  String json;
+  std::string json;
   serializeJson(doc, json);
-  return json;
+  return String(json.c_str());
 }
 
 AuthUser AuthUser::fromJson(const String &json) {
   AuthUser user;
 
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, json);
+  DeserializationError error = deserializeJson(doc, json.c_str());
 
   if (!error) {
-    user.id = doc["id"].as<String>();
-    user.username = doc["username"].as<String>();
-    user.passwordHash = doc["passwordHash"].as<String>();
-    user.salt = doc["salt"].as<String>();
+    user.id = String(doc["id"].as<std::string>().c_str());
+    user.username = String(doc["username"].as<std::string>().c_str());
+    user.passwordHash = String(doc["passwordHash"].as<std::string>().c_str());
+    user.salt = String(doc["salt"].as<std::string>().c_str());
     user.isAdmin = doc["isAdmin"].as<bool>(); // Default to false if not present
     user.createdAt = doc["createdAt"].as<unsigned long>();
   }
