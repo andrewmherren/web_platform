@@ -1,3 +1,4 @@
+#include "platform/openapi_spec_helpers.h"
 #include "route_entry.h"
 #include "storage/storage_manager.h"
 #include "web_platform.h"
@@ -17,56 +18,6 @@ const String WebPlatform::OPENAPI_COLLECTION = "openapi";
 const String WebPlatform::OPENAPI_SPEC_KEY = "spec";
 const String WebPlatform::MAKER_OPENAPI_SPEC_KEY = "maker";
 
-// Helper function to check if a route should be included in Maker API
-bool WebPlatform::isMakerAPIRoute(
-    const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
-  // Check if route has any of the maker tags
-  for (const String &routeTag : routeDoc.docs.getTags()) {
-    for (const String &makerTag : makerApiTags) {
-      if (routeTag.equalsIgnoreCase(makerTag)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-// Helper function to create basic OpenAPI document structure
-void WebPlatform::createOpenAPIDocumentStructure(
-    JsonDocument &doc, const String &title, const String &description) const {
-  doc["openapi"] = "3.0.3";
-
-  JsonObject info = doc["info"].to<JsonObject>();
-  info["title"] = title;
-  info["description"] = description;
-  info["version"] = getSystemVersion();
-
-  JsonArray servers = doc["servers"].to<JsonArray>();
-  JsonObject server = servers.add<JsonObject>();
-  server["url"] = getBaseUrl();
-  server["description"] = "Device API Server";
-
-  // Security schemes
-  JsonObject components = doc["components"].to<JsonObject>();
-  JsonObject securitySchemes = components["securitySchemes"].to<JsonObject>();
-
-  JsonObject bearerAuth = securitySchemes["bearerAuth"].to<JsonObject>();
-  bearerAuth["type"] = "http";
-  bearerAuth["scheme"] = "bearer";
-  bearerAuth["bearerFormat"] = "JWT";
-
-  JsonObject cookieAuth = securitySchemes["cookieAuth"].to<JsonObject>();
-  cookieAuth["type"] = "apiKey";
-  cookieAuth["in"] = "cookie";
-  cookieAuth["name"] = "session";
-
-  JsonObject tokenParam = securitySchemes["tokenParam"].to<JsonObject>();
-  tokenParam["type"] = "apiKey";
-  tokenParam["in"] = "query";
-  tokenParam["name"] = "access_token";
-}
-
 // Helper function to generate and store a spec
 bool WebPlatform::generateAndStoreSpec(
     size_t targetSize, const String &title, const String &description,
@@ -78,9 +29,17 @@ bool WebPlatform::generateAndStoreSpec(
     const String &storageKey, const String &specType) {
 
   JsonDocument doc;
-  createOpenAPIDocumentStructure(doc, title, description);
+  OpenApiSpecHelpers::createOpenAPIDocumentStructure(
+      doc, title, description, getSystemVersion(), getBaseUrl());
 
   JsonObject paths = doc["paths"].to<JsonObject>();
+
+  std::vector<std::pair<String, String>> registeredModuleInfo;
+  registeredModuleInfo.reserve(registeredModules.size());
+  for (const auto &regModule : registeredModules) {
+    registeredModuleInfo.emplace_back(regModule.basePath,
+                                      regModule.webModule->getModuleName());
+  }
 
   const auto &apiRoutes = openAPIGenerationContext.getApiRoutes();
   DEBUG_PRINTF("WebPlatform: %s generation found %d routes in context\n",
@@ -116,13 +75,15 @@ bool WebPlatform::generateAndStoreSpec(
     if (!docs.getSummary().isEmpty()) {
       operation["summary"] = docs.getSummary();
     } else {
-      operation["summary"] = generateDefaultSummary(routePathStr, methodStr);
+      operation["summary"] =
+          OpenApiSpecHelpers::generateDefaultSummary(routePathStr, methodStr);
     }
 
     if (!docs.getOperationId().isEmpty()) {
       operation["operationId"] = docs.getOperationId();
     } else {
-      operation["operationId"] = generateOperationId(methodStr, routePathStr);
+      operation["operationId"] =
+          OpenApiSpecHelpers::generateOperationId(methodStr, routePathStr);
     }
 
     if (!docs.getDescription().isEmpty()) {
@@ -131,7 +92,8 @@ bool WebPlatform::generateAndStoreSpec(
 
     // Handle tags using the provided modifier
     JsonArray tags = operation["tags"].to<JsonArray>();
-    String defaultModuleTag = inferModuleFromPath(routePathStr);
+    String defaultModuleTag = OpenApiSpecHelpers::inferModuleFromPath(
+        routePathStr, registeredModuleInfo);
 
     if (!docs.getTags().empty()) {
       // Add default webModule tag first
@@ -157,11 +119,14 @@ bool WebPlatform::generateAndStoreSpec(
     tagModifier(tags, routeDoc);
 #else
     // When OpenAPI is disabled, just generate basic operation info
-    operation["summary"] = generateDefaultSummary(routePathStr, methodStr);
-    operation["operationId"] = generateOperationId(methodStr, routePathStr);
+    operation["summary"] =
+        OpenApiSpecHelpers::generateDefaultSummary(routePathStr, methodStr);
+    operation["operationId"] =
+        OpenApiSpecHelpers::generateOperationId(methodStr, routePathStr);
 
     JsonArray tags = operation["tags"].to<JsonArray>();
-    tags.add(inferModuleFromPath(routePathStr));
+    tags.add(OpenApiSpecHelpers::inferModuleFromPath(routePathStr,
+                                                      registeredModuleInfo));
     tagModifier(tags, routeDoc);
 #endif
 
@@ -182,7 +147,7 @@ bool WebPlatform::generateAndStoreSpec(
     }
 
     // Add parameters, request body, and responses
-    addParametersToOperationFromDocs(operation, routeDoc);
+    OpenApiSpecHelpers::addParametersToOperationFromDocs(operation, routeDoc);
 
     // Add request body for POST/PUT operations
 #if OPENAPI_ENABLED
@@ -190,12 +155,14 @@ bool WebPlatform::generateAndStoreSpec(
          routeDoc.method == WebModule::WM_PUT) &&
         (!docs.getRequestSchema().isEmpty() ||
          !docs.getRequestExample().isEmpty())) {
-      addRequestBodyToOperationFromDocs(operation, routeDoc);
+      OpenApiSpecHelpers::addRequestBodyToOperationFromDocs(operation,
+                                                            routeDoc);
     }
 #else
     if (routeDoc.method == WebModule::WM_POST ||
         routeDoc.method == WebModule::WM_PUT) {
-      addRequestBodyToOperationFromDocs(operation, routeDoc);
+      OpenApiSpecHelpers::addRequestBodyToOperationFromDocs(operation,
+                                                            routeDoc);
     }
 #endif
 
@@ -204,7 +171,7 @@ bool WebPlatform::generateAndStoreSpec(
     if (!docs.getResponsesJson().isEmpty() ||
         !docs.getResponseSchema().isEmpty() ||
         !docs.getResponseExample().isEmpty()) {
-      addResponsesToOperationFromDocs(operation, routeDoc);
+      OpenApiSpecHelpers::addResponsesToOperationFromDocs(operation, routeDoc);
     } else {
 #else
     {
@@ -421,7 +388,7 @@ void WebPlatform::generateOpenAPISpec() {
   // Count routes for logging
   int makerRouteCount = 0;
   for (const auto &routeDoc : openAPIGenerationContext.getApiRoutes()) {
-    if (isMakerAPIRoute(routeDoc)) {
+    if (OpenApiSpecHelpers::isMakerAPIRoute(routeDoc, makerApiTags)) {
       makerRouteCount++;
     }
   }
@@ -440,7 +407,9 @@ void WebPlatform::generateOpenAPISpec() {
 
   auto makerRoutesFilter =
       [this](const OpenAPIGenerationContext::RouteDocumentation &routeDoc)
-      -> bool { return isMakerAPIRoute(routeDoc); };
+      -> bool {
+    return OpenApiSpecHelpers::isMakerAPIRoute(routeDoc, makerApiTags);
+  };
 
   auto makerTagModifier =
       [](JsonArray &tags,
@@ -590,370 +559,4 @@ void WebPlatform::streamPreGeneratedMakerAPISpec(WebResponse &res) const {
   res.setStorageStreamContent(OPENAPI_COLLECTION, MAKER_OPENAPI_SPEC_KEY,
                               "application/json");
 #endif // MAKERAPI_ENABLED
-}
-
-// Helper functions for enhanced OpenAPI generation
-String WebPlatform::generateDefaultSummary(const String &path,
-                                           const String &method) const {
-  // Generate meaningful summary from path and method
-  String summary = method.substring(0, 1);
-  summary.toUpperCase();
-  summary += method.substring(1) + " ";
-
-  // Clean up path for summary
-  String cleanPath = path;
-  cleanPath.replace("/api/", "");
-  cleanPath.replace("/", " ");
-  cleanPath.replace("_", " ");
-  cleanPath.replace("-", " ");
-
-  if (cleanPath.isEmpty()) {
-    summary += "endpoint";
-  } else {
-    summary += cleanPath;
-  }
-
-  return summary;
-}
-
-String WebPlatform::generateOperationId(const String &method,
-                                        const String &path) const {
-  String operationId = method + path;
-  // Sanitize operationId for OpenAPI compliance
-  operationId.replace("/", "_");
-  operationId.replace("-", "_");
-  operationId.replace(".", "_");
-  operationId.replace("{", "");
-  operationId.replace("}", "");
-  return operationId;
-}
-
-String WebPlatform::inferModuleFromPath(const String &path) const {
-  // First, try to find a registered webModule that matches this path
-  String moduleName = "";
-
-  for (const auto &regModule : registeredModules) {
-    if (path.startsWith(regModule.basePath)) {
-      moduleName = regModule.webModule->getModuleName();
-      break;
-    }
-  }
-
-  // If we found a registered webModule, format its name
-  if (!moduleName.isEmpty()) {
-    return formatModuleName(moduleName);
-  }
-
-  // All WebPlatform internal routes (including auth routes) should return "Web
-  // Platform" The specific functional tags like "User Management" will be added
-  // as explicit tags
-  return "Web Platform";
-}
-
-String WebPlatform::formatModuleName(const String &moduleName) const {
-  String formatted = moduleName;
-
-  // Replace underscores and dashes with spaces
-  formatted.replace("_", " ");
-  formatted.replace("-", " ");
-
-  // Capitalize first letter and letters after spaces
-  bool capitalizeNext = true;
-  for (size_t i = 0; i < formatted.length(); i++) {
-    if (capitalizeNext && formatted[i] >= 'a' && formatted[i] <= 'z') {
-      formatted[i] = formatted[i] - 'a' + 'A';
-      capitalizeNext = false;
-    } else if (formatted[i] == ' ') {
-      capitalizeNext = true;
-    } else {
-      capitalizeNext = false;
-    }
-  }
-
-  return formatted;
-}
-
-void WebPlatform::addParametersToOperationFromDocs(
-    JsonObject &operation,
-    const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
-#if OPENAPI_ENABLED
-  JsonArray parameters = operation["parameters"].to<JsonArray>();
-  const OpenAPIDocumentation &docs = routeDoc.docs;
-
-  // Track parameter names to avoid duplicates
-  std::map<String, bool> parameterNames;
-
-  // First, add custom parameters from webModule documentation
-  if (!docs.getParameters().isEmpty()) {
-    JsonDocument paramDoc;
-    if (deserializeJson(paramDoc, docs.getParameters()) ==
-        DeserializationError::Ok) {
-      if (paramDoc.is<JsonArray>()) {
-        JsonArray customParams = paramDoc.as<JsonArray>();
-        for (JsonVariant param : customParams) {
-          if (param.is<JsonObject>()) {
-            JsonObject paramObj = param.as<JsonObject>();
-            if (!paramObj["name"].isNull() && !paramObj["in"].isNull()) {
-              String paramName = paramObj["name"].as<String>();
-              String paramIn = paramObj["in"].as<String>();
-              String paramKey = paramName + ":" + paramIn;
-
-              if (parameterNames.find(paramKey) == parameterNames.end()) {
-                parameters.add(param);
-                parameterNames[paramKey] = true;
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // Add auto-generated path parameters
-  String routePathStr = routeDoc.path;
-  if (routePathStr.indexOf("{") != -1) {
-    String pathCopy = routePathStr;
-    int startPos = 0;
-    while ((startPos = pathCopy.indexOf("{", startPos)) != -1) {
-      int endPos = pathCopy.indexOf("}", startPos);
-      if (endPos != -1) {
-        String paramName = pathCopy.substring(startPos + 1, endPos);
-        String paramKey = paramName + ":path";
-
-        if (parameterNames.find(paramKey) == parameterNames.end()) {
-          JsonObject param = parameters.add<JsonObject>();
-          param["name"] = paramName;
-          param["in"] = "path";
-          param["required"] = true;
-
-          // Enhanced parameter descriptions
-          if (paramName == "id") {
-            param["description"] = "Resource identifier";
-          } else if (paramName == "userId") {
-            param["description"] = "User identifier (UUID)";
-          } else if (paramName == "tokenId") {
-            param["description"] = "Token identifier";
-          } else {
-            param["description"] = "Path parameter: " + paramName;
-          }
-
-          JsonObject schema = param["schema"].to<JsonObject>();
-          if (paramName.endsWith("Id") && paramName != "id") {
-            schema["type"] = "string";
-            schema["format"] = "uuid";
-          } else {
-            schema["type"] = "string";
-          }
-
-          parameterNames[paramKey] = true;
-        }
-
-        startPos = endPos + 1;
-      } else {
-        break;
-      }
-    }
-  }
-
-  // Add access_token parameter for routes that support token authentication
-  bool hasTokenAuth = false;
-  for (const auto &authType : routeDoc.authRequirements) {
-    if (authType == AuthType::TOKEN) {
-      hasTokenAuth = true;
-      break;
-    }
-  }
-
-  if (hasTokenAuth &&
-      parameterNames.find("access_token:query") == parameterNames.end()) {
-    JsonObject tokenParam = parameters.add<JsonObject>();
-    tokenParam["name"] = "access_token";
-    tokenParam["in"] = "query";
-    tokenParam["required"] = false;
-    tokenParam["description"] =
-        "API access token (alternative to Bearer header)";
-    JsonObject tokenSchema = tokenParam["schema"].to<JsonObject>();
-    tokenSchema["type"] = "string";
-    parameterNames["access_token:query"] = true;
-  }
-#endif
-}
-
-void WebPlatform::addResponsesToOperationFromDocs(
-    JsonObject &operation,
-    const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
-#if OPENAPI_ENABLED
-  JsonObject responses = operation["responses"].to<JsonObject>();
-  const OpenAPIDocumentation &docs = routeDoc.docs;
-
-  // Success response
-  JsonObject response200 = responses["200"].to<JsonObject>();
-  response200["description"] = "Successful operation";
-
-  // Add content type and examples
-  JsonObject content = response200["content"].to<JsonObject>();
-  String contentType = "application/json"; // Default content type
-  JsonObject mediaType = content[contentType].to<JsonObject>();
-
-  // Add response schema if provided
-  if (!docs.getResponseSchema().isEmpty()) {
-    JsonDocument schemaDoc;
-    if (deserializeJson(schemaDoc, docs.getResponseSchema()) ==
-        DeserializationError::Ok) {
-      mediaType["schema"] = schemaDoc.as<JsonObject>();
-    }
-  }
-
-  // Add response example if provided
-  if (!docs.getResponseExample().isEmpty()) {
-    JsonDocument exampleDoc;
-    if (deserializeJson(exampleDoc, docs.getResponseExample()) ==
-        DeserializationError::Ok) {
-      mediaType["example"] = exampleDoc.as<JsonVariant>();
-    }
-  }
-
-  // Add webModule-provided response info
-  if (!docs.getResponsesJson().isEmpty()) {
-    JsonDocument responseDoc;
-    if (deserializeJson(responseDoc, docs.getResponsesJson()) ==
-        DeserializationError::Ok) {
-      // Merge additional response information
-      for (JsonPair kv : responseDoc.as<JsonObject>()) {
-        if (responses[kv.key().c_str()].isNull()) {
-          responses[kv.key().c_str()] = kv.value();
-        }
-      }
-    }
-  }
-
-  // Add standard error responses for authenticated routes
-  if (!routeDoc.authRequirements.empty()) {
-    JsonObject response401 = responses["401"].to<JsonObject>();
-    response401["description"] = "Unauthorized - Authentication required";
-
-    JsonObject response403 = responses["403"].to<JsonObject>();
-    response403["description"] = "Forbidden - Insufficient permissions";
-  }
-
-  JsonObject response500 = responses["500"].to<JsonObject>();
-  response500["description"] = "Internal server error";
-
-#endif
-}
-
-void WebPlatform::addRequestBodyToOperationFromDocs(
-    JsonObject &operation,
-    const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
-#if OPENAPI_ENABLED
-  const OpenAPIDocumentation &docs = routeDoc.docs;
-
-  // Early exit if no request documentation
-  if (docs.getRequestSchema().isEmpty() && docs.getRequestExample().isEmpty()) {
-    if (routeDoc.method == WebModule::WM_POST ||
-        routeDoc.method == WebModule::WM_PUT) {
-      JsonObject requestBody = operation["requestBody"].to<JsonObject>();
-      requestBody["description"] = "Request payload";
-      requestBody["required"] = true;
-      JsonObject content = requestBody["content"].to<JsonObject>();
-      JsonObject mediaType = content["application/json"].to<JsonObject>();
-      JsonObject schema = mediaType["schema"].to<JsonObject>();
-      schema["type"] = "object";
-    }
-    return;
-  }
-
-  // Handle request schema - use minimal buffer and immediate cleanup
-  if (!docs.getRequestSchema().isEmpty()) {
-    JsonDocument schemaDoc;
-    DeserializationError error =
-        deserializeJson(schemaDoc, docs.getRequestSchema());
-
-    if (error == DeserializationError::Ok) {
-      JsonObject schemaObj = schemaDoc.as<JsonObject>();
-
-      // Check if this is a complete request body (has both content AND
-      // required)
-      bool isCompleteRequestBody = !schemaObj["content"].isNull() &&
-                                   !schemaObj["required"].isNull();
-
-      JsonObject requestBody = operation["requestBody"].to<JsonObject>();
-
-      if (isCompleteRequestBody) {
-        // Direct assignment of key properties - avoid copying entire object
-        if (!schemaObj["description"].isNull()) {
-          requestBody["description"] = schemaObj["description"];
-        } else {
-          requestBody["description"] = "Request payload";
-        }
-
-        if (!schemaObj["required"].isNull()) {
-          requestBody["required"] = schemaObj["required"];
-        }
-
-        if (!schemaObj["content"].isNull()) {
-          requestBody["content"] = schemaObj["content"];
-        }
-      } else {
-        // Simple schema object - wrap it
-        requestBody["description"] = "Request payload";
-        requestBody["required"] = true;
-        JsonObject content = requestBody["content"].to<JsonObject>();
-        JsonObject mediaType = content["application/json"].to<JsonObject>();
-        mediaType["schema"] = schemaObj;
-      }
-    } else {
-      // Parse failed - create minimal structure
-      JsonObject requestBody = operation["requestBody"].to<JsonObject>();
-      requestBody["description"] = "Request payload";
-      requestBody["required"] = true;
-      JsonObject content = requestBody["content"].to<JsonObject>();
-      JsonObject mediaType = content["application/json"].to<JsonObject>();
-      JsonObject schema = mediaType["schema"].to<JsonObject>();
-      schema["type"] = "object";
-    }
-
-    // Critical: immediately clear the document to free heap
-    schemaDoc.clear();
-
-    // Handle example separately if schema was processed
-    if (!docs.getRequestExample().isEmpty()) {
-      // Find the media type object to add example
-      JsonObject requestBody = operation["requestBody"];
-      if (!requestBody["content"].isNull()) {
-        JsonObject content = requestBody["content"];
-        for (JsonPair contentType : content) {
-          JsonObject mediaType = contentType.value().as<JsonObject>();
-          if (mediaType) {
-            JsonDocument exampleDoc;
-            if (deserializeJson(exampleDoc, docs.getRequestExample()) ==
-                DeserializationError::Ok) {
-              mediaType["example"] = exampleDoc.as<JsonVariant>();
-            }
-            exampleDoc.clear(); // Immediate cleanup
-            break;              // Only add to first media type
-          }
-        }
-      }
-    }
-
-  } else if (!docs.getRequestExample().isEmpty()) {
-    // Only example provided - minimal structure
-    JsonObject requestBody = operation["requestBody"].to<JsonObject>();
-    requestBody["description"] = "Request payload";
-    requestBody["required"] = true;
-    JsonObject content = requestBody["content"].to<JsonObject>();
-    JsonObject mediaType = content["application/json"].to<JsonObject>();
-    JsonObject schema = mediaType["schema"].to<JsonObject>();
-    schema["type"] = "object";
-
-    // Add example with immediate cleanup
-    JsonDocument exampleDoc;
-    if (deserializeJson(exampleDoc, docs.getRequestExample()) ==
-        DeserializationError::Ok) {
-      mediaType["example"] = exampleDoc.as<JsonVariant>();
-    }
-    exampleDoc.clear(); // Immediate cleanup
-  }
-#endif
 }
