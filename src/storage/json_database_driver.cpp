@@ -1,5 +1,6 @@
 #include "storage/json_database_driver.h"
 #include <ArduinoJson.h>
+#include <string>
 
 #include <Preferences.h>
 
@@ -40,7 +41,7 @@ void JsonDatabaseDriver::loadCollection(const String &collection) {
 
   // Parse JSON and populate cache
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, jsonData);
+  DeserializationError error = deserializeJson(doc, jsonData.c_str());
 
   if (!error && doc.is<JsonArray>()) {
     JsonArray array = doc.as<JsonArray>();
@@ -88,14 +89,15 @@ void JsonDatabaseDriver::saveCollection(const String &collection) {
     return; // Failed to allocate memory
   }
 
-  String jsonData;
+  std::string serialized;
   size_t reserveSize = jsonSize > 256 ? jsonSize - 256 : 256;
-  jsonData.reserve(reserveSize);
+  serialized.reserve(reserveSize);
 
-  size_t serializedSize = serializeJson(doc, jsonData);
+  size_t serializedSize = serializeJson(doc, serialized);
   if (serializedSize == 0) {
     return; // Serialization failed
   }
+  String jsonData(serialized.c_str());
 
   Preferences prefs;
   prefs.begin("storage", false);

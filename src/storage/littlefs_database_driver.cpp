@@ -1,7 +1,13 @@
 #include "storage/littlefs_database_driver.h"
 #include "FS.h"
 #include "utilities/debug_macros.h"
+#include <algorithm>
 #include <ArduinoJson.h>
+#include <string>
+
+#ifdef NATIVE_PLATFORM
+#include <testing/native_debug_macros_compat.h>
+#endif
 
 LittleFSDatabaseDriver::LittleFSDatabaseDriver(const String &baseStoragePath)
     : driverName("littlefs"), initialized(false), basePath(baseStoragePath) {
@@ -177,8 +183,11 @@ String LittleFSDatabaseDriver::retrieveLargeFile(File &file, size_t fileSize,
 
     buffer[bytesRead] = '\0'; // Ensure null termination
 
-    // Use concat with explicit length to avoid string truncation issues
-    content.concat(buffer, bytesRead);
+    // ArduinoFake's String::concat(const char*, unsigned int) is protected
+    // (public on real Arduino String) - buffer is already null-terminated
+    // at exactly bytesRead above, so += (operator+=(const char*), public on
+    // both) is equivalent here.
+    content += buffer;
 
     totalRead += bytesRead;
 
@@ -301,7 +310,7 @@ String LittleFSDatabaseDriver::retrieve(const String &collection,
     content = retrieveLargeFile(file, fileSize, filePath);
     file.close();
 
-    if (content.isEmpty()) {
+    if (content.length() == 0) {
       DEBUG_PRINTF(
           "LittleFSDatabaseDriver: Large file retrieval failed for %s\n",
           filePath.c_str());
@@ -428,9 +437,9 @@ String LittleFSDatabaseDriver::getFilesystemStats() {
   doc["free_bytes"] = LittleFS.totalBytes() - LittleFS.usedBytes();
   doc["cache_entries"] = cache.size();
 
-  String result;
-  serializeJson(doc, result);
-  return result;
+  std::string serialized;
+  serializeJson(doc, serialized);
+  return String(serialized.c_str());
 }
 
 bool LittleFSDatabaseDriver::removeCollection(const String &collection) {

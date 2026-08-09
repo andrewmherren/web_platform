@@ -5,6 +5,10 @@
 #include "utilities/debug_macros.h"
 #include <ArduinoJson.h>
 
+#ifdef NATIVE_PLATFORM
+#include <testing/native_debug_macros_compat.h>
+#endif
+
 // Initialize static members
 std::map<String, std::unique_ptr<IDatabaseDriver>> StorageManager::drivers;
 String StorageManager::defaultDriverName = "json";

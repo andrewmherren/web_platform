@@ -10,10 +10,24 @@ void register_platform_provider_tests(void);
 void runAuthUtilsTests();
 void register_auth_decision_tests(void);
 void register_query_builder_tests(void);
+void register_json_database_driver_tests(void);
+void register_littlefs_database_driver_tests(void);
+void register_storage_manager_tests(void);
 
 // Native entrypoint
 #ifdef NATIVE_PLATFORM
-extern "C" void setUp(void) {}
+#include <LittleFS.h>
+#include <Preferences.h>
+#include <storage/storage_manager.h>
+
+extern "C" void setUp(void) {
+  // Reset the in-memory Preferences/LittleFS fakes and StorageManager's
+  // static driver registry before every test so storage tests never see
+  // state left behind by a previous one.
+  NativePreferencesFake::reset();
+  NativeFsFake::reset();
+  StorageManager::clearAllDrivers();
+}
 extern "C" void tearDown(void) {}
 
 int main(int argc, char **argv) {
@@ -30,6 +44,9 @@ int main(int argc, char **argv) {
   runAuthUtilsTests();
   register_auth_decision_tests();
   register_query_builder_tests();
+  register_json_database_driver_tests();
+  register_littlefs_database_driver_tests();
+  register_storage_manager_tests();
 
   UNITY_END();
   return 0;
