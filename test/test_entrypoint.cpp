@@ -15,6 +15,7 @@ void register_littlefs_database_driver_tests(void);
 void register_storage_manager_tests(void);
 void register_auth_storage_tests(void);
 void register_openapi_spec_helpers_tests(void);
+void register_system_status_helpers_tests(void);
 
 // Native entrypoint
 #ifdef NATIVE_PLATFORM
@@ -51,6 +52,7 @@ int main(int argc, char **argv) {
   register_storage_manager_tests();
   register_auth_storage_tests();
   register_openapi_spec_helpers_tests();
+  register_system_status_helpers_tests();
 
   UNITY_END();
   return 0;

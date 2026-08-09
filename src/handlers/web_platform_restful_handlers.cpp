@@ -1,3 +1,4 @@
+#include "handlers/system_status_helpers.h"
 #include "storage/auth_storage.h"
 #include "utilities/json_response_builder.h"
 #include "web_platform.h"
@@ -357,14 +358,8 @@ void WebPlatform::getSystemStatusApiHandler(WebRequest &req, WebResponse &res) {
     freeHeapPercent = (int)((float)freeHeap / totalHeap * 100.0);
   }
 
-  freeHeapPercent = min(100, max(0, freeHeapPercent));
-
-  String heapColor = "good";
-  if (freeHeapPercent < 20) {
-    heapColor = "danger";
-  } else if (freeHeapPercent < 40) {
-    heapColor = "warning";
-  }
+  freeHeapPercent = SystemStatusHelpers::clampPercent(freeHeapPercent);
+  String heapColor = SystemStatusHelpers::heapHealthColor(freeHeapPercent);
 
   // Storage information
   uint32_t flashSize = ESP.getFlashChipSize() / (1024 * 1024);
@@ -374,14 +369,9 @@ void WebPlatform::getSystemStatusApiHandler(WebRequest &req, WebResponse &res) {
       (flashSize > usedSpace) ? (flashSize - usedSpace) : 0;
   int usedSpacePercent =
       (flashSize > 0) ? (int)((float)usedSpace / flashSize * 100.0) : 0;
-  usedSpacePercent = min(100, max(0, usedSpacePercent));
-
-  String spaceColor = "good";
-  if (usedSpacePercent > 80) {
-    spaceColor = "danger";
-  } else if (usedSpacePercent > 60) {
-    spaceColor = "warning";
-  }
+  usedSpacePercent = SystemStatusHelpers::clampPercent(usedSpacePercent);
+  String spaceColor =
+      SystemStatusHelpers::storageHealthColor(usedSpacePercent);
 
   // Build JSON response with builder
   JsonResponseBuilder::createResponse<1024>(res, [&](JsonObject &root) {
