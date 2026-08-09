@@ -235,30 +235,13 @@ public:
     return NTPClient::isSynchronized();
   }
 
-  // OpenAPI generation helper methods
-  String generateDefaultSummary(const String &path, const String &method) const;
-  String generateOperationId(const String &method, const String &path) const;
-  String inferModuleFromPath(const String &path) const;
-  String formatModuleName(const String &moduleName) const;
-
-  // Methods that work with temporary storage
-  void addParametersToOperationFromDocs(
-      JsonObject &operation,
-      const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
-  void addResponsesToOperationFromDocs(
-      JsonObject &operation,
-      const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
-  void addRequestBodyToOperationFromDocs(
-      JsonObject &operation,
-      const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
-
-  // Maker API helper functions
-  bool isMakerAPIRoute(
-      const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
-
-  // OpenAPI generation helper methods
-  void createOpenAPIDocumentStructure(JsonDocument &doc, const String &title,
-                                      const String &description) const;
+  // OpenAPI generation helper methods (generateDefaultSummary,
+  // generateOperationId, inferModuleFromPath, formatModuleName,
+  // addParametersToOperationFromDocs, addResponsesToOperationFromDocs,
+  // addRequestBodyToOperationFromDocs, isMakerAPIRoute,
+  // createOpenAPIDocumentStructure) moved to free functions in
+  // platform/openapi_spec_helpers.h - they never touched WebPlatform
+  // member state and had no external callers.
   bool generateAndStoreSpec(
       size_t targetSize, const String &title, const String &description,
       std::function<bool(const OpenAPIGenerationContext::RouteDocumentation &)>
@@ -267,19 +250,6 @@ public:
                          const OpenAPIGenerationContext::RouteDocumentation &)>
           tagModifier,
       const String &storageKey, const String &specType);
-
-  // New OpenAPI generation helper methods
-  void addSecuritySchemesToSpec(JsonDocument &doc) const;
-  void
-  addRouteToSpec(JsonObject &paths,
-                 const OpenAPIGenerationContext::RouteDocumentation &routeDoc,
-                 bool isMakerAPI) const;
-  bool generateSpecification(
-      std::function<bool(const OpenAPIGenerationContext::RouteDocumentation &)>
-          routeFilter,
-      const String &title, const String &description,
-      const String &serverDescription, const String &storageKey,
-      size_t targetSize, bool isMakerAPI) const;
 
 private: // Core server components
 #ifdef ESP_PLATFORM
