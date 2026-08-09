@@ -1,3 +1,4 @@
+#include "auth/auth_decision.h"
 #include "auth/auth_utils.h"
 #include "storage/auth_storage.h"
 #include "web_platform.h"
@@ -14,140 +15,96 @@ void WebPlatform::initializeAuth() {
   registerAuthRoutes();
 }
 
-// Check if a request is authenticated according to the route's requirements
+// Check if a request is authenticated according to the route's requirements.
+// Thin adapter: pulls raw strings off WebRequest, delegates the actual
+// decision logic (cookie/header parsing, auth-type precedence, failure
+// response selection) to WebPlatformAuth::evaluate() in auth_decision.cpp,
+// which is unit-tested directly - WebRequest/WebResponse can't be
+// constructed outside a live WebServerClass/httpd_req, so this adapter
+// itself isn't (see auth_decision.h for the full rationale).
 bool WebPlatform::authenticateRequest(WebRequest &req, WebResponse &res,
                                       const AuthRequirements &requirements) {
-  // If no auth is required, allow access
-  if (!AuthUtils::requiresAuth(requirements)) {
-    return true;
-  }
+  WebPlatformAuth::DecisionInput input;
+  input.clientIp = req.getClientIp().c_str();
+  input.cookieHeader = req.getHeader("Cookie").c_str();
+  input.authorizationHeader = req.getHeader("Authorization").c_str();
+  input.accessTokenParam = req.getParam("access_token").c_str();
+  input.csrfTokenHeader = req.getHeader("X-CSRF-Token").c_str();
+  input.csrfTokenParam = req.getParam("_csrf").c_str();
+  input.path = req.getPath().c_str();
 
-  // Initialize auth context
+  WebPlatformAuth::Dependencies deps;
+  deps.lookupSession = [](const std::string &sessionId, std::string &username,
+                          unsigned long &authenticatedAt) -> bool {
+    String sid(sessionId.c_str());
+    if (AuthStorage::validateSession(sid)) {
+      AuthSession session = AuthStorage::findSession(sid);
+      if (session.isValid()) {
+        username = session.username.c_str();
+        authenticatedAt = session.createdAt;
+        return true;
+      }
+    }
+    return false;
+  };
+  deps.lookupApiToken = [](const std::string &token, std::string &username,
+                           unsigned long &authenticatedAt) -> bool {
+    String t(token.c_str());
+    if (AuthStorage::validateApiToken(t)) {
+      AuthApiToken apiToken = AuthStorage::findApiToken(t);
+      if (apiToken.isValid()) {
+        username = apiToken.username.c_str();
+        authenticatedAt = apiToken.createdAt;
+        return true;
+      }
+    }
+    return false;
+  };
+  deps.validatePageToken = [](const std::string &csrfToken,
+                              const std::string &clientIp) -> bool {
+    return AuthStorage::validatePageToken(String(csrfToken.c_str()),
+                                          String(clientIp.c_str()));
+  };
+  deps.requiresInitialSetup = []() -> bool {
+    return AuthStorage::requiresInitialSetup();
+  };
+
+  WebPlatformAuth::Decision decision =
+      WebPlatformAuth::evaluate(input, requirements, deps);
+
   AuthContext authContext;
   authContext.clear();
-
-  // Get client IP for validation - prioritize req.getClientIp() for consistency
-  String clientIp = req.getClientIp();
-
-  // Track if any auth method succeeded
-  bool authSuccess = false; // Check each allowed auth type
-  for (AuthType authType : requirements) {
-    if (authType == AuthType::NONE) {
-      // NONE always passes
-      authSuccess = true;
-      authContext.isAuthenticated = true;
-      authContext.authenticatedVia = AuthType::NONE;
-    } else if (authType == AuthType::SESSION) {
-      // Get session cookie
-      String sessionCookie = req.getHeader("Cookie");
-      if (sessionCookie.indexOf("session=") >= 0) {
-        // Extract session ID from cookie
-        int start = sessionCookie.indexOf("session=") + 8;
-        int end = sessionCookie.indexOf(";", start);
-        if (end < 0)
-          end = sessionCookie.length();
-        String sessionId =
-            sessionCookie.substring(start, end); // Validate session
-        if (AuthStorage::validateSession(sessionId)) {
-          AuthSession session = AuthStorage::findSession(sessionId);
-          if (session.isValid()) {
-            authSuccess = true;
-            authContext.isAuthenticated = true;
-            authContext.authenticatedVia = AuthType::SESSION;
-            authContext.sessionId = sessionId;
-            authContext.username = session.username;
-            authContext.authenticatedAt = session.createdAt;
-          }
-        }
-      }
-    } else if (authType == AuthType::TOKEN) {
-      // Check Authorization header first
-      String authHeader = req.getHeader("Authorization");
-      String token;
-      if (authHeader.startsWith("Bearer ")) {
-        // Extract token from Authorization header
-        token = authHeader.substring(7);
-      } else {
-        // Check for token in query parameters
-        token = req.getParam("access_token");
-      }
-
-      if (!token.isEmpty() && AuthStorage::validateApiToken(token)) {
-        AuthApiToken apiToken = AuthStorage::findApiToken(token);
-        if (apiToken.isValid()) {
-          authSuccess = true;
-          authContext.isAuthenticated = true;
-          authContext.authenticatedVia = AuthType::TOKEN;
-          authContext.token = token;
-          authContext.username = apiToken.username;
-          authContext.authenticatedAt = apiToken.createdAt;
-        }
-      }
-    } else if (authType == AuthType::PAGE_TOKEN) {
-      // Check for CSRF token in X-CSRF-Token header or form field
-      String csrfToken = req.getHeader("X-CSRF-Token");
-      if (csrfToken.isEmpty()) {
-        csrfToken = req.getParam("_csrf");
-      }
-
-      if (!csrfToken.isEmpty()) {
-        // Use validation and debug the process
-        bool isValid = AuthStorage::validatePageToken(csrfToken, clientIp);
-
-        if (isValid) {
-          authSuccess = true;
-          authContext.isAuthenticated = true;
-          authContext.authenticatedVia = AuthType::PAGE_TOKEN;
-        }
-      }
-    } else if (authType == AuthType::LOCAL_ONLY) {
-      // Check if client IP is from local network
-      AuthUtils::IPAddress clientAddr = AuthUtils::parseIPAddress(clientIp);
-
-      if (clientAddr.isValid()) {
-        bool isLocalNetwork = AuthUtils::isLocalNetworkIP(clientAddr);
-
-        if (isLocalNetwork) {
-          authSuccess = true;
-          authContext.isAuthenticated = true;
-          authContext.authenticatedVia = AuthType::LOCAL_ONLY;
-        }
-      }
-    }
-
-    // If any auth method succeeded, we can stop checking
-    if (authSuccess) {
-      break;
-    }
+  authContext.isAuthenticated = decision.authenticated;
+  authContext.authenticatedVia = decision.authenticatedVia;
+  authContext.sessionId = decision.sessionId.c_str();
+  authContext.username = decision.username.c_str();
+  authContext.authenticatedAt = decision.authenticatedAt;
+  if (decision.authenticatedVia == AuthType::TOKEN) {
+    authContext.token = decision.token.c_str();
   }
-
-  // Set auth context regardless of outcome
   req.setAuthContext(authContext);
 
-  // If authentication failed, handle according to route type
-  if (!authSuccess) {
-    if (req.getPath().startsWith("/api/")) {
-      // API routes return 401 JSON
+  if (!decision.authenticated) {
+    switch (decision.failureResponse) {
+    case WebPlatformAuth::FailureResponse::Json401:
       res.setStatus(401);
       res.setHeader("Content-Type", "application/json");
       res.setContent("{\"error\":\"unauthorized\",\"message\":\"Authentication "
                      "required\",\"code\":401}");
-    } else if (AuthUtils::hasAuthType(requirements, AuthType::SESSION)) {
-      // Special case: Check if initial setup is required
-      if (AuthStorage::requiresInitialSetup() &&
-          !req.getPath().startsWith("/setup")) {
-        // Initial setup needed - redirect to setup instead of login
-        res.redirect("/setup");
-      } else {
-        // Normal case - redirect to login
-        res.redirect("/login?redirect=" + req.getPath());
-      }
-    } else {
-      // Other routes get 403 Forbidden
+      break;
+    case WebPlatformAuth::FailureResponse::RedirectSetup:
+      res.redirect("/setup");
+      break;
+    case WebPlatformAuth::FailureResponse::RedirectLogin:
+      res.redirect(String(decision.redirectUrl.c_str()));
+      break;
+    case WebPlatformAuth::FailureResponse::Json403:
+    default:
       res.setStatus(403);
       res.setHeader("Content-Type", "application/json");
       res.setContent("{\"error\":\"forbidden\",\"message\":\"Access "
                      "denied\",\"code\":403}");
+      break;
     }
     return false;
   }
