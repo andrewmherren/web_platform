@@ -9,6 +9,7 @@ void register_redirect_types_tests(void);
 void register_platform_provider_tests(void);
 void runAuthUtilsTests();
 void register_auth_decision_tests(void);
+void register_query_builder_tests(void);
 
 // Native entrypoint
 #ifdef NATIVE_PLATFORM
@@ -28,6 +29,7 @@ int main(int argc, char **argv) {
   register_platform_provider_tests();
   runAuthUtilsTests();
   register_auth_decision_tests();
+  register_query_builder_tests();
 
   UNITY_END();
   return 0;
