@@ -33,11 +33,13 @@ String AuthUtils::generateSecureToken(size_t length) {
 #error                                                                         \
     "Native token generation is only available in testing contexts. Use ESP_PLATFORM for production builds."
 #endif
-    static std::random_device rd;
-    static std::mt19937 gen(rd()); // NOSONAR - test-only path (guarded by
-                                    // the #error above); real devices use
-                                    // esp_random() via the ESP_PLATFORM
-                                    // branch above, never this one.
+    std::random_device rd;
+    // Not static: each call gets its own generator, avoiding the C++11
+    // magic-static thread-safety guard branches a static local would add
+    // (untestable single-threaded, and pointless for one-shot test calls).
+    std::mt19937 gen(rd()); // NOSONAR - test-only path (guarded by the
+                            // #error above); real devices use esp_random()
+                            // via the ESP_PLATFORM branch above, never this.
     std::uniform_int_distribution<> dis(0, 61);
     uint32_t randomValue = dis(gen);
 #endif
@@ -120,11 +122,13 @@ String AuthUtils::generateSalt(size_t length) {
 #error                                                                         \
     "Native salt generation is only available in testing contexts. Use ESP_PLATFORM for production builds."
 #endif
-  static std::random_device rd;
-  static std::mt19937 gen(rd()); // NOSONAR - test-only path (guarded by the
-                                  // #error above); real devices use
-                                  // esp_fill_random() via the ESP_PLATFORM
-                                  // branch above, never this one.
+  std::random_device rd;
+  // Not static: each call gets its own generator, avoiding the C++11
+  // magic-static thread-safety guard branches a static local would add
+  // (untestable single-threaded, and pointless for one-shot test calls).
+  std::mt19937 gen(rd()); // NOSONAR - test-only path (guarded by the #error
+                          // above); real devices use esp_fill_random() via
+                          // the ESP_PLATFORM branch above, never this one.
   std::uniform_int_distribution<uint8_t> dis(0, 255);
 
   for (size_t i = 0; i < length; i++) {
@@ -147,11 +151,13 @@ String AuthUtils::generateUserId() {
 #error                                                                         \
     "Native user ID generation is only available in testing contexts. Use ESP_PLATFORM for production builds."
 #endif
-  static std::random_device rd;
-  static std::mt19937 gen(rd()); // NOSONAR - test-only path (guarded by the
-                                  // #error above); real devices use
-                                  // esp_fill_random() via the ESP_PLATFORM
-                                  // branch above, never this one.
+  std::random_device rd;
+  // Not static: each call gets its own generator, avoiding the C++11
+  // magic-static thread-safety guard branches a static local would add
+  // (untestable single-threaded, and pointless for one-shot test calls).
+  std::mt19937 gen(rd()); // NOSONAR - test-only path (guarded by the #error
+                          // above); real devices use esp_fill_random() via
+                          // the ESP_PLATFORM branch above, never this one.
   std::uniform_int_distribution<uint8_t> dis(0, 255);
 
   for (int i = 0; i < 16; i++) {
