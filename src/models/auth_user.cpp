@@ -10,7 +10,7 @@ AuthUser::AuthUser(const String &username, const String &hash,
       salt(salt), isAdmin(admin), createdAt(time(nullptr)) {}
 
 String AuthUser::toJson() const {
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   doc["id"] = id;
   doc["username"] = username;
   doc["passwordHash"] = passwordHash;
@@ -26,7 +26,7 @@ String AuthUser::toJson() const {
 AuthUser AuthUser::fromJson(const String &json) {
   AuthUser user;
 
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, json);
 
   if (!error) {

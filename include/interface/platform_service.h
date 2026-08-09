@@ -14,8 +14,6 @@ public:
 
 // Global accessor for modules to use
 extern IPlatformService *getPlatformService();
-
-extern IPlatformService *getPlatformService();
 extern IPlatformService *g_platformService;
 
 #endif

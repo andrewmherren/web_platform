@@ -13,7 +13,7 @@ AuthApiToken::AuthApiToken(const String &token, const String &userId,
                                  : 0) {}
                                  
 String AuthApiToken::toJson() const {
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   doc["id"] = id;
   doc["token"] = token;
   doc["userId"] = userId;
@@ -30,7 +30,7 @@ String AuthApiToken::toJson() const {
 AuthApiToken AuthApiToken::fromJson(const String &json) {
   AuthApiToken apiToken;
 
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, json);
   if (!error) {
     apiToken.id = doc["id"].as<String>();

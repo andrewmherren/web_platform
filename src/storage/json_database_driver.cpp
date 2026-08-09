@@ -38,13 +38,8 @@ void JsonDatabaseDriver::loadCollection(const String &collection) {
   String jsonData = prefs.getString(collection.c_str(), "[]");
   prefs.end();
 
-  // Calculate dynamic buffer size based on data length
-  size_t jsonSize = jsonData.length() + 512; // Add 512 byte buffer for parsing
-  if (jsonSize < 1024)
-    jsonSize = 1024; // Minimum size
-
   // Parse JSON and populate cache
-  DynamicJsonDocument doc(jsonSize);
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, jsonData);
 
   if (!error && doc.is<JsonArray>()) {
@@ -74,24 +69,23 @@ void JsonDatabaseDriver::saveCollection(const String &collection) {
   size_t jsonSize = calculateJsonSize(collectionIt->second);
 
   // Build JSON array from cache
-  DynamicJsonDocument doc(jsonSize);
-
-  // Check if document allocation succeeded
-  if (doc.capacity() == 0) {
-    return; // Failed to allocate memory
-  }
-
+  JsonDocument doc;
   JsonArray array = doc.to<JsonArray>();
   if (array.isNull()) {
     return; // Failed to create array
   }
 
   for (const auto &pair : collectionIt->second) {
-    JsonObject item = array.createNestedObject();
+    JsonObject item = array.add<JsonObject>();
     if (!item.isNull()) {
       item["key"] = pair.first.c_str();
       item["data"] = pair.second.c_str();
     }
+  }
+
+  // Check if the document overflowed while being populated
+  if (doc.overflowed()) {
+    return; // Failed to allocate memory
   }
 
   String jsonData;

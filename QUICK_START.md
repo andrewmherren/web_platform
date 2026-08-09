@@ -64,4 +64,3 @@ void loop() {
 
 - 🐛 **Issues**: [GitHub Issues](https://github.com/andrewmherren/web_platform/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/andrewmherren/web_platform/discussions)
-- 📧 **Contact**: your-email@example.com

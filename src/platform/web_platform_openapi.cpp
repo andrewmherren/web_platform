@@ -34,35 +34,34 @@ bool WebPlatform::isMakerAPIRoute(
 
 // Helper function to create basic OpenAPI document structure
 void WebPlatform::createOpenAPIDocumentStructure(
-    DynamicJsonDocument &doc, const String &title,
-    const String &description) const {
+    JsonDocument &doc, const String &title, const String &description) const {
   doc["openapi"] = "3.0.3";
 
-  JsonObject info = doc.createNestedObject("info");
+  JsonObject info = doc["info"].to<JsonObject>();
   info["title"] = title;
   info["description"] = description;
   info["version"] = getSystemVersion();
 
-  JsonArray servers = doc.createNestedArray("servers");
-  JsonObject server = servers.createNestedObject();
+  JsonArray servers = doc["servers"].to<JsonArray>();
+  JsonObject server = servers.add<JsonObject>();
   server["url"] = getBaseUrl();
   server["description"] = "Device API Server";
 
   // Security schemes
-  JsonObject components = doc.createNestedObject("components");
-  JsonObject securitySchemes = components.createNestedObject("securitySchemes");
+  JsonObject components = doc["components"].to<JsonObject>();
+  JsonObject securitySchemes = components["securitySchemes"].to<JsonObject>();
 
-  JsonObject bearerAuth = securitySchemes.createNestedObject("bearerAuth");
+  JsonObject bearerAuth = securitySchemes["bearerAuth"].to<JsonObject>();
   bearerAuth["type"] = "http";
   bearerAuth["scheme"] = "bearer";
   bearerAuth["bearerFormat"] = "JWT";
 
-  JsonObject cookieAuth = securitySchemes.createNestedObject("cookieAuth");
+  JsonObject cookieAuth = securitySchemes["cookieAuth"].to<JsonObject>();
   cookieAuth["type"] = "apiKey";
   cookieAuth["in"] = "cookie";
   cookieAuth["name"] = "session";
 
-  JsonObject tokenParam = securitySchemes.createNestedObject("tokenParam");
+  JsonObject tokenParam = securitySchemes["tokenParam"].to<JsonObject>();
   tokenParam["type"] = "apiKey";
   tokenParam["in"] = "query";
   tokenParam["name"] = "access_token";
@@ -78,10 +77,10 @@ bool WebPlatform::generateAndStoreSpec(
         tagModifier,
     const String &storageKey, const String &specType) {
 
-  DynamicJsonDocument doc(targetSize);
+  JsonDocument doc;
   createOpenAPIDocumentStructure(doc, title, description);
 
-  JsonObject paths = doc.createNestedObject("paths");
+  JsonObject paths = doc["paths"].to<JsonObject>();
 
   const auto &apiRoutes = openAPIGenerationContext.getApiRoutes();
   DEBUG_PRINTF("WebPlatform: %s generation found %d routes in context\n",
@@ -103,13 +102,13 @@ bool WebPlatform::generateAndStoreSpec(
     methodStr.toLowerCase();
 
     JsonObject pathItem;
-    if (paths.containsKey(pathKey)) {
+    if (!paths[pathKey].isNull()) {
       pathItem = paths[pathKey];
     } else {
-      pathItem = paths.createNestedObject(pathKey);
+      pathItem = paths[pathKey].to<JsonObject>();
     }
 
-    JsonObject operation = pathItem.createNestedObject(methodStr);
+    JsonObject operation = pathItem[methodStr].to<JsonObject>();
     const OpenAPIDocumentation &docs = routeDoc.docs;
 
     // Add basic operation properties
@@ -131,7 +130,7 @@ bool WebPlatform::generateAndStoreSpec(
     }
 
     // Handle tags using the provided modifier
-    JsonArray tags = operation.createNestedArray("tags");
+    JsonArray tags = operation["tags"].to<JsonArray>();
     String defaultModuleTag = inferModuleFromPath(routePathStr);
 
     if (!docs.getTags().empty()) {
@@ -161,23 +160,23 @@ bool WebPlatform::generateAndStoreSpec(
     operation["summary"] = generateDefaultSummary(routePathStr, methodStr);
     operation["operationId"] = generateOperationId(methodStr, routePathStr);
 
-    JsonArray tags = operation.createNestedArray("tags");
+    JsonArray tags = operation["tags"].to<JsonArray>();
     tags.add(inferModuleFromPath(routePathStr));
     tagModifier(tags, routeDoc);
 #endif
 
     // Add authentication requirements
     if (!routeDoc.authRequirements.empty()) {
-      JsonArray security = operation.createNestedArray("security");
+      JsonArray security = operation["security"].to<JsonArray>();
       for (const auto &authType : routeDoc.authRequirements) {
         if (authType == AuthType::TOKEN) {
-          JsonObject secObj = security.createNestedObject();
-          secObj.createNestedArray("bearerAuth");
-          JsonObject tokenSecObj = security.createNestedObject();
-          tokenSecObj.createNestedArray("tokenParam");
+          JsonObject secObj = security.add<JsonObject>();
+          secObj["bearerAuth"].to<JsonArray>();
+          JsonObject tokenSecObj = security.add<JsonObject>();
+          tokenSecObj["tokenParam"].to<JsonArray>();
         } else if (authType == AuthType::SESSION) {
-          JsonObject secObj = security.createNestedObject();
-          secObj.createNestedArray("cookieAuth");
+          JsonObject secObj = security.add<JsonObject>();
+          secObj["cookieAuth"].to<JsonArray>();
         }
       }
     }
@@ -211,30 +210,36 @@ bool WebPlatform::generateAndStoreSpec(
     {
 #endif
       // Add basic responses
-      JsonObject responses = operation.createNestedObject("responses");
-      JsonObject response200 = responses.createNestedObject("200");
+      JsonObject responses = operation["responses"].to<JsonObject>();
+      JsonObject response200 = responses["200"].to<JsonObject>();
       response200["description"] = "Successful operation";
 
       // Add auth error responses if needed
       if (!routeDoc.authRequirements.empty()) {
-        JsonObject response401 = responses.createNestedObject("401");
+        JsonObject response401 = responses["401"].to<JsonObject>();
         response401["description"] = "Unauthorized - Authentication required";
-        JsonObject response403 = responses.createNestedObject("403");
+        JsonObject response403 = responses["403"].to<JsonObject>();
         response403["description"] = "Forbidden - Insufficient permissions";
       }
 
-      JsonObject response500 = responses.createNestedObject("500");
+      JsonObject response500 = responses["500"].to<JsonObject>();
       response500["description"] = "Internal server error";
     }
 
     // Check if we're running low on memory - only warn after processing some
-    // routes and if we have less than 10% capacity remaining
-    if (processedCount > 2 && doc.memoryUsage() > doc.capacity() * 0.9) {
-      size_t remainingBytes = doc.capacity() - doc.memoryUsage();
+    // routes and if we're within 10% of the caller's intended size budget.
+    // JsonDocument (v7) grows elastically rather than using a fixed buffer,
+    // so there's no true "capacity" to check anymore, and memoryUsage() is a
+    // deprecated stub that always returns 0 - measureJson() (still fully
+    // supported) estimates serialized content size, which is what
+    // targetSize was budgeting for in the first place.
+    size_t usedBytes = measureJson(doc);
+    if (processedCount > 2 && usedBytes > targetSize * 0.9) {
+      size_t remainingBytes = targetSize > usedBytes ? targetSize - usedBytes : 0;
       WARN_PRINTF("WARNING: %s JSON document nearly full at route #%d (%d/%d "
                   "bytes, %d remaining)\n",
-                  specType.c_str(), processedCount, doc.memoryUsage(),
-                  doc.capacity(), remainingBytes);
+                  specType.c_str(), processedCount, usedBytes, targetSize,
+                  remainingBytes);
 
       // Consider breaking early if we're truly out of space
       if (remainingBytes < 1024) {
@@ -672,7 +677,7 @@ void WebPlatform::addParametersToOperationFromDocs(
     JsonObject &operation,
     const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
 #if OPENAPI_ENABLED
-  JsonArray parameters = operation.createNestedArray("parameters");
+  JsonArray parameters = operation["parameters"].to<JsonArray>();
   const OpenAPIDocumentation &docs = routeDoc.docs;
 
   // Track parameter names to avoid duplicates
@@ -680,7 +685,7 @@ void WebPlatform::addParametersToOperationFromDocs(
 
   // First, add custom parameters from webModule documentation
   if (!docs.getParameters().isEmpty()) {
-    DynamicJsonDocument paramDoc(2048);
+    JsonDocument paramDoc;
     if (deserializeJson(paramDoc, docs.getParameters()) ==
         DeserializationError::Ok) {
       if (paramDoc.is<JsonArray>()) {
@@ -688,7 +693,7 @@ void WebPlatform::addParametersToOperationFromDocs(
         for (JsonVariant param : customParams) {
           if (param.is<JsonObject>()) {
             JsonObject paramObj = param.as<JsonObject>();
-            if (paramObj.containsKey("name") && paramObj.containsKey("in")) {
+            if (!paramObj["name"].isNull() && !paramObj["in"].isNull()) {
               String paramName = paramObj["name"].as<String>();
               String paramIn = paramObj["in"].as<String>();
               String paramKey = paramName + ":" + paramIn;
@@ -716,7 +721,7 @@ void WebPlatform::addParametersToOperationFromDocs(
         String paramKey = paramName + ":path";
 
         if (parameterNames.find(paramKey) == parameterNames.end()) {
-          JsonObject param = parameters.createNestedObject();
+          JsonObject param = parameters.add<JsonObject>();
           param["name"] = paramName;
           param["in"] = "path";
           param["required"] = true;
@@ -732,7 +737,7 @@ void WebPlatform::addParametersToOperationFromDocs(
             param["description"] = "Path parameter: " + paramName;
           }
 
-          JsonObject schema = param.createNestedObject("schema");
+          JsonObject schema = param["schema"].to<JsonObject>();
           if (paramName.endsWith("Id") && paramName != "id") {
             schema["type"] = "string";
             schema["format"] = "uuid";
@@ -761,13 +766,13 @@ void WebPlatform::addParametersToOperationFromDocs(
 
   if (hasTokenAuth &&
       parameterNames.find("access_token:query") == parameterNames.end()) {
-    JsonObject tokenParam = parameters.createNestedObject();
+    JsonObject tokenParam = parameters.add<JsonObject>();
     tokenParam["name"] = "access_token";
     tokenParam["in"] = "query";
     tokenParam["required"] = false;
     tokenParam["description"] =
         "API access token (alternative to Bearer header)";
-    JsonObject tokenSchema = tokenParam.createNestedObject("schema");
+    JsonObject tokenSchema = tokenParam["schema"].to<JsonObject>();
     tokenSchema["type"] = "string";
     parameterNames["access_token:query"] = true;
   }
@@ -778,21 +783,21 @@ void WebPlatform::addResponsesToOperationFromDocs(
     JsonObject &operation,
     const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const {
 #if OPENAPI_ENABLED
-  JsonObject responses = operation.createNestedObject("responses");
+  JsonObject responses = operation["responses"].to<JsonObject>();
   const OpenAPIDocumentation &docs = routeDoc.docs;
 
   // Success response
-  JsonObject response200 = responses.createNestedObject("200");
+  JsonObject response200 = responses["200"].to<JsonObject>();
   response200["description"] = "Successful operation";
 
   // Add content type and examples
-  JsonObject content = response200.createNestedObject("content");
+  JsonObject content = response200["content"].to<JsonObject>();
   String contentType = "application/json"; // Default content type
-  JsonObject mediaType = content.createNestedObject(contentType);
+  JsonObject mediaType = content[contentType].to<JsonObject>();
 
   // Add response schema if provided
   if (!docs.getResponseSchema().isEmpty()) {
-    DynamicJsonDocument schemaDoc(2048);
+    JsonDocument schemaDoc;
     if (deserializeJson(schemaDoc, docs.getResponseSchema()) ==
         DeserializationError::Ok) {
       mediaType["schema"] = schemaDoc.as<JsonObject>();
@@ -801,7 +806,7 @@ void WebPlatform::addResponsesToOperationFromDocs(
 
   // Add response example if provided
   if (!docs.getResponseExample().isEmpty()) {
-    DynamicJsonDocument exampleDoc(2048);
+    JsonDocument exampleDoc;
     if (deserializeJson(exampleDoc, docs.getResponseExample()) ==
         DeserializationError::Ok) {
       mediaType["example"] = exampleDoc.as<JsonVariant>();
@@ -810,12 +815,12 @@ void WebPlatform::addResponsesToOperationFromDocs(
 
   // Add webModule-provided response info
   if (!docs.getResponsesJson().isEmpty()) {
-    DynamicJsonDocument responseDoc(2048);
+    JsonDocument responseDoc;
     if (deserializeJson(responseDoc, docs.getResponsesJson()) ==
         DeserializationError::Ok) {
       // Merge additional response information
       for (JsonPair kv : responseDoc.as<JsonObject>()) {
-        if (!responses.containsKey(kv.key().c_str())) {
+        if (responses[kv.key().c_str()].isNull()) {
           responses[kv.key().c_str()] = kv.value();
         }
       }
@@ -824,14 +829,14 @@ void WebPlatform::addResponsesToOperationFromDocs(
 
   // Add standard error responses for authenticated routes
   if (!routeDoc.authRequirements.empty()) {
-    JsonObject response401 = responses.createNestedObject("401");
+    JsonObject response401 = responses["401"].to<JsonObject>();
     response401["description"] = "Unauthorized - Authentication required";
 
-    JsonObject response403 = responses.createNestedObject("403");
+    JsonObject response403 = responses["403"].to<JsonObject>();
     response403["description"] = "Forbidden - Insufficient permissions";
   }
 
-  JsonObject response500 = responses.createNestedObject("500");
+  JsonObject response500 = responses["500"].to<JsonObject>();
   response500["description"] = "Internal server error";
 
 #endif
@@ -847,12 +852,12 @@ void WebPlatform::addRequestBodyToOperationFromDocs(
   if (docs.getRequestSchema().isEmpty() && docs.getRequestExample().isEmpty()) {
     if (routeDoc.method == WebModule::WM_POST ||
         routeDoc.method == WebModule::WM_PUT) {
-      JsonObject requestBody = operation.createNestedObject("requestBody");
+      JsonObject requestBody = operation["requestBody"].to<JsonObject>();
       requestBody["description"] = "Request payload";
       requestBody["required"] = true;
-      JsonObject content = requestBody.createNestedObject("content");
-      JsonObject mediaType = content.createNestedObject("application/json");
-      JsonObject schema = mediaType.createNestedObject("schema");
+      JsonObject content = requestBody["content"].to<JsonObject>();
+      JsonObject mediaType = content["application/json"].to<JsonObject>();
+      JsonObject schema = mediaType["schema"].to<JsonObject>();
       schema["type"] = "object";
     }
     return;
@@ -860,7 +865,7 @@ void WebPlatform::addRequestBodyToOperationFromDocs(
 
   // Handle request schema - use minimal buffer and immediate cleanup
   if (!docs.getRequestSchema().isEmpty()) {
-    DynamicJsonDocument schemaDoc(2048); // Keep original smaller size
+    JsonDocument schemaDoc;
     DeserializationError error =
         deserializeJson(schemaDoc, docs.getRequestSchema());
 
@@ -869,42 +874,42 @@ void WebPlatform::addRequestBodyToOperationFromDocs(
 
       // Check if this is a complete request body (has both content AND
       // required)
-      bool isCompleteRequestBody =
-          schemaObj.containsKey("content") && schemaObj.containsKey("required");
+      bool isCompleteRequestBody = !schemaObj["content"].isNull() &&
+                                   !schemaObj["required"].isNull();
 
-      JsonObject requestBody = operation.createNestedObject("requestBody");
+      JsonObject requestBody = operation["requestBody"].to<JsonObject>();
 
       if (isCompleteRequestBody) {
         // Direct assignment of key properties - avoid copying entire object
-        if (schemaObj.containsKey("description")) {
+        if (!schemaObj["description"].isNull()) {
           requestBody["description"] = schemaObj["description"];
         } else {
           requestBody["description"] = "Request payload";
         }
 
-        if (schemaObj.containsKey("required")) {
+        if (!schemaObj["required"].isNull()) {
           requestBody["required"] = schemaObj["required"];
         }
 
-        if (schemaObj.containsKey("content")) {
+        if (!schemaObj["content"].isNull()) {
           requestBody["content"] = schemaObj["content"];
         }
       } else {
         // Simple schema object - wrap it
         requestBody["description"] = "Request payload";
         requestBody["required"] = true;
-        JsonObject content = requestBody.createNestedObject("content");
-        JsonObject mediaType = content.createNestedObject("application/json");
+        JsonObject content = requestBody["content"].to<JsonObject>();
+        JsonObject mediaType = content["application/json"].to<JsonObject>();
         mediaType["schema"] = schemaObj;
       }
     } else {
       // Parse failed - create minimal structure
-      JsonObject requestBody = operation.createNestedObject("requestBody");
+      JsonObject requestBody = operation["requestBody"].to<JsonObject>();
       requestBody["description"] = "Request payload";
       requestBody["required"] = true;
-      JsonObject content = requestBody.createNestedObject("content");
-      JsonObject mediaType = content.createNestedObject("application/json");
-      JsonObject schema = mediaType.createNestedObject("schema");
+      JsonObject content = requestBody["content"].to<JsonObject>();
+      JsonObject mediaType = content["application/json"].to<JsonObject>();
+      JsonObject schema = mediaType["schema"].to<JsonObject>();
       schema["type"] = "object";
     }
 
@@ -915,12 +920,12 @@ void WebPlatform::addRequestBodyToOperationFromDocs(
     if (!docs.getRequestExample().isEmpty()) {
       // Find the media type object to add example
       JsonObject requestBody = operation["requestBody"];
-      if (requestBody.containsKey("content")) {
+      if (!requestBody["content"].isNull()) {
         JsonObject content = requestBody["content"];
         for (JsonPair contentType : content) {
           JsonObject mediaType = contentType.value().as<JsonObject>();
           if (mediaType) {
-            DynamicJsonDocument exampleDoc(1024); // Smaller buffer for examples
+            JsonDocument exampleDoc;
             if (deserializeJson(exampleDoc, docs.getRequestExample()) ==
                 DeserializationError::Ok) {
               mediaType["example"] = exampleDoc.as<JsonVariant>();
@@ -934,16 +939,16 @@ void WebPlatform::addRequestBodyToOperationFromDocs(
 
   } else if (!docs.getRequestExample().isEmpty()) {
     // Only example provided - minimal structure
-    JsonObject requestBody = operation.createNestedObject("requestBody");
+    JsonObject requestBody = operation["requestBody"].to<JsonObject>();
     requestBody["description"] = "Request payload";
     requestBody["required"] = true;
-    JsonObject content = requestBody.createNestedObject("content");
-    JsonObject mediaType = content.createNestedObject("application/json");
-    JsonObject schema = mediaType.createNestedObject("schema");
+    JsonObject content = requestBody["content"].to<JsonObject>();
+    JsonObject mediaType = content["application/json"].to<JsonObject>();
+    JsonObject schema = mediaType["schema"].to<JsonObject>();
     schema["type"] = "object";
 
     // Add example with immediate cleanup
-    DynamicJsonDocument exampleDoc(1024);
+    JsonDocument exampleDoc;
     if (deserializeJson(exampleDoc, docs.getRequestExample()) ==
         DeserializationError::Ok) {
       mediaType["example"] = exampleDoc.as<JsonVariant>();

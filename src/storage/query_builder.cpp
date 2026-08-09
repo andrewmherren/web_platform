@@ -1,9 +1,8 @@
 #include "storage/query_builder.h"
 #include <ArduinoJson.h>
 
-QueryBuilder::QueryBuilder(IDatabaseDriver* driver, const String& collectionName) 
-    : targetDriver(driver), collection(collectionName), selectFields("*"), 
-      limitCount(-1), orderField(""), orderDirection("ASC") {
+QueryBuilder::QueryBuilder(IDatabaseDriver* driver, const String& collectionName)
+    : targetDriver(driver), collection(collectionName), limitCount(-1) {
 }
 
 // TODO: optional third arg for =/<> etc
@@ -12,20 +11,8 @@ QueryBuilder& QueryBuilder::where(const String& key, const String& value) {
     return *this;
 }
 
-QueryBuilder& QueryBuilder::select(const String& fields) {
-    selectFields = fields;
-    return *this;
-}
-
 QueryBuilder& QueryBuilder::limit(int count) {
     limitCount = count;
-    return *this;
-}
-
-// TODO: support multiple order by
-QueryBuilder& QueryBuilder::orderBy(const String& field, const String& direction) {
-    orderField = field;
-    orderDirection = direction;
     return *this;
 }
 
@@ -57,7 +44,7 @@ String QueryBuilder::get() {
         
         // Check if data matches all conditions
         bool matches = true;
-        DynamicJsonDocument doc(1024);
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, data);
         
         if (!error) {
@@ -108,7 +95,7 @@ std::vector<String> QueryBuilder::getAll() {
         
         // Check if data matches all conditions
         bool matches = true;
-        DynamicJsonDocument doc(1024);
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, data);
         
         if (!error) {
@@ -171,7 +158,7 @@ bool QueryBuilder::remove() {
         
         // Check if data matches all conditions
         bool matches = true;
-        DynamicJsonDocument doc(1024);
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, data);
         
         if (!error) {

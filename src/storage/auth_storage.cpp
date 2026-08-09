@@ -617,7 +617,7 @@ int AuthStorage::cleanupExpiredData() {
 String AuthStorage::getStorageStats() {
   ensureInitialized();
 
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
 
   IDatabaseDriver *driver = &StorageManager::driver(driverName);
 

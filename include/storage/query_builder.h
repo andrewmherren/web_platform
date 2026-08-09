@@ -16,11 +16,8 @@ private:
     IDatabaseDriver* targetDriver;
     String collection;
     std::map<String, String> conditions;
-    String selectFields;
     int limitCount;
-    String orderField;
-    String orderDirection;
-    
+
 public:
     /**
      * Constructor
@@ -38,27 +35,12 @@ public:
     QueryBuilder& where(const String& key, const String& value);
     
     /**
-     * Set fields to select (currently not implemented in drivers)
-     * @param fields Field names ("*" for all)
-     * @return Reference to this QueryBuilder for chaining
-     */
-    QueryBuilder& select(const String& fields = "*");
-    
-    /**
      * Limit number of results
      * @param count Maximum number of results
      * @return Reference to this QueryBuilder for chaining
      */
     QueryBuilder& limit(int count);
-    
-    /**
-     * Set result ordering (currently not implemented in drivers)
-     * @param field Field name to order by
-     * @param direction "ASC" or "DESC"
-     * @return Reference to this QueryBuilder for chaining
-     */
-    QueryBuilder& orderBy(const String& field, const String& direction = "ASC");
-    
+
     // Execution methods
     
     /**

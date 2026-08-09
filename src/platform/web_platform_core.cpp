@@ -404,7 +404,7 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *webModule,
   // Check module name instead of path (module can be registered at any path)
   String moduleName = webModule->getModuleName();
   if (moduleName.indexOf("Maker API") != -1 && !config.isNull()) {
-    if (config.containsKey("tags") && config["tags"].is<JsonArray>()) {
+    if (!config["tags"].isNull() && config["tags"].is<JsonArray>()) {
       // Clear default tags and add configured ones
       makerApiTags.clear();
 

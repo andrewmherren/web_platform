@@ -144,7 +144,7 @@ public:
   template <typename T>
   bool registerModule(const char *basePath, IWebModule *webModule,
                       const T &config) {
-    DynamicJsonDocument doc(1024);
+    JsonDocument doc;
     doc.set(config);
     return registerModule(basePath, webModule, doc.as<JsonVariant>());
   }
@@ -257,8 +257,7 @@ public:
       const OpenAPIGenerationContext::RouteDocumentation &routeDoc) const;
 
   // OpenAPI generation helper methods
-  void createOpenAPIDocumentStructure(DynamicJsonDocument &doc,
-                                      const String &title,
+  void createOpenAPIDocumentStructure(JsonDocument &doc, const String &title,
                                       const String &description) const;
   bool generateAndStoreSpec(
       size_t targetSize, const String &title, const String &description,
@@ -270,7 +269,7 @@ public:
       const String &storageKey, const String &specType);
 
   // New OpenAPI generation helper methods
-  void addSecuritySchemesToSpec(DynamicJsonDocument &doc) const;
+  void addSecuritySchemesToSpec(JsonDocument &doc) const;
   void
   addRouteToSpec(JsonObject &paths,
                  const OpenAPIGenerationContext::RouteDocumentation &routeDoc,
@@ -393,13 +392,12 @@ private: // Core server components
   struct PendingModule {
     String basePath;
     IWebModule *webModule;
-    DynamicJsonDocument config; // Store full config document
+    JsonDocument config; // Store full config document
 
-    // Constructor to properly initialize DynamicJsonDocument
-    PendingModule() : config(512) {} // 512 bytes for config storage
+    PendingModule() {}
     PendingModule(const String &path, IWebModule *mod,
                   const JsonVariant &configData)
-        : basePath(path), webModule(mod), config(512) {
+        : basePath(path), webModule(mod) {
       if (!configData.isNull()) {
         config.set(configData);
       }
@@ -410,7 +408,7 @@ private: // Core server components
     PendingModule &operator=(PendingModule &&) noexcept = default;
 
     // Use compiler-generated special member functions (Rule of Zero)
-    // DynamicJsonDocument has proper move semantics, so compiler-generated
+    // JsonDocument has proper move semantics, so compiler-generated
     // operations are optimal
   };
 

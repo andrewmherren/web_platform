@@ -422,7 +422,7 @@ void LittleFSDatabaseDriver::clearCache() {
 String LittleFSDatabaseDriver::getFilesystemStats() {
   ensureInitialized();
 
-  DynamicJsonDocument doc(512);
+  JsonDocument doc;
   doc["total_bytes"] = LittleFS.totalBytes();
   doc["used_bytes"] = LittleFS.usedBytes();
   doc["free_bytes"] = LittleFS.totalBytes() - LittleFS.usedBytes();
