@@ -3,6 +3,7 @@
 #include "interface/platform_service.h"
 #include "platform/ntp_client.h"
 #include "platform/route_string_pool.h"
+#include "platform/wifi_credentials_store.h"
 #include "route_entry.h"
 #include "storage/auth_storage.h"
 #include "web_platform.h"
@@ -82,7 +83,7 @@ void WebPlatform::beginInternal(const char *deviceName, bool forceHttpsOnly) {
   snprintf(apSSIDBuffer, sizeof(apSSIDBuffer), "%sSetup", deviceName);
 
   // Initialize EEPROM
-  initializeEEPROM();
+  WiFiCredentialsStore::begin();
 
   // Determine platform mode based on stored WiFi credentials
   determinePlatformMode();

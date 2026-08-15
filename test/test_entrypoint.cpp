@@ -16,19 +16,22 @@ void register_storage_manager_tests(void);
 void register_auth_storage_tests(void);
 void register_openapi_spec_helpers_tests(void);
 void register_system_status_helpers_tests(void);
+void register_wifi_credentials_store_tests(void);
 
 // Native entrypoint
 #ifdef NATIVE_PLATFORM
 #include <LittleFS.h>
+#include <native_wifi_cred_eeprom.h>
 #include <Preferences.h>
 #include <storage/storage_manager.h>
 
 extern "C" void setUp(void) {
-  // Reset the in-memory Preferences/LittleFS fakes and StorageManager's
-  // static driver registry before every test so storage tests never see
-  // state left behind by a previous one.
+  // Reset the in-memory Preferences/LittleFS/EEPROM fakes and
+  // StorageManager's static driver registry before every test so storage
+  // tests never see state left behind by a previous one.
   NativePreferencesFake::reset();
   NativeFsFake::reset();
+  NativeEEPROMFake::reset();
   StorageManager::clearAllDrivers();
 }
 extern "C" void tearDown(void) {}
@@ -53,6 +56,7 @@ int main(int argc, char **argv) {
   register_auth_storage_tests();
   register_openapi_spec_helpers_tests();
   register_system_status_helpers_tests();
+  register_wifi_credentials_store_tests();
 
   UNITY_END();
   return 0;
