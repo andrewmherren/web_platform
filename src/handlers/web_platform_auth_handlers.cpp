@@ -154,9 +154,9 @@ void WebPlatform::deleteTokenApiHandler(WebRequest &req, WebResponse &res) {
   std::vector<AuthApiToken> userTokens = AuthStorage::getUserApiTokens(user.id);
 
   AuthApiToken targetToken;
-  for (const AuthApiToken &token : userTokens) {
+  for (AuthApiToken &token : userTokens) {
     if (token.id == tokenId) {
-      targetToken = token;
+      targetToken = std::move(token);
       break;
     }
   }
