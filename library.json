@@ -1,6 +1,6 @@
 {
   "name": "web_platform",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Comprehensive ESP32 web development framework with WiFi management, authentication, and modular architecture. See QUICK_START.md to get started in minutes.",
   "build": {
     "includeDir": "include"
