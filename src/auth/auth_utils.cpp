@@ -60,23 +60,15 @@ String AuthUtils::hashPassword(const String &password, const String &salt,
   uint8_t hash[hashLength];
 
 #ifdef ESP_PLATFORM
-  // Use mbedTLS PBKDF2 on ESP32
-  mbedtls_md_context_t md_ctx;
-  mbedtls_md_init(&md_ctx);
-
-  const mbedtls_md_info_t *md_info =
-      mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-  if (mbedtls_md_setup(&md_ctx, md_info, 1) != 0) {
-    mbedtls_md_free(&md_ctx);
-    return "";
-  }
-
-  int result = mbedtls_pkcs5_pbkdf2_hmac(
-      &md_ctx, (const unsigned char *)password.c_str(), password.length(),
-      (const unsigned char *)salt.c_str(), salt.length(), iterations,
-      hashLength, hash);
-
-  mbedtls_md_free(&md_ctx);
+  // Use mbedTLS PBKDF2 on ESP32. mbedtls_pkcs5_pbkdf2_hmac() (the
+  // context-based form) was removed by this framework's mbedTLS build
+  // (MBEDTLS_DEPRECATED_REMOVED) - mbedtls_pkcs5_pbkdf2_hmac_ext() is its
+  // replacement, taking the digest type directly instead of a pre-setup
+  // mbedtls_md_context_t.
+  int result = mbedtls_pkcs5_pbkdf2_hmac_ext(
+      MBEDTLS_MD_SHA256, (const unsigned char *)password.c_str(),
+      password.length(), (const unsigned char *)salt.c_str(), salt.length(),
+      iterations, hashLength, hash);
 
   if (result != 0) {
     return "";
