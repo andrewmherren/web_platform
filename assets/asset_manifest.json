@@ -1,0 +1,10 @@
+{
+  "favicon.svg": {
+    "header": "favicon_ico.h",
+    "var": "WEB_PLATFORM_FAVICON",
+    "guard": "WEB_PLATFORM_FAVICON_ICO_H"
+  },
+  "style.css": {
+    "var": "DEFAULT_STYLE_CSS"
+  }
+}
