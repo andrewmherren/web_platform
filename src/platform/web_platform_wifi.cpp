@@ -1,74 +1,6 @@
 #include "platform/ntp_client.h"
+#include "platform/wifi_credentials_store.h"
 #include "web_platform.h"
-
-bool WebPlatform::loadWiFiCredentials(String &ssid, String &password) {
-  // Check if credentials exist
-  if (EEPROM.read(WIFI_CONFIG_FLAG_ADDR) != 1) {
-    DEBUG_PRINTLN("WebPlatform: No WiFi credentials found in EEPROM");
-    return false;
-  }
-
-  // Read SSID
-  ssid = "";
-  for (int i = 0; i < 32; i++) {
-    char c = EEPROM.read(WIFI_SSID_ADDR + i);
-    if (c == 0)
-      break;
-    ssid += c;
-  }
-
-  // Read password
-  password = "";
-  for (int i = 0; i < 64; i++) {
-    char c = EEPROM.read(WIFI_PASS_ADDR + i);
-    if (c == 0)
-      break;
-    password += c;
-  }
-
-  if (ssid.length() > 0) {
-    DEBUG_PRINTF("WebPlatform: Loaded stored WiFi credentials - SSID: %s, "
-                 "Password length: %d chars\n",
-                 ssid.c_str(), password.length());
-    return true;
-  } else {
-    DEBUG_PRINTLN("WebPlatform: Invalid or empty WiFi credentials in EEPROM");
-    return false;
-  }
-}
-
-void WebPlatform::saveWiFiCredentials(const String &ssid,
-                                      const String &password) {
-  // Clear previous data
-  for (int i = 0; i < 96; i++) {
-    EEPROM.write(WIFI_SSID_ADDR + i, 0);
-  } // Write SSID
-  for (unsigned int i = 0; i < ssid.length() && i < 31; i++) {
-    EEPROM.write(WIFI_SSID_ADDR + i, ssid[i]);
-  }
-
-  // Write password
-  for (unsigned int i = 0; i < password.length() && i < 63; i++) {
-    EEPROM.write(WIFI_PASS_ADDR + i, password[i]);
-  }
-
-  // Set configuration flag - do this last in case of failure midway
-  EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 1);
-  bool success = EEPROM.commit();
-
-  // Double-check that the write was successful
-  uint8_t flagCheck = EEPROM.read(WIFI_CONFIG_FLAG_ADDR);
-  if (flagCheck != 1) {
-    ERROR_PRINTLN(
-        "WebPlatform: ERROR - Failed to write WiFi config flag to EEPROM!");
-    success = false;
-  }
-
-  DEBUG_PRINTF("WebPlatform: WiFi credentials saved for SSID: %s, Password "
-               "length: %d chars, EEPROM commit %s\n",
-               ssid.c_str(), password.length(),
-               success ? "successful" : "failed");
-}
 
 bool WebPlatform::connectToStoredWiFi(String &ssid, String &password) {
   WiFi.mode(WIFI_STA);
@@ -85,11 +17,7 @@ bool WebPlatform::connectToStoredWiFi(String &ssid, String &password) {
   return WiFi.status() == WL_CONNECTED;
 }
 
-void WebPlatform::resetWiFiCredentials() {
-  EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
-  EEPROM.commit();
-  DEBUG_PRINTLN("WebPlatform: WiFi credentials reset");
-}
+void WebPlatform::resetWiFiCredentials() { WiFiCredentialsStore::reset(); }
 
 void WebPlatform::setupAccessPoint() {
   WiFi.mode(WIFI_AP);
@@ -122,7 +50,7 @@ void WebPlatform::updateConnectionState() {
 void WebPlatform::determinePlatformMode() {
   String ssid, password;
 
-  if (loadWiFiCredentials(ssid, password) && ssid.length() > 0) {
+  if (WiFiCredentialsStore::load(ssid, password) && ssid.length() > 0) {
     DEBUG_PRINTLN(
         "WebPlatform: Found stored WiFi credentials, attempting connection...");
     if (connectToStoredWiFi(ssid, password)) {
@@ -150,16 +78,4 @@ void WebPlatform::determinePlatformMode() {
     connectionState = WIFI_CONFIG_PORTAL;
     setupAccessPoint();
   }
-}
-
-void WebPlatform::initializeEEPROM() {
-  EEPROM.begin(EEPROM_SIZE);
-  DEBUG_PRINTF("WebPlatform: EEPROM initialized with size %d bytes\n",
-               EEPROM_SIZE);
-
-  // Debug: Check the flag status
-  uint8_t configFlag = EEPROM.read(WIFI_CONFIG_FLAG_ADDR);
-  DEBUG_PRINTF("WebPlatform: EEPROM config flag status: %d (1=configured, "
-               "0=unconfigured)\n",
-               configFlag);
 }

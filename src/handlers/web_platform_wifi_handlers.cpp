@@ -1,3 +1,4 @@
+#include "platform/wifi_credentials_store.h"
 #include "utilities/json_response_builder.h"
 #include "web_platform.h"
 #include <ArduinoJson.h>
@@ -78,8 +79,7 @@ void WebPlatform::statusApiHandler(WebRequest &req, WebResponse &res) {
 
 void WebPlatform::resetApiHandler(WebRequest &req, WebResponse &res) {
   // Clear WiFi credentials
-  EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
-  EEPROM.commit();
+  resetWiFiCredentials();
 
   // Send response first
   res.setContent(R"({"status": "restarting"})", "application/json");
@@ -102,13 +102,12 @@ void WebPlatform::wifiConfigHandler(WebRequest &req, WebResponse &res) {
 
   if (ssid.length() > 0) {
     // Reset and save credentials
-    EEPROM.write(WIFI_CONFIG_FLAG_ADDR, 0);
-    EEPROM.commit();
-    saveWiFiCredentials(ssid, password);
+    resetWiFiCredentials();
+    WiFiCredentialsStore::save(ssid, password);
 
     // Verify credentials
     String checkSsid, checkPass;
-    bool credentialsValid = loadWiFiCredentials(checkSsid, checkPass);
+    bool credentialsValid = WiFiCredentialsStore::load(checkSsid, checkPass);
     DEBUG_PRINTF("WebPlatform: Credential verification %s - SSID match: %s\n",
                  credentialsValid ? "passed" : "failed",
                  checkSsid == ssid ? "yes" : "no");
