@@ -13,40 +13,50 @@
 // Core implementation of WebPlatform class
 // Basic initialization, setup, and handling functions
 
-// Static instance pointer for ESP-IDF callbacks
-WebPlatform *WebPlatform::httpsInstance = nullptr;
-
 IPlatformService *g_platformService = nullptr;
 
 IPlatformService *getPlatformService() { return g_platformService; }
 
 WebPlatform::WebPlatform()
-    : currentMode(CONFIG_PORTAL), connectionState(WIFI_CONFIG_PORTAL),
-      httpsEnabled(false), running(false), serverPort(80), deviceName("Device"),
+    : serverManager(router), currentMode(CONFIG_PORTAL),
+      connectionState(WIFI_CONFIG_PORTAL), deviceName("Device"),
       callbackCalled(false), routesFinalized(false) {
 
   memset(apSSIDBuffer, 0, sizeof(apSSIDBuffer));
-  httpsInstance = this;
+
+  // Wire Router up to the pieces of state/behavior that still live on
+  // WebPlatform (auth policy, response templating, error pages, module base
+  // path lookup, OpenAPI doc collection) - explicit dependencies instead of
+  // Router reaching back into WebPlatform's private state directly.
+  router.setCallbacks({
+      [this](WebRequest &req, WebResponse &res, const AuthRequirements &reqs) {
+        return authenticateRequest(req, res, reqs);
+      },
+      [this](const WebResponse &res) { return shouldProcessResponse(res); },
+      [this](WebRequest &req, WebResponse &res) {
+        processResponseTemplates(req, res);
+      },
+      [this](const String &path) -> String {
+        for (const auto &regModule : registeredModules) {
+          if (path.startsWith(regModule.basePath)) {
+            return regModule.basePath;
+          }
+        }
+        return String("");
+      },
+      [this]() { return openAPIGenerationContext.isGenerating(); },
+      [this](const String &path, WebModule::Method method,
+             const OpenAPIDocumentation &docs, const AuthRequirements &auth) {
+        openAPIGenerationContext.addRouteDocumentation(path, method, docs,
+                                                       auth);
+      },
+      [this](int statusCode) { return getErrorPage(statusCode); },
+      [this](String html, WebRequest req) { return prepareHtml(html, req); },
+      [this](const String &path) { return getRedirectTarget(path); },
+  });
 }
 
-WebPlatform::~WebPlatform() {
-  if (running) {
-    if (server) {
-      server->stop();
-      delete server;
-      server = nullptr;
-    }
-    if (httpsServerHandle) {
-      httpd_ssl_stop(httpsServerHandle);
-      httpsServerHandle = nullptr;
-    }
-    dnsServer.stop();
-  }
-
-  if (httpsInstance == this) {
-    httpsInstance = nullptr;
-  }
-}
+WebPlatform::~WebPlatform() {}
 
 void WebPlatform::begin(const char *deviceName, const PlatformConfig &config) {
   this->platformConfig = config;
@@ -89,16 +99,17 @@ void WebPlatform::beginInternal(const char *deviceName, bool forceHttpsOnly) {
   determinePlatformMode();
 
   // Detect HTTPS capability
-  httpsEnabled = detectHttpsCapability();
+  bool wantHttps = serverManager.detectHttpsCapability(currentMode == CONFIG_PORTAL);
 
   // Force HTTPS-only mode if requested
-  if (forceHttpsOnly && httpsEnabled) {
+  if (forceHttpsOnly && wantHttps) {
     DEBUG_PRINTLN(
         "WebPlatform: Forcing HTTPS-only mode with HTTP→HTTPS redirection");
   }
 
   // Start server with appropriate configuration
-  startServer();
+  serverManager.start(wantHttps, {platformConfig.maxUriHandlers,
+                                  platformConfig.stackSize});
 
   // Start OpenAPI generation BEFORE any route setup so all routes are captured
   openAPIGenerationContext.beginGeneration();
@@ -123,8 +134,9 @@ void WebPlatform::beginInternal(const char *deviceName, bool forceHttpsOnly) {
   DEBUG_PRINTF("WebPlatform: Initialized in %s mode\n",
                currentMode == CONFIG_PORTAL ? "CONFIG_PORTAL" : "CONNECTED");
   DEBUG_PRINTF("WebPlatform: HTTPS %s\n",
-               httpsEnabled ? "enabled" : "disabled");
-  DEBUG_PRINTF("WebPlatform: Server running on port %d\n", serverPort);
+               serverManager.isHttpsEnabled() ? "enabled" : "disabled");
+  DEBUG_PRINTF("WebPlatform: Server running on port %d\n",
+               serverManager.getPort());
 }
 
 void WebPlatform::handle() {
@@ -133,12 +145,10 @@ void WebPlatform::handle() {
     finalizeRoutes();
   }
 
-  if (server) {
-    server->handleClient();
-  }
+  serverManager.handleClient();
 
   if (currentMode == CONFIG_PORTAL) {
-    dnsServer.processNextRequest();
+    serverManager.getDnsServer().processNextRequest();
   } else if (currentMode == CONNECTED) {
     // Handle NTP client updates when connected
     NTPClient::handle();
@@ -172,21 +182,18 @@ void WebPlatform::finalizeRoutes() {
   DEBUG_PRINTLN("WebPlatform: Finalizing route registration...");
 
   // Now bind all routes to the actual servers (after all application overrides)
-  bindRegisteredRoutes();
-
-  if (httpsEnabled && httpsServerHandle) {
-    registerUnifiedHttpsRoutes();
-  }
+  serverManager.bindRoutes([this]() { handleNotFound(); });
 
   RouteStringPool::seal();
   routesFinalized = true;
   DEBUG_PRINTF("WebPlatform: Routes finalized with %d registered routes\n",
-               routeRegistry.size());
+               router.getTotalRouteCount());
 }
 
 void WebPlatform::handleNotFound() {
-  // Only handle Arduino WebServer 404s - HTTPS 404s are handled in
-  // handleHttpsConnected
+  // Only handle Arduino WebServer 404s - HTTPS 404s are handled by Router's
+  // own HTTPS 404 handler (see ServerManager::configureHttpsServer).
+  WebServerClass *server = serverManager.getHttpServer();
   if (!server)
     return;
 
@@ -234,7 +241,7 @@ void WebPlatform::handleNotFound() {
   }
 
   // Check for any redirect rules
-  String redirectTarget = webPlatform.getRedirectTarget(server->uri());
+  String redirectTarget = getRedirectTarget(server->uri());
   if (redirectTarget.length() > 0) {
     DEBUG_PRINTF("WebPlatform: Redirecting %s to %s\n", server->uri().c_str(),
                  redirectTarget.c_str());
@@ -243,37 +250,9 @@ void WebPlatform::handleNotFound() {
     return;
   }
 
-  // Check for parameterized/wildcard routes
-  WebRequest request(server);
-  String requestPath = request.getPath();
-  WebModule::Method wmMethod = httpMethodToWMMethod(server->method());
-
-  // Check all routes for wildcard matches
-  for (const auto &route : routeRegistry) {
-    if (!route.handler || route.method != wmMethod) {
-      continue;
-    }
-
-    String routePathStr = route.path ? String(route.path) : "";
-    bool hasWildcard =
-        routePathStr.indexOf('*') >= 0 || routePathStr.indexOf('{') >= 0;
-    bool pathMatches = this->pathMatchesRoute(route.path, requestPath);
-
-    if (hasWildcard && pathMatches) {
-      WebResponse response;
-
-      // Set the matched route pattern for parameter extraction
-      request.setMatchedRoute(route.path);
-
-      // Process the request with full auth handling
-      this->executeRouteWithAuth(route, request, response, "HTTP");
-      response.sendTo(server);
-      return;
-    }
-  }
-
-  // Use IWebModule error page system if no wildcard routes matched
-  String errorPage = webPlatform.getErrorPage(404);
+  // Use IWebModule error page system (wildcard routes were already tried by
+  // Router before this fallback was reached - see Router::bindHttp)
+  String errorPage = getErrorPage(404);
   if (errorPage.length() > 0) {
     // Process error page through template system for bookmark replacement
     WebRequest errorRequest(server);
@@ -298,23 +277,6 @@ void WebPlatform::setupRoutes() {
 
   // Print final route registry for debugging
   printUnifiedRoutes();
-
-  // For HTTPS-only mode with redirection server, we don't register normal
-  // routes on HTTP server We know we're in redirect mode if server exists
-  // and HTTPS is enabled with serverPort 443
-  bool isRedirectServer =
-      (httpsEnabled && serverPort == 443 && server != nullptr);
-  // Check if we know this is the HTTP server running on port 80
-  bool isHttpRedirectServer = false;
-  // For ESP32, we can determine this based on our setup logic
-  // If HTTPS is enabled and we have a server, it must be the redirect server
-  // on port 80
-  isHttpRedirectServer = isRedirectServer;
-
-  if (server && !isHttpRedirectServer) {
-    // Setup 404 handler
-    server->onNotFound([this]() { handleNotFound(); });
-  }
 }
 
 void WebPlatform::setupConfigPortalMode() {
@@ -327,14 +289,15 @@ void WebPlatform::setupConfigPortalMode() {
   // registry. This means that if the user has tried to add one to the registry,
   // it wont add because this one is already on the server (cant be replace
   // donce fully regsitered)
-  server->on("/", HTTP_GET, [this]() {
+  WebServerClass *server = serverManager.getHttpServer();
+  server->on("/", HTTP_GET, [server]() {
     server->sendHeader("Location", "/portal");
     server->send(302, "text/plain", "Redirecting to setup...");
   });
 
   // Setup captive portal DNS server to redirect all DNS queries to our AP IP
   // This makes PC browsers navigate to the portal when any domain is entered
-  dnsServer.start(53, "*", WiFi.softAPIP());
+  serverManager.getDnsServer().start(53, "*", WiFi.softAPIP());
   DEBUG_PRINTF(
       "WebPlatform: Captive portal DNS started - all domains redirect to %s\n",
       WiFi.softAPIP().toString().c_str());
@@ -361,11 +324,12 @@ void WebPlatform::setupConnectedMode() {
 
 String WebPlatform::getBaseUrl() const {
   if (currentMode == CONFIG_PORTAL) {
-    return "http://" + WiFi.softAPIP().toString() + ":" + String(serverPort);
+    return "http://" + WiFi.softAPIP().toString() + ":" +
+           String(serverManager.getPort());
   } else {
-    String protocol = httpsEnabled ? "https" : "http";
+    String protocol = serverManager.isHttpsEnabled() ? "https" : "http";
     return protocol + "://" + WiFi.localIP().toString() + ":" +
-           String(serverPort);
+           String(serverManager.getPort());
   }
 }
 
@@ -381,7 +345,7 @@ bool WebPlatform::registerModule(const char *basePath, IWebModule *webModule,
   }
 
   // Only allow pre-registration (before begin() is called)
-  if (running) {
+  if (serverManager.isRunning()) {
     ERROR_PRINTLN("WebPlatform: ERROR - Module registration after begin() is "
                   "not supported");
     ERROR_PRINTLN(
@@ -632,7 +596,7 @@ void WebPlatform::handleInitializationError(const String &error) {
   pendingModules.clear();
 
   // Setup basic error page
-  webPlatform.setErrorPage(
+  setErrorPage(
       500, F("<h1>System Initialization Error</h1>"
              "<p>The system encountered an error during startup.</p>"
              "<p>Please check the serial console for details.</p>"

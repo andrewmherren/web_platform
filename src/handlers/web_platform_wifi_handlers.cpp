@@ -72,7 +72,7 @@ void WebPlatform::statusApiHandler(WebRequest &req, WebResponse &res) {
     json["ip"] = WiFi.localIP().toString();
     json["rssi"] = WiFi.RSSI();
     json["mode"] = (currentMode == CONFIG_PORTAL) ? "config" : "connected";
-    json["https_enabled"] = httpsEnabled;
+    json["https_enabled"] = serverManager.isHttpsEnabled();
     json["device_name"] = deviceName;
   });
 }

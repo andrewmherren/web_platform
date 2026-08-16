@@ -7,6 +7,7 @@ void runUrlUtilsTests();
 void register_navigation_types_tests(void);
 void register_redirect_types_tests(void);
 void register_platform_provider_tests(void);
+void register_web_platform_boot_tests(void);
 void runAuthUtilsTests();
 void register_auth_decision_tests(void);
 void register_query_builder_tests(void);
@@ -80,6 +81,7 @@ void setup() {
 
   // ESP32-specific platform provider tests
   register_platform_provider_tests();
+  register_web_platform_boot_tests();
 
   UNITY_END();
 }
