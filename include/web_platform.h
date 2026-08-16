@@ -406,15 +406,8 @@ private: // Core server components
   std::vector<RegisteredModule>
       registeredModules; // Active modules post-begin()
 
-  // EEPROM configuration
-  static const int EEPROM_SIZE = 512;
-  static const int WIFI_SSID_ADDR = 0;
-  static const int WIFI_PASS_ADDR = 64;
-  static const int WIFI_CONFIG_FLAG_ADDR = 128;
-
   // Platform initialization methods
   void beginInternal(const char *deviceName, bool forceHttpsOnly);
-  void initializeEEPROM();
   void determinePlatformMode();
   bool detectHttpsCapability();
   void startServer();
@@ -434,8 +427,6 @@ private: // Core server components
   void setupConnectedMode();
 
   // WiFi management (internal)
-  bool loadWiFiCredentials(String &ssid, String &password);
-  void saveWiFiCredentials(const String &ssid, const String &password);
   bool connectToStoredWiFi(String &ssid, String &password);
   void setupAccessPoint();
   void setupmDNS();
