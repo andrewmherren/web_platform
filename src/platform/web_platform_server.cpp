@@ -1,3 +1,4 @@
+#include "platform/certificate_loader.h"
 #include "web_platform.h"
 #include <WebServer.h>
 #include <interface/web_request.h>
@@ -125,7 +126,8 @@ void WebPlatform::configureHttpsServer() {
   const uint8_t *cert_data, *key_data;
   size_t cert_len, key_len;
 
-  if (!getEmbeddedCertificates(&cert_data, &cert_len, &key_data, &key_len)) {
+  if (!CertificateLoader::getEmbeddedCertificates(&cert_data, &cert_len,
+                                                  &key_data, &key_len)) {
     DEBUG_PRINTLN("WebPlatform: Failed to get certificates for HTTPS");
     httpsEnabled = false;
     return;
@@ -230,64 +232,5 @@ bool WebPlatform::detectHttpsCapability() {
   }
 
   DEBUG_PRINTLN("WebPlatform: Checking for SSL certificates...");
-  return areCertificatesAvailable();
-}
-
-bool WebPlatform::areCertificatesAvailable() {
-  const uint8_t *cert_data, *key_data;
-  size_t cert_len, key_len;
-
-  if (!getEmbeddedCertificates(&cert_data, &cert_len, &key_data, &key_len)) {
-    DEBUG_PRINTLN("WebPlatform: No embedded certificates found");
-    return false;
-  }
-
-  // Basic validation - check for PEM format
-  if (cert_len > 27 && key_len > 27) {
-    String certStart((char *)cert_data, 27);
-    String keyStart((char *)key_data, 27);
-
-    if (certStart.indexOf("-----BEGIN CERTIFICATE-----") >= 0 &&
-        keyStart.indexOf("-----BEGIN") >= 0) {
-      DEBUG_PRINTF("WebPlatform: SSL certificates validated (cert: %d bytes, "
-                   "key: %d bytes)\n",
-                   cert_len, key_len);
-      return true;
-    }
-  }
-
-  DEBUG_PRINTLN("WebPlatform: Invalid certificate format");
-  return false;
-}
-
-bool WebPlatform::getEmbeddedCertificates(const uint8_t **cert_data,
-                                          size_t *cert_len,
-                                          const uint8_t **key_data,
-                                          size_t *key_len) {
-  // Check for embedded certificates - these symbols may not exist if
-  // certificates weren't embedded
-  extern const uint8_t server_cert_pem_start[] asm(
-      "_binary_src_server_cert_pem_start") __attribute__((weak));
-  extern const uint8_t server_cert_pem_end[] asm(
-      "_binary_src_server_cert_pem_end") __attribute__((weak));
-  extern const uint8_t server_key_pem_start[] asm(
-      "_binary_src_server_key_pem_start") __attribute__((weak));
-  extern const uint8_t server_key_pem_end[] asm(
-      "_binary_src_server_key_pem_end") __attribute__((weak));
-
-  // Check if certificates are available (weak symbols may be NULL)
-  if (!server_cert_pem_start || !server_cert_pem_end || !server_key_pem_start ||
-      !server_key_pem_end) {
-    return false;
-  }
-
-  // Calculate sizes and set pointers
-  // NOSONAR: These are linker-generated symbols for embedded binary data
-  *cert_len = server_cert_pem_end - server_cert_pem_start;
-  *key_len = server_key_pem_end - server_key_pem_start;
-  *cert_data = server_cert_pem_start;
-  *key_data = server_key_pem_start;
-
-  // Basic sanity check
-  return (*cert_len > 100 && *key_len > 100);
+  return CertificateLoader::areCertificatesAvailable();
 }

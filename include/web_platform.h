@@ -462,11 +462,9 @@ private: // Core server components
   bool shouldProcessResponse(const WebResponse &response);
   void processResponseTemplates(WebRequest &request, WebResponse &response);
 
-  // Certificate detection and HTTPS setup
-  bool areCertificatesAvailable();
+  // HTTPS setup (certificate loading/validation moved to
+  // platform/certificate_loader.h)
   void configureHttpsServer();
-  bool getEmbeddedCertificates(const uint8_t **cert_data, size_t *cert_len,
-                               const uint8_t **key_data, size_t *key_len);
 
 #ifdef ESP_PLATFORM
   httpd_handle_t httpsServerHandle = nullptr;
