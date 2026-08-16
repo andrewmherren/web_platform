@@ -16,6 +16,7 @@ void register_storage_manager_tests(void);
 void register_auth_storage_tests(void);
 void register_openapi_spec_helpers_tests(void);
 void register_system_status_helpers_tests(void);
+void register_certificate_loader_tests(void);
 void register_wifi_credentials_store_tests(void);
 
 // Native entrypoint
@@ -56,6 +57,7 @@ int main(int argc, char **argv) {
   register_auth_storage_tests();
   register_openapi_spec_helpers_tests();
   register_system_status_helpers_tests();
+  register_certificate_loader_tests();
   register_wifi_credentials_store_tests();
 
   UNITY_END();
