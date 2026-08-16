@@ -4,6 +4,8 @@
 #include "interface/openapi_generation_context.h"
 #include "interface/platform_service.h"
 #include "platform/ntp_client.h"
+#include "platform/router.h"
+#include "platform/server_manager.h"
 #include "storage/storage_manager.h"
 #include "types/navigation_types.h"
 #include "types/redirect_types.h"
@@ -205,7 +207,7 @@ public:
 
   // IPlatformService implementation
   String getDeviceName() const override { return deviceName; }
-  bool isHttpsEnabled() const override { return httpsEnabled; }
+  bool isHttpsEnabled() const override { return serverManager.isHttpsEnabled(); }
 
   // Navigation menu management (moved from IWebModule)
   void setNavigationMenu(const std::vector<NavigationItem> &items);
@@ -251,17 +253,15 @@ public:
           tagModifier,
       const String &storageKey, const String &specType);
 
-private: // Core server components
-#ifdef ESP_PLATFORM
-  WebServerClass *server = nullptr; // HTTP/HTTPS server pointer
-  DNSServer dnsServer;              // For captive portal functionality
-#else
-  void *server = nullptr; // Mock pointer for non-ESP32 platforms
-#endif
-
-  void registerRoute(const String &path, WebModule::UnifiedRouteHandler handler,
-                     const AuthRequirements &auth, WebModule::Method method,
-                     const OpenAPIDocumentation &docs);
+private:
+  // Composition: route registration/matching/dispatch lives in Router, and
+  // HTTP/HTTPS server lifecycle + certificate wiring lives in ServerManager.
+  // WebPlatform wires the two together (see the constructor) and keeps
+  // everything that isn't routing or server lifecycle: mode transitions,
+  // module lifecycle, auth policy, OpenAPI generation, nav/error-page/
+  // redirect config, and device identity.
+  Router router;
+  ServerManager serverManager;
 
   // Authentication system
   bool authenticateRequest(WebRequest &req, WebResponse &res,
@@ -320,9 +320,7 @@ private: // Core server components
   // Platform state
   PlatformMode currentMode;
   WiFiConnectionState connectionState;
-  bool httpsEnabled;
-  bool running;
-  int serverPort;
+  // httpsEnabled/running/serverPort now live on ServerManager
 
   // OpenAPI generation system - stored in storage system
   bool openAPISpecReady = false;
@@ -409,8 +407,6 @@ private: // Core server components
   // Platform initialization methods
   void beginInternal(const char *deviceName, bool forceHttpsOnly);
   void determinePlatformMode();
-  bool detectHttpsCapability();
-  void startServer();
   void setupRoutes();
   void initializeAuth();
   void initializeRegisteredModules();
@@ -436,39 +432,16 @@ private: // Core server components
   void registerConnectedModeRoutes();
   void registerModuleRoutesForModule(const String &basePath,
                                      IWebModule *webModule);
-  void bindRegisteredRoutes();
-  bool dispatchRoute(const String &path, WebModule::Method wmMethod,
-                     WebRequest &request, WebResponse &response,
-                     const char *protocol);
-
-  void registerUnifiedHttpsRoutes();
-
-  // Route registration helper methods (shared between HTTP and HTTPS)
-  bool shouldSkipRoute(const RouteEntry &route, const String &serverType);
-  void executeRouteWithAuth(const RouteEntry &route, WebRequest &request,
-                            WebResponse &response, const String &serverType);
-  bool pathMatchesRoute(const char *routePath, const String &requestPath);
+  // Route registration (registerRoute/pathMatchesRoute/dispatchRoute/
+  // bindRegisteredRoutes/registerUnifiedHttpsRoutes) all moved to Router.
 
   // Template processing helpers
   bool shouldProcessResponse(const WebResponse &response);
   void processResponseTemplates(WebRequest &request, WebResponse &response);
 
-  // HTTPS setup (certificate loading/validation moved to
-  // platform/certificate_loader.h)
-  void configureHttpsServer();
-
-#ifdef ESP_PLATFORM
-  httpd_handle_t httpsServerHandle = nullptr;
-#else
-  void *httpsServerHandle = nullptr; // Mock for non-ESP32 platforms
-#endif
-
-  std::vector<String> httpsRoutePaths; // Permanent path storage
+  // HTTPS server lifecycle and certificate wiring moved to ServerManager.
 
 public:
-  // Make httpsInstance accessible to external handlers
-  static WebPlatform *httpsInstance; // For ESP-IDF callbacks (defined in core)
-
   // HTTP request handling helpers
   void handleNotFound();
   std::map<String, String> parseQueryParams(const String &query);

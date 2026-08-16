@@ -30,7 +30,7 @@ void WebPlatform::setupAccessPoint() {
 
 void WebPlatform::setupmDNS() {
   if (MDNS.begin(deviceName)) {
-    MDNS.addService("http", "tcp", serverPort);
+    MDNS.addService("http", "tcp", serverManager.getPort());
     DEBUG_PRINTF("WebPlatform: mDNS started: %s.local\n", deviceName);
   } else {
     DEBUG_PRINTLN("WebPlatform: mDNS failed to start");

@@ -25,7 +25,4 @@ struct RouteEntry {
       : path(p), method(m), handler(h), authRequirements(auth) {}
 };
 
-// Declare the global routeRegistry
-extern std::vector<RouteEntry> routeRegistry;
-
 #endif // ROUTE_ENTRY_H

@@ -395,8 +395,8 @@ void WebPlatform::getSystemStatusApiHandler(WebRequest &req, WebResponse &res) {
     JsonObject platform = status["platform"].to<JsonObject>();
     platform["mode"] =
         (currentMode == CONNECTED) ? "Connected" : "Config Portal";
-    platform["httpsEnabled"] = httpsEnabled;
-    platform["serverPort"] = serverPort;
+    platform["httpsEnabled"] = serverManager.isHttpsEnabled();
+    platform["serverPort"] = serverManager.getPort();
     platform["hostname"] = getHostname();
     platform["moduleCount"] = registeredModules.size();
     platform["routeCount"] = getRouteCount();
