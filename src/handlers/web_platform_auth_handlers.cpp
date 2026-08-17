@@ -1,5 +1,6 @@
 #include "../../assets/account_page_html.h"
 #include "../../assets/account_page_js.h"
+#include "../../assets/login_page_error_html.h"
 #include "../../assets/login_page_html.h"
 #include "auth/auth_constants.h"
 #include "storage/auth_storage.h"

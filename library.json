@@ -1,6 +1,6 @@
 {
   "name": "web_platform",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Comprehensive ESP32 web development framework with WiFi management, authentication, and modular architecture. See QUICK_START.md to get started in minutes.",
   "build": {
     "includeDir": "include"
@@ -40,6 +40,6 @@
   ],
   "dependencies": {
     "bblanchon/ArduinoJson": "^7.0.0",
-    "web_platform_interface": "https://github.com/andrewmherren/web_platform_interface.git#c81f94625bd560506951778d7b770a7c158b33e8"
+    "web_platform_interface": "https://github.com/andrewmherren/web_platform_interface.git#v0.3.0"
   }
 }
